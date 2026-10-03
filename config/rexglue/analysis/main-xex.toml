@@ -651,3 +651,9 @@ labels = [
     0x825CAB54, 0x825CAB78, 0x825CABA0, 0x825CABAC, 0x825CABB8,
     0x825CABC4, 0x825CABD0, 0x825CAB60, 0x825CAC20, 0x825CAB6C,
 ]
+
+# Autovista's walkaround camera update (WalkaroundCamera.ini), once per main loop
+# tick while Autovista is open: its opening is an input event for recordings.
+[[midasm_hook]]
+address = 0x824C7308
+name = "Fm4AutovistaCameraUpdate"

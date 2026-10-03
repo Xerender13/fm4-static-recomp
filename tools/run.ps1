@@ -5,6 +5,9 @@ param(
     [string]$StateRoot,
     # Stop the game after this many seconds; 0 leaves it running.
     [int]$TimeoutSeconds = 0,
+    # Records the gamepad into this file as an input script (src\scripted_input.h) for replays;
+    # a relative path is relative to the project folder.
+    [string]$RecordInput,
     [Parameter(ValueFromRemainingArguments)] [string[]]$GameArguments = @()
 )
 
@@ -39,8 +42,10 @@ foreach ($default in '--clear_memory_page_state=false', '--host_present_fps_limi
     if (-not ($GameArguments | Where-Object { $_.Split('=')[0] -eq $name })) { $arguments += $default }
 }
 $arguments += $GameArguments
+$env:FM4_NATIVE_INPUT_RECORD = if ($RecordInput) { [IO.Path]::GetFullPath($RecordInput, $root) } else { '' }
 $process = Start-Process -FilePath $executable -ArgumentList $arguments `
     -WorkingDirectory (Split-Path $executable -Parent) -PassThru
+$env:FM4_NATIVE_INPUT_RECORD = ''
 if ($TimeoutSeconds -gt 0) {
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         $process.Kill()

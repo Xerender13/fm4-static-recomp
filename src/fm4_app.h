@@ -6,6 +6,7 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "disc2_install.h"
+#include "scripted_input.h"
 
 class Fm4App final : public rex::ReXApp {
  public:
@@ -18,9 +19,14 @@ class Fm4App final : public rex::ReXApp {
  protected:
   void OnPreSetup(rex::RuntimeConfig& config) override {
     config.gpu_plugin = "fh1";
+    fm4_native::ConfigureScriptedInput(config);
   }
 
   void OnPostSetup() override {
     fm4_native::InstallContentPackages(*runtime());
+    fm4_native::StartCaptureWatcher([this]() -> rex::ui::Presenter* {
+      return runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
+                                                       : nullptr;
+    });
   }
 };
