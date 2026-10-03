@@ -1,0 +1,50 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_C_FLAGS": "-msse4.1",
+        "CMAKE_CXX_FLAGS": "-msse4.1",
+        "REXSDK_DIR": "${sourceDir}/../pinyon-shift/thirdparty/shiftglue-sdk",
+        "REXGLUE_USE_VULKAN": "ON"
+      }
+    },
+    {
+      "name": "win-amd64-relwithdebinfo",
+      "displayName": "Windows AMD64 RelWithDebInfo",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "win-amd64-release",
+      "displayName": "Windows AMD64 Release",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "win-amd64-relwithdebinfo",
+      "configurePreset": "win-amd64-relwithdebinfo"
+    },
+    {
+      "name": "win-amd64-release",
+      "configurePreset": "win-amd64-release"
+    }
+  ]
+}

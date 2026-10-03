@@ -1,0 +1,24 @@
+# Forza Motorsport 4 (title 4D530910, media 61D62D9F, 2011 retail disc 1) on ShiftGlue.
+# Game inputs and translated output resolve outside the tracked tree.
+
+[project]
+name = "fm4_native"
+sdk_version = "0.10.0"
+game_root = "../../../extracted/fm4"
+
+[entrypoint]
+file_path = "../../../extracted/fm4/default.xex"
+out_directory_path = "../../.local/generated/default"
+includes = ["analysis/main-xex.toml"]
+
+[[modules]]
+guest_path = "SpeechFacade_default.xex"
+file_path = "../../../extracted/fm4/SpeechFacade_default.xex"
+out_directory_path = "../../.local/generated/speech"
+includes = ["analysis/speech-facade.toml"]
+
+[[modules]]
+guest_path = "XMediaFacade_default.xex"
+file_path = "../../../extracted/fm4/XMediaFacade_default.xex"
+out_directory_path = "../../.local/generated/xmedia"
+includes = ["analysis/xmedia-facade.toml"]

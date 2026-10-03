@@ -1,0 +1,26 @@
+# Manual analysis facts for XMediaFacade_default.xex
+# (SHA-256 7D962C58063EEA64D61795E8A64E9DA51A7CFF241E576795858CDC81ADE23D81).
+
+[functions]
+# Code pointers in .rdata/.data to fragments without PDATA, found by
+# tools/scan_pointer_targets.py.
+0x88069250 = { size = 0x10 }
+0x8805B708 = { size = 0xC }
+0x88065478 = { size = 0x8 }
+0x880676F8 = { size = 0x18 }
+0x88067710 = { size = 0x8 }
+0x88067730 = { size = 0x8 }
+0x880678B0 = { size = 0x20 }
+0x880678D0 = { size = 0x20 }
+0x880678F0 = { size = 0x20 }
+0x88067910 = { size = 0x20 }
+0x88067930 = { size = 0x20 }
+0x88067950 = { size = 0x20 }
+0x88067970 = { size = 0x20 }
+0x88067990 = { size = 0x20 }
+0x880679B0 = { size = 0x20 }
+0x880679D0 = { size = 0x20 }
+0x880CD530 = { size = 0x8 }
+0x88244AC0 = { size = 0xC }
+# Branch targets without PDATA, sized by tools/resolve_unresolved.py.
+0x88055B60 = { size = 0x10 }

@@ -1,0 +1,58 @@
+[CmdletBinding()]
+param(
+    [ValidateSet('Release', 'RelWithDebInfo')]
+    [string]$Configuration = 'Release',
+    [ValidateRange(0, 32)] [int]$Parallel = 0
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
+
+# The toolchain and the ShiftGlue checkout are borrowed from the sibling pinyon-shift tree.
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$pinyonTools = [IO.Path]::GetFullPath((Join-Path $root '../pinyon-shift/tools'))
+. (Join-Path $pinyonTools 'release-common.ps1')
+
+$environment = Enter-PinyonBuildEnvironment
+$logs = Join-Path $root '.local/logs'
+[void](New-Item -ItemType Directory -Force -Path $logs)
+if ($Parallel -eq 0) { $Parallel = Get-PinyonBuildJobCount }
+$preset = 'win-amd64-' + $Configuration.ToLowerInvariant()
+
+# A running game keeps its executable and libraries open, and the linker cannot replace them.
+# Windows still lets a loaded file be renamed: move each aside and leave a copy (same
+# timestamp, so nothing relinks for it) under its name. The game goes on running the old
+# build; what it leaves behind is removed by the first build after it has closed.
+$output = [IO.Path]::GetFullPath((Join-Path $root "out/build/$preset"))
+Get-ChildItem -LiteralPath $output -Filter '*.inuse-*' -File -ErrorAction SilentlyContinue |
+    ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop } catch {} }
+foreach ($process in @(Get-Process fm4_native -ErrorAction SilentlyContinue)) {
+    $loaded = @($process.Modules | ForEach-Object FileName |
+        Where-Object { $_.StartsWith($output + '\', [StringComparison]::OrdinalIgnoreCase) })
+    foreach ($file in $loaded) {
+        $aside = "$file.inuse-$($process.Id)"
+        if (Test-Path -LiteralPath $aside) { continue }
+        Move-Item -LiteralPath $file -Destination $aside
+        Copy-Item -LiteralPath $aside -Destination $file
+    }
+}
+
+Push-Location $root
+try {
+    # The Vulkan backend's glslang reads its version through Python.
+    Invoke-PinyonBuildCommand $environment.CMake @('--preset', $preset,
+        "-DPYTHON_EXECUTABLE=$(Get-PinyonPython)") `
+        (Join-Path $logs 'configure.log') 'Configuration failed.'
+    Invoke-PinyonBuildCommand $environment.CMake @('--build', '--preset', $preset, '--parallel', "$Parallel") `
+        (Join-Path $logs 'build.log') 'Compilation failed.'
+}
+finally { Pop-Location }
+
+$executable = Join-Path $root "out/build/$preset/fm4_native.exe"
+if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+    throw 'Compilation completed without producing fm4_native.exe.'
+}
+"built $executable"
