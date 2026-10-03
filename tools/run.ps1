@@ -5,6 +5,8 @@ param(
     [string]$StateRoot,
     # Stop the game after this many seconds; 0 leaves it running.
     [int]$TimeoutSeconds = 0,
+    # Renderer profile plus resolve dumps on request into .local\dumps (see dump-watch.ps1).
+    [switch]$Dumps,
     # Records the gamepad into this file as an input script (src\scripted_input.h) for replays;
     # a relative path is relative to the project folder.
     [string]$RecordInput,
@@ -42,6 +44,13 @@ foreach ($default in '--clear_memory_page_state=false', '--host_present_fps_limi
     if (-not ($GameArguments | Where-Object { $_.Split('=')[0] -eq $name })) { $arguments += $default }
 }
 $arguments += $GameArguments
+if ($Dumps) {
+    $dumpRoot = Join-Path $root '.local\dumps'
+    [void](New-Item -ItemType Directory -Force -Path $dumpRoot)
+    [void](New-Item -ItemType Directory -Force -Path (Join-Path $dumpRoot 'shaders'))
+    $arguments += '--fh1_native_gpu_profile=true', "--fh1_resolve_dump_dir=$dumpRoot", '--fh1_resolve_dump_frame=-1',
+        "--dump_shaders=$(Join-Path $dumpRoot 'shaders')"
+}
 $env:FM4_NATIVE_INPUT_RECORD = if ($RecordInput) { [IO.Path]::GetFullPath($RecordInput, $root) } else { '' }
 $process = Start-Process -FilePath $executable -ArgumentList $arguments `
     -WorkingDirectory (Split-Path $executable -Parent) -PassThru
