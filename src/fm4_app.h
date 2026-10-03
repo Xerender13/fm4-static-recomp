@@ -5,6 +5,8 @@
 #include <rex/rex_app.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "disc2_install.h"
+
 class Fm4App final : public rex::ReXApp {
  public:
   using rex::ReXApp::ReXApp;
@@ -16,5 +18,9 @@ class Fm4App final : public rex::ReXApp {
  protected:
   void OnPreSetup(rex::RuntimeConfig& config) override {
     config.gpu_plugin = "fh1";
+  }
+
+  void OnPostSetup() override {
+    fm4_native::InstallContentPackages(*runtime());
   }
 };
