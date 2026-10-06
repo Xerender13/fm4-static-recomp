@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include <rex/cvar.h>
+#include <rex/logging.h>
 #include <rex/ppc/context.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
@@ -31,6 +32,11 @@ REXCVAR_DEFINE_BOOL(fm4_console_rate, false, "Forza Motorsport 4",
                     "Diagnostics: the console's pacing, a 60 Hz guest vblank everywhere (races "
                     "at 60 fps, the showroom and other half-rate scenes at 30); overrides "
                     "fm4_frame_rate and fm4_menu_vblank_hz");
+
+REXCVAR_DEFINE_BOOL(fm4_full_rate_scenes, true, "Forza Motorsport 4",
+                    "Render the scenes the game draws at half the frame rate (showroom, "
+                    "pre-race screen, Autovista) at the full rate; false is the game's own "
+                    "half rate");
 
 REXCVAR_DEFINE_STRING(fm4_physics_log, "", "Forza Motorsport 4",
                       "Diagnostics: a CSV file that receives every main loop time step, every "
@@ -114,6 +120,18 @@ void Fm4AutovistaCameraUpdate() {
     fm4_native::MarkInputEvent("autovista");
   }
   last = now;
+}
+
+void Fm4PresentInterval(PPCRegister& r4) {
+  // Set every frame in races and on the pre-race screen.
+  static uint32_t last = 0;
+  if (r4.u32 != last) {
+    last = r4.u32;
+    REXLOG_INFO("Present interval: {}", last);
+  }
+  if (r4.u32 > 1 && REXCVAR_GET(fm4_full_rate_scenes)) {
+    r4.u64 = 1;
+  }
 }
 
 void Fm4MainLoopSession(PPCRegister& r11) {

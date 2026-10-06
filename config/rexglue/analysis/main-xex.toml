@@ -652,6 +652,15 @@ labels = [
     0x825CABC4, 0x825CABD0, 0x825CAB60, 0x825CAC20, 0x825CAB6C,
 ]
 
+# The render thread's present interval setter (thread, interval): 1 in races, 2
+# in the showroom, pre-race and other scenes the game draws at half the frame
+# rate. Besides the swap's vblank interval, 2 makes the render thread draw only
+# every second frame it is handed (822DB780: frame counter 0x930 & 1).
+[[midasm_hook]]
+address = 0x82436078
+name = "Fm4PresentInterval"
+registers = ["r4"]
+
 # Autovista's walkaround camera update (WalkaroundCamera.ini), once per main loop
 # tick while Autovista is open: its opening is an input event for recordings.
 [[midasm_hook]]
