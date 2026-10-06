@@ -714,10 +714,18 @@ address = 0x824B9D84
 name = "Fm4ShowroomCameraStep"
 registers = ["f1"]
 
+# The in-game UI's loading screen opens (this+0x2c, the "LoadingScreen" scene of
+# UIInGame/UI): once per race load, right after GO RACE. A race load advances
+# partly once per main loop tick, so the hook runs the guest vblank at 480 Hz
+# until the cars step again, or the menus' UI does after a quit (src/game_hooks.cpp).
+[[midasm_hook]]
+address = 0x823B68B8
+name = "Fm4LoadingScreen"
+
 # The UI scene update has just loaded a fixed 1/60 s per tick into f31 (its
 # only use is the step passed on below); it runs in every menu and the showroom,
 # not in a race, so menus animated 2x the console's speed at 120 ticks a second.
-# The hook passes the measured time instead.
+# The hook passes the measured time instead, and ends a fast load that leads to a menu.
 [[midasm_hook]]
 address = 0x822A46D0
 name = "Fm4UiSceneStep"

@@ -58,6 +58,33 @@ std::atomic<uint32_t> g_ui_pending_ms{0};
 constexpr char kVblankHzOption[] = "fh1_guest_vblank_hz";
 constexpr double kMenuVblankHz = 120.0;
 constexpr double kConsoleVblankHz = 60.0;
+// A race load advances partly once per main loop tick, so the load runs on a
+// fast vblank from the loading screen until the cars step (5.8 s at 120 Hz,
+// 3.5 s at 480 Hz).
+constexpr double kLoadVblankHz = 480.0;
+std::atomic<bool> g_fast_load{false};
+// A quit to the menus opens the loading screen while the race's cars still
+// step, so only a car step after a tick without any ends a load.
+std::atomic<bool> g_car_stepped{false};
+std::atomic<bool> g_fast_load_cars_stopped{false};
+std::mutex g_fast_load_mutex;
+std::chrono::steady_clock::time_point g_fast_load_start;
+
+void EndFastLoad(const char* reason, bool after_start_only = false) {
+  if (!g_fast_load.load(std::memory_order_relaxed)) {
+    return;
+  }
+  const std::lock_guard lock(g_fast_load_mutex);
+  const auto elapsed = std::chrono::steady_clock::now() - g_fast_load_start;
+  // The menu's last ticks can still run just after the loading screen opens.
+  if (!g_fast_load.load(std::memory_order_relaxed) ||
+      (after_start_only && elapsed < std::chrono::seconds(1))) {
+    return;
+  }
+  g_fast_load.store(false, std::memory_order_relaxed);
+  REXLOG_INFO("Race load: fast vblank off after {:.2f} s ({})",
+              std::chrono::duration<double>(elapsed).count(), reason);
+}
 
 std::mutex g_physics_log_mutex;
 
@@ -70,6 +97,10 @@ std::FILE* PhysicsLog() {
 }
 
 void LogCarStep(uint32_t car, uint32_t substeps, uint32_t low_detail, double seconds) {
+  g_car_stepped.store(true, std::memory_order_relaxed);
+  if (g_fast_load_cars_stopped.load(std::memory_order_relaxed)) {
+    EndFastLoad("first car step");
+  }
   std::FILE* const log = PhysicsLog();
   if (!log) {
     return;
@@ -102,6 +133,10 @@ void LogCarStep(uint32_t car, uint32_t substeps, uint32_t low_detail, double sec
 void Fm4MainLoopStep(PPCRegister& r30, PPCRegister& f31) {
   g_showroom_pending_ms.fetch_add(r30.u32, std::memory_order_relaxed);
   g_ui_pending_ms.fetch_add(r30.u32, std::memory_order_relaxed);
+  if (!g_car_stepped.exchange(false, std::memory_order_relaxed) &&
+      g_fast_load.load(std::memory_order_relaxed)) {
+    g_fast_load_cars_stopped.store(true, std::memory_order_relaxed);
+  }
   if (std::FILE* const log = PhysicsLog()) {
     const std::lock_guard lock(g_physics_log_mutex);
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -120,12 +155,26 @@ void Fm4PhysicsLogOtherCar(PPCRegister& r30, PPCRegister& r11, PPCRegister& f31)
   LogCarStep(r30.u32, r11.u32, 2, f31.f64);
 }
 
+void Fm4LoadingScreen() {
+  const std::lock_guard lock(g_fast_load_mutex);
+  if (g_fast_load.load(std::memory_order_relaxed)) {
+    return;
+  }
+  g_fast_load_start = std::chrono::steady_clock::now();
+  g_fast_load_cars_stopped.store(false, std::memory_order_relaxed);
+  g_fast_load.store(true, std::memory_order_relaxed);
+  REXLOG_INFO("Race load: fast vblank on");
+}
+
 void Fm4UiSceneStep(PPCRegister& f31) {
+  // A load that ends in a menu instead of a race.
+  EndFastLoad("menu", true);
   const uint32_t ms = g_ui_pending_ms.exchange(0, std::memory_order_relaxed);
   f31.f64 = std::min(ms, 100u) / 1000.0 * REXCVAR_GET(fm4_ui_speed);
 }
 
 void Fm4ShowroomCameraStep(PPCRegister& f1) {
+  EndFastLoad("showroom", true);
   // At most the 1/60 s it replaces times six, so the first update after the
   // showroom opens does not jump the camera by the time spent elsewhere.
   const uint32_t ms = g_showroom_pending_ms.exchange(0, std::memory_order_relaxed);
@@ -164,9 +213,11 @@ bool Fm4SkipVblankCallback() {
   // on every second vblank of one at twice its rate is no substitute: a frame then
   // flips on whichever vblank follows its swap, and frames whose swap falls near
   // the one in between alternate between half and one and a half frame periods.
+  const bool fast_load = g_fast_load.load(std::memory_order_relaxed);
   const bool race = g_race_session.load(std::memory_order_relaxed);
   const bool console = REXCVAR_GET(fm4_console_rate);
-  const double vblank_hz = console ? kConsoleVblankHz
+  const double vblank_hz = fast_load ? kLoadVblankHz
+                           : console ? kConsoleVblankHz
                            : race    ? double(REXCVAR_GET(fm4_frame_rate))
                                      : kMenuVblankHz;
   static double applied_hz = 0.0;
@@ -175,7 +226,7 @@ bool Fm4SkipVblankCallback() {
     rex::cvar::SetFlagByName(kVblankHzOption, std::to_string(vblank_hz));
   }
   const int32_t rate = REXCVAR_GET(fm4_menu_vblank_hz);
-  if (race || console || rate <= 0) {
+  if (fast_load || race || console || rate <= 0) {
     return false;
   }
   // Counting vblanks cannot lose one to timer jitter the way a time schedule
