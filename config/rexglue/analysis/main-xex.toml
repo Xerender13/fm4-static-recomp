@@ -658,6 +658,22 @@ labels = [
 address = 0x824C7308
 name = "Fm4AutovistaCameraUpdate"
 
+# The main loop ticks once per guest vblank (every second one in menus). The
+# loop has just loaded its race session pointer (lwz r11, 4(r31)), null in the
+# showroom and non-null on the pre-race screen...
+[[midasm_hook]]
+address = 0x822F7C30
+name = "Fm4MainLoopSession"
+registers = ["r11"]
+
+# ...and this function, the tail of the game's vblank callback, counts vblanks
+# and wakes the loop for its next tick (every second one in menus): outside a
+# race the hook lets it run only fm4_menu_vblank_hz times a second.
+[[midasm_hook]]
+address = 0x826CB760
+name = "Fm4SkipVblankCallback"
+return_on_true = true
+
 # The main loop stores its time step here (stfs f31, 0x198(r31)): r30 is the
 # measured milliseconds, f31 the step, which is 1/59.94 s when r30 is 16 or 17.
 # Diagnostics for fm4_physics_log.

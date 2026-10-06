@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <rex/rex_app.h>
+#include <rex/ui/overlay/achievement_notification.h>
 #include <rex/ui/windowed_app_context.h>
 
 #include "disc2_install.h"
@@ -28,5 +29,14 @@ class Fm4App final : public rex::ReXApp {
       return runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
                                                        : nullptr;
     });
+  }
+
+  // A registered dialog, even one with nothing to draw, moves presentation to
+  // the UI thread, which repaints at the display rate on top of every guest
+  // frame: ~290 presents of 120 frames, and a present held back (an external
+  // frame limiter) no longer throttles the guest.
+  std::unique_ptr<rex::ui::AchievementNotificationDialog> CreateAchievementNotificationDialog()
+      override {
+    return nullptr;
   }
 };

@@ -37,8 +37,9 @@ $arguments = @(
 )
 # The SDK defaults re-upload every CPU-written page each frame (~500 render pass
 # breaks per race frame) and present at most 60 fps; Pinyon's config turns both off.
-# A repeated option stops the launch, so a default gives way to the same option among
-# the game arguments.
+# A race renders --fm4_frame_rate frames a second (120 unless the GRAPHICS page or the
+# option says otherwise), the menus about 120 (fm4_menu_vblank_hz). A repeated option stops
+# the launch, so a default gives way to the same option among the game arguments.
 foreach ($default in '--clear_memory_page_state=false', '--host_present_fps_limit=0') {
     $name = $default.Split('=')[0]
     if (-not ($GameArguments | Where-Object { $_.Split('=')[0] -eq $name })) { $arguments += $default }
