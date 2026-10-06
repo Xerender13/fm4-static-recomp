@@ -2,11 +2,14 @@
 
 #include <memory>
 
+#include <rex/cvar.h>
 #include <rex/rex_app.h>
+#include <rex/system/gpu_plugin.h>
 #include <rex/ui/overlay/achievement_notification.h>
 #include <rex/ui/windowed_app_context.h>
 
 #include "disc2_install.h"
+#include "game_hooks.h"
 #include "scripted_input.h"
 
 class Fm4App final : public rex::ReXApp {
@@ -21,6 +24,12 @@ class Fm4App final : public rex::ReXApp {
   void OnPreSetup(rex::RuntimeConfig& config) override {
     config.gpu_plugin = "fh1";
     fm4_native::ConfigureScriptedInput(config);
+    // The GPU settings are registered by the plugin, so it is loaded here
+    // rather than by the app, and the saved values reach them before the GPU
+    // is set up.
+    config.graphics =
+        rex::system::LoadGpuPlugin(config.gpu_plugin, rex::cvar::GetFlagByName("gpu_backend"));
+    fm4_native::InstallRoadDetailBlurSwitch();
   }
 
   void OnPostSetup() override {

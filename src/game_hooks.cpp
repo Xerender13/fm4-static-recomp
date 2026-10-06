@@ -10,6 +10,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include <rex/cvar.h>
@@ -18,8 +19,15 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+#include "game_hooks.h"
 #include "scripted_input.h"
 
+REXCVAR_DEFINE_BOOL(fm4_road_detail_blur, true, "Forza Motorsport 4",
+                    "Blur the road detail texture with camera motion, as the game does; off "
+                    "keeps the detail the game renders for a still camera");
+REXCVAR_DEFINE_BOOL(fm4_depth_of_field, true, "Forza Motorsport 4",
+                    "Depth of field where the game uses it (showroom, pre-race and replay "
+                    "cameras, photo mode); a change applies from the next screen");
 REXCVAR_DEFINE_INT32(fm4_frame_rate, 120, "Forza Motorsport 4",
                      "Frame rate of races, 60 (the console's) to 240: the guest vblank rate "
                      "while a race session runs (fh1_guest_vblank_hz; 120 Hz outside races)")
@@ -191,6 +199,12 @@ void Fm4AutovistaCameraUpdate() {
   last = now;
 }
 
+void Fm4DepthOfFieldOption(PPCRegister& r4) {
+  if (!REXCVAR_GET(fm4_depth_of_field)) {
+    r4.u64 = 0;
+  }
+}
+
 void Fm4PresentInterval(PPCRegister& r4) {
   // Set every frame in races and on the pre-race screen.
   static uint32_t last = 0;
@@ -235,3 +249,24 @@ bool Fm4SkipVblankCallback() {
   const uint32_t divisor = std::max(1u, uint32_t(std::lround(kMenuVblankHz / rate)));
   return ++vblank_index % divisor != 0;
 }
+
+namespace fm4_native {
+
+// The road detail pass (PS 79B4914F) writes the grain's luminance times c5.w
+// plus the speed streaks times c5.x into the texture the road samples. A still
+// camera gives c5 = (0, 0, 0, 1). The track's DetailBlur switch is no way to
+// turn the blur off: without it the road samples the raw grain texture, about
+// three times the contrast.
+void ApplyRoadDetailBlur(bool blur) {
+  rex::cvar::SetFlagByName("gpu_pixel_shader_constant_override",
+                           blur ? "" : "79B4914F27ECEC73:c5=0,0,0,1");
+}
+
+void InstallRoadDetailBlurSwitch() {
+  ApplyRoadDetailBlur(REXCVAR_GET(fm4_road_detail_blur));
+  rex::cvar::RegisterChangeCallback("fm4_road_detail_blur", [](std::string_view, std::string_view) {
+    ApplyRoadDetailBlur(REXCVAR_GET(fm4_road_detail_blur));
+  });
+}
+
+}  // namespace fm4_native
