@@ -685,7 +685,7 @@ return_on_true = true
 
 # The main loop stores its time step here (stfs f31, 0x198(r31)): r30 is the
 # measured milliseconds, f31 the step, which is 1/59.94 s when r30 is 16 or 17.
-# Diagnostics for fm4_physics_log.
+# The showroom camera's step below, and diagnostics for fm4_physics_log.
 [[midasm_hook]]
 address = 0x822F7D48
 name = "Fm4MainLoopStep"
@@ -703,3 +703,22 @@ registers = ["r30", "r31", "r28", "f31"]
 address = 0x828223C4
 name = "Fm4PhysicsLogOtherCar"
 registers = ["r30", "r11", "f31"]
+
+# The showroom's update has just loaded 1/60 s as its camera queue's step
+# (lfs f1 before the virtual call through camera +0xC), whatever the tick
+# length, so the camera ran 2x real time at 120 ticks a second (measured
+# against the cut times in Media/Camera/HomeSpaceCams.xml). The hook passes
+# the main loop's measured time since the last update instead.
+[[midasm_hook]]
+address = 0x824B9D84
+name = "Fm4ShowroomCameraStep"
+registers = ["f1"]
+
+# The UI scene update has just loaded a fixed 1/60 s per tick into f31 (its
+# only use is the step passed on below); it runs in every menu and the showroom,
+# not in a race, so menus animated 2x the console's speed at 120 ticks a second.
+# The hook passes the measured time instead.
+[[midasm_hook]]
+address = 0x822A46D0
+name = "Fm4UiSceneStep"
+registers = ["f31"]

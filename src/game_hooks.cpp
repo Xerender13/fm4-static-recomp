@@ -38,6 +38,9 @@ REXCVAR_DEFINE_BOOL(fm4_full_rate_scenes, true, "Forza Motorsport 4",
                     "pre-race screen, Autovista) at the full rate; false is the game's own "
                     "half rate");
 
+REXCVAR_DEFINE_DOUBLE(fm4_ui_speed, 1.0, "Forza Motorsport 4",
+                      "Speed of the menus' animations against real time (1 = the console's)");
+
 REXCVAR_DEFINE_STRING(fm4_physics_log, "", "Forza Motorsport 4",
                       "Diagnostics: a CSV file that receives every main loop time step, every "
                       "car's physics substep count and, ten times a simulated second, the "
@@ -45,6 +48,9 @@ REXCVAR_DEFINE_STRING(fm4_physics_log, "", "Forza Motorsport 4",
 
 namespace {
 std::atomic<bool> g_race_session{false};
+// The main loop's measured milliseconds since the showroom's and the UI's last update.
+std::atomic<uint32_t> g_showroom_pending_ms{0};
+std::atomic<uint32_t> g_ui_pending_ms{0};
 
 // The guest vblank paces the main loop, which waits for one each tick, and D3D
 // flips each swap on one. A race wakes on every vblank, so its frame rate is the
@@ -94,6 +100,8 @@ void LogCarStep(uint32_t car, uint32_t substeps, uint32_t low_detail, double sec
 }  // namespace
 
 void Fm4MainLoopStep(PPCRegister& r30, PPCRegister& f31) {
+  g_showroom_pending_ms.fetch_add(r30.u32, std::memory_order_relaxed);
+  g_ui_pending_ms.fetch_add(r30.u32, std::memory_order_relaxed);
   if (std::FILE* const log = PhysicsLog()) {
     const std::lock_guard lock(g_physics_log_mutex);
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -110,6 +118,18 @@ void Fm4PhysicsLogCar(PPCRegister& r30, PPCRegister& r31, PPCRegister& r28, PPCR
 
 void Fm4PhysicsLogOtherCar(PPCRegister& r30, PPCRegister& r11, PPCRegister& f31) {
   LogCarStep(r30.u32, r11.u32, 2, f31.f64);
+}
+
+void Fm4UiSceneStep(PPCRegister& f31) {
+  const uint32_t ms = g_ui_pending_ms.exchange(0, std::memory_order_relaxed);
+  f31.f64 = std::min(ms, 100u) / 1000.0 * REXCVAR_GET(fm4_ui_speed);
+}
+
+void Fm4ShowroomCameraStep(PPCRegister& f1) {
+  // At most the 1/60 s it replaces times six, so the first update after the
+  // showroom opens does not jump the camera by the time spent elsewhere.
+  const uint32_t ms = g_showroom_pending_ms.exchange(0, std::memory_order_relaxed);
+  f1.f64 = std::min(ms, 100u) / 1000.0;
 }
 
 void Fm4AutovistaCameraUpdate() {
