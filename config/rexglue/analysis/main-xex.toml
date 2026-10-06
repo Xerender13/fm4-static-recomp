@@ -657,3 +657,24 @@ labels = [
 [[midasm_hook]]
 address = 0x824C7308
 name = "Fm4AutovistaCameraUpdate"
+
+# The main loop stores its time step here (stfs f31, 0x198(r31)): r30 is the
+# measured milliseconds, f31 the step, which is 1/59.94 s when r30 is 16 or 17.
+# Diagnostics for fm4_physics_log.
+[[midasm_hook]]
+address = 0x822F7D48
+name = "Fm4MainLoopStep"
+registers = ["r30", "f31"]
+
+# A car's update splits that step into ceil(step * CarPhysicsUpdateHz) substeps
+# (PhysicsSettings.ini, 359; 239 when r28 is set): r31 is the count, r30 the car.
+[[midasm_hook]]
+address = 0x82822D28
+name = "Fm4PhysicsLogCar"
+registers = ["r30", "r31", "r28", "f31"]
+
+# The same for cars with word 0x954 and byte 0x41E4 set, which take a shorter update.
+[[midasm_hook]]
+address = 0x828223C4
+name = "Fm4PhysicsLogOtherCar"
+registers = ["r30", "r11", "f31"]
