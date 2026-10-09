@@ -674,6 +674,62 @@ registers = ["r4"]
 address = 0x824C7308
 name = "Fm4AutovistaCameraUpdate"
 
+# The car shadow map's setup (renderer, variance map size, grey map size): 512
+# and 256 or 512 from every caller (256 and 256 with UseSmallShadowMap). Above
+# 512 and 256 it allocates the textures outside the renderer's shared memory.
+[[midasm_hook]]
+address = 0x828D4398
+name = "Fm4ShadowMapSetup"
+registers = ["r4", "r5"]
+
+# The setup compares the variance size with 512 (cmplwi r30, 0x200). Above it the
+# game allocates a texture object of its own, but the car shaders' stage 13 binds
+# the renderer's header at +0x1B24 (0x8236849C), which only the path for 512 and
+# below fills: a larger map takes that path (r8 = 0 is its pool argument).
+[[midasm_hook]]
+address = 0x828D4510
+name = "Fm4ShadowMapKeepHeader"
+registers = ["r30", "r8"]
+jump_address_on_true = 0x828D4544
+
+# That path points the header at the shared memory (r4) and places the grey map
+# right after the variance map's r26 bytes: a larger variance map goes to a
+# buffer of its own instead, and the grey map to the start of the shared memory.
+[[midasm_hook]]
+address = 0x828D45B0
+name = "Fm4ShadowMapMemory"
+registers = ["r4", "r26"]
+
+# The shadow pass's own setup (variance map size, ...), called after each of the above.
+[[midasm_hook]]
+address = 0x82945230
+name = "Fm4ShadowPassSetup"
+registers = ["r3", "r4", "r6"]
+
+# The shadow pass creates its EDRAM surfaces (entry r31: +0xD0 width, +0xD4 height,
+# +0xD8 4 for the variance map, asking for 4x MSAA) with the MSAA in r30, or none
+# when w * h * samples * 8 bytes exceed the 10 MB of EDRAM.
+[[midasm_hook]]
+address = 0x82955764
+name = "Fm4ShadowPassMsaa"
+registers = ["r30", "r31"]
+
+# The car reflection cube's setup (renderer, face size, ...): 256 from every
+# caller (the presentation defaults at 0x82D8C080 + 0x24). A cube larger than
+# the shared memory's 1.5 MB gets an allocation of its own.
+[[midasm_hook]]
+address = 0x828D15B0
+name = "Fm4ReflectionCubeSetup"
+registers = ["r4"]
+
+# The cube's memory (r3) is about to be stored: the shared memory, or an
+# allocation of its own (also at renderer r31 + 0x13C0). r26 is the face size,
+# r30 the cube's bytes.
+[[midasm_hook]]
+address = 0x828D1718
+name = "Fm4ReflectionCubeMemory"
+registers = ["r3", "r26", "r30", "r31"]
+
 # The main loop ticks once per guest vblank (every second one in menus). The
 # loop has just loaded its race session pointer (lwz r11, 4(r31)), null in the
 # showroom and non-null on the pre-race screen...

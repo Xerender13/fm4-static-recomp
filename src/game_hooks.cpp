@@ -15,6 +15,7 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+#include <rex/memory.h>
 #include <rex/ppc/context.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
@@ -45,6 +46,16 @@ REXCVAR_DEFINE_BOOL(fm4_full_rate_scenes, true, "Forza Motorsport 4",
                     "Render the scenes the game draws at half the frame rate (showroom, "
                     "pre-race screen, Autovista) at the full rate; false is the game's own "
                     "half rate");
+
+REXCVAR_DEFINE_INT32(fm4_shadow_map_size, 512, "Forza Motorsport 4",
+                     "Size of the car shadow map in guest pixels, 512 (the console's, 4x "
+                     "MSAA) to 768 (2x MSAA), before the resolution scale; "
+                     "applies from the next scene load");
+
+REXCVAR_DEFINE_INT32(fm4_reflection_cube_size, 256, "Forza Motorsport 4",
+                     "Face size of the cars' reflection cube in guest pixels, 256 (the "
+                     "console's) to 512, before the resolution scale; applies from the next "
+                     "scene load");
 
 REXCVAR_DEFINE_DOUBLE(fm4_ui_speed, 1.0, "Forza Motorsport 4",
                       "Speed of the menus' animations against real time (1 = the console's)");
@@ -93,6 +104,48 @@ void EndFastLoad(const char* reason, bool after_start_only = false) {
   REXLOG_INFO("Race load: fast vblank off after {:.2f} s ({})",
               std::chrono::duration<double>(elapsed).count(), reason);
 }
+uint32_t LoadGuestWord(const uint8_t* address) {
+  uint32_t word;
+  std::memcpy(&word, address, sizeof(word));
+  return std::byteswap(word);
+}
+
+// Above 768 the variance map's colour and depth surfaces fit the 10 MB of
+// EDRAM only without MSAA (1024 at 1x); sizes that lose the MSAA are not offered.
+uint32_t ShadowMapSize() {
+  return uint32_t(std::clamp(REXCVAR_GET(fm4_shadow_map_size), 512, 768));
+}
+
+// The cube's faces render with 4x MSAA: above 512 their colour and depth no
+// longer fit the 10 MB of EDRAM.
+uint32_t ReflectionCubeSize() {
+  return uint32_t(std::clamp(REXCVAR_GET(fm4_reflection_cube_size), 256, 512));
+}
+
+// Guest physical memory for a texture the game would place in its shared
+// memory, which has room for the console size only. One buffer for the
+// session; a setup that needs more replaces it, and every setup rewrites the
+// texture header, so nothing keeps the old address.
+class SessionBuffer {
+ public:
+  uint32_t Get(uint32_t bytes, const char* name) {
+    if (size_ >= bytes) {
+      return address_;
+    }
+    auto* const memory = rex::system::kernel_state()->memory();
+    if (address_) {
+      memory->SystemHeapFree(address_);
+    }
+    address_ = memory->SystemHeapAlloc(bytes, 0x1000, rex::memory::kSystemHeapPhysical);
+    size_ = address_ ? bytes : 0;
+    REXLOG_INFO("{}: {} bytes at {:08X}", name, bytes, address_);
+    return address_;
+  }
+
+ private:
+  uint32_t address_ = 0;
+  uint32_t size_ = 0;
+};
 
 std::mutex g_physics_log_mutex;
 
@@ -214,6 +267,92 @@ void Fm4PresentInterval(PPCRegister& r4) {
   }
   if (r4.u32 > 1 && REXCVAR_GET(fm4_full_rate_scenes)) {
     r4.u64 = 1;
+  }
+}
+
+void Fm4ShadowMapSetup(PPCRegister& r4, PPCRegister& r5) {
+  const uint32_t size = ShadowMapSize();
+  REXLOG_INFO("Shadow map setup: variance {} grey {}, setting {}", r4.u32, r5.u32, size);
+  if (r4.u32 == 512) {
+    r4.u64 = size;
+  }
+}
+
+bool Fm4ShadowMapKeepHeader(PPCRegister& r30, PPCRegister& r8) {
+  if (r30.u32 <= 512) {
+    return false;
+  }
+  r8.u64 = 0;
+  return true;
+}
+
+void Fm4ShadowMapMemory(PPCRegister& r4, PPCRegister& r26) {
+  constexpr uint32_t kConsoleBytes = 512 * 512 * 4;
+  if (r26.u32 <= kConsoleBytes) {
+    return;
+  }
+  static SessionBuffer buffer;
+  if (const uint32_t address = buffer.Get(r26.u32, "Shadow map")) {
+    r4.u64 = address;
+    r26.u64 = 0;
+  }
+}
+
+void Fm4ShadowPassSetup(PPCRegister& r3, PPCRegister& r4, PPCRegister& r6) {
+  REXLOG_INFO("Shadow pass setup: {} (memory {:08X}, {:08X})", r3.u32, r4.u32, r6.u32);
+  if (r3.u32 != 512 || ShadowMapSize() == 512) {
+    return;
+  }
+  r3.u64 = ShadowMapSize();
+  // The pass also places a size x size 32-bit texture at r4, with only the
+  // console size free there before r6.
+  static SessionBuffer buffer;
+  if (r4.u32) {
+    if (const uint32_t address = buffer.Get(r3.u32 * r3.u32 * 4, "Shadow pass texture")) {
+      r4.u64 = address;
+    }
+  }
+}
+
+void Fm4ShadowPassMsaa(PPCRegister& r30, PPCRegister& r31) {
+  constexpr uint64_t kEdramBytes = 0xA00000;
+  if (r30.u32 != 0) {
+    return;
+  }
+  const uint8_t* const entry =
+      rex::system::kernel_state()->memory()->virtual_membase() + r31.u32;
+  const uint64_t width = LoadGuestWord(entry + 0xD0);
+  const uint64_t height = LoadGuestWord(entry + 0xD4);
+  if (LoadGuestWord(entry + 0xD8) == 4 && width * height * 2 * 8 <= kEdramBytes) {
+    r30.u64 = 1;
+  }
+}
+
+void Fm4ReflectionCubeSetup(PPCRegister& r4) {
+  const uint32_t size = ReflectionCubeSize();
+  REXLOG_INFO("Reflection cube setup: {}, setting {}", r4.u32, size);
+  if (r4.u32 == 256 && size != 256) {
+    r4.u64 = size;
+  }
+}
+
+void Fm4ReflectionCubeMemory(PPCRegister& r3, PPCRegister& r26, PPCRegister& r30,
+                             PPCRegister& r31) {
+  if (r26.u32 <= 256) {
+    return;
+  }
+  // A cube above the shared memory's 1.5 MB asks the game's heap for its own
+  // (kept at +0x13C0); when that fails, as it does in races, the game falls
+  // back to the shared memory and overruns what follows it.
+  const uint8_t* const renderer =
+      rex::system::kernel_state()->memory()->virtual_membase() + r31.u32;
+  if (LoadGuestWord(renderer + 0x13C0) == r3.u32) {
+    return;
+  }
+  REXLOG_INFO("Reflection cube: {} bytes, the game's heap had no room", r30.u32);
+  static SessionBuffer buffer;
+  if (const uint32_t address = buffer.Get(r30.u32, "Reflection cube")) {
+    r3.u64 = address;
   }
 }
 
