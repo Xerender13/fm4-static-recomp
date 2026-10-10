@@ -6,6 +6,7 @@
 #include <rex/rex_app.h>
 #include <rex/system/gpu_plugin.h>
 #include <rex/ui/overlay/achievement_notification.h>
+#include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
 #include "disc2_install.h"
@@ -33,6 +34,9 @@ class Fm4App final : public rex::ReXApp {
   }
 
   void OnPostSetup() override {
+    if (rex::ui::Window* const window = this->window()) {
+      window->SetCursorVisibility(rex::ui::Window::CursorVisibility::kAutoHidden);
+    }
     fm4_native::InstallContentPackages(*runtime());
     fm4_native::StartCaptureWatcher([this]() -> rex::ui::Presenter* {
       return runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
