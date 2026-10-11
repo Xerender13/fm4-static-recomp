@@ -43,8 +43,10 @@ $arguments = @(
 # --gpu_record_thread records the Vulkan draws on a thread of their own (a 2x race +12 %).
 # The texture cache evicts only above its soft limit (SDK default 1 GB), so menu and showroom
 # textures stay in VRAM; a race needs about 300 MB at 2x, and 256 saved 300 MB with no reloads.
+# --fh1_async_readbacks keeps resolve readbacks from draining the GPU in races (smooth at 3x),
+# at a small risk of a texture read before its readback lands; the menus wait regardless.
 foreach ($default in '--clear_memory_page_state=false', '--host_present_fps_limit=0', '--gpu_record_thread=true',
-    '--texture_cache_memory_limit_soft=256') {
+    '--texture_cache_memory_limit_soft=256', '--fh1_async_readbacks=true') {
     $name = $default.Split('=')[0]
     if (-not ($GameArguments | Where-Object { $_.Split('=')[0] -eq $name })) { $arguments += $default }
 }

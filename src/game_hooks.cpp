@@ -359,6 +359,14 @@ void Fm4ReflectionCubeMemory(PPCRegister& r3, PPCRegister& r26, PPCRegister& r30
 void Fm4MainLoopSession(PPCRegister& r11) {
   const bool race = r11.u32 != 0;
   g_race_session.store(race, std::memory_order_relaxed);
+  // The menus light their car from captures the CPU reads and keep the result, so a
+  // capture read before its asynchronous readback lands tints the car for good.
+  static bool held = false;
+  if (held == race) {
+    held = !race;
+    rex::cvar::SetFlagByName("fh1_async_readbacks_hold", held ? "true" : "false");
+    REXLOG_INFO("Async readbacks {} ({})", held ? "held" : "released", race ? "race" : "menus");
+  }
 }
 
 bool Fm4SkipVblankCallback() {
