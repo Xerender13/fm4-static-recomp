@@ -7,6 +7,9 @@ param(
     [int]$TimeoutSeconds = 0,
     # Renderer profile plus resolve dumps on request into .local\dumps (see dump-watch.ps1).
     [switch]$Dumps,
+    # Every rendering shortcut that has a switch off, every resolve read back, console
+    # graphics settings: tells a rendering bug of ours from the game's own look.
+    [switch]$Compat,
     # Records the gamepad into this file as an input script (src\scripted_input.h) for replays;
     # a relative path is relative to the project folder.
     [string]$RecordInput,
@@ -35,6 +38,17 @@ $arguments = @(
     "--log_file=$log",
     '--gpu_backend=vulkan'
 )
+if ($Compat) {
+    foreach ($option in '--fh1_async_readbacks=false', '--fh1_readback_all_resolves=true',
+        '--fh1_surfaceless_clears=false', '--fh1_color_overwrite_claims=false',
+        '--fh1_scrambled_stencil_claims=false', '--fh1_scaled_msaa_single_sample=false',
+        '--gpu_record_thread=false', '--clear_memory_page_state=true', '--texture_cache_memory_limit_soft=1024',
+        '--anisotropic_override=-1', '--fm4_level_of_detail=console', '--fm4_shadow_map_size=512',
+        '--fm4_reflection_cube_size=256', '--fm4_full_rate_scenes=false') {
+        $name = $option.Split('=')[0]
+        if (-not ($GameArguments | Where-Object { $_.Split('=')[0] -eq $name })) { $GameArguments += $option }
+    }
+}
 # The SDK defaults re-upload every CPU-written page each frame (~500 render pass
 # breaks per race frame) and present at most 60 fps; Pinyon's config turns both off.
 # A race renders --fm4_frame_rate frames a second (120 unless the GRAPHICS page or the
