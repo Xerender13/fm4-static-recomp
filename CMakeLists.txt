@@ -18,6 +18,12 @@ add_executable(fm4_native WIN32
     src/disc2_install.cpp
     src/game_hooks.cpp
     src/scripted_input.cpp
+    src/ui/hostui/glyph_atlas.cpp
+    src/ui/hostui/host_ui.cpp
+    src/ui/hostui/menu.cpp
+    src/ui/hostui/ui_archive.cpp
+    src/ui/hostui/vector_font.cpp
+    src/ui/hostui/xds_texture.cpp
 )
 
 fm4_native_attach_rexglue(fm4_native)
