@@ -1,6 +1,7 @@
 // Hooks the recompiled game calls (config/rexglue/analysis/main-xex.toml).
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <bit>
 #include <chrono>
@@ -9,9 +10,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -65,6 +69,44 @@ REXCVAR_DEFINE_STRING(fm4_physics_log, "", "Forza Motorsport 4",
                       "car's physics substep count and, ten times a simulated second, the "
                       "car's state");
 
+// The render scenario settings below force values over the game's own; each
+// one's console value leaves its values to the game.
+REXCVAR_DEFINE_STRING(fm4_level_of_detail, "console", "Forza Motorsport 4",
+                      "Car level of detail: console, high (slightly longer LOD distances and a "
+                      "looser rank floor) or ultra (longer distances, LOD0 kept and used for the "
+                      "player's car, LOD0 wheels). Applies from the next race load")
+    .allowed({"console", "high", "ultra"});
+REXCVAR_DEFINE_BOOL(fm4_full_rate_mirror, false, "Forza Motorsport 4",
+                    "Draw the mirror every frame with up to 16 cars and the cones and barriers, "
+                    "where the game halves its rate and draws 6 cars (12- and 16-car races)");
+REXCVAR_DEFINE_BOOL(fm4_full_rate_bloom, false, "Forza Motorsport 4",
+                    "Bloom every frame, where the game skips alternate frames (16-car races)");
+REXCVAR_DEFINE_BOOL(fm4_soft_particles, false, "Forza Motorsport 4",
+                    "Soft particles in races, as the game does in replays and photo mode");
+REXCVAR_DEFINE_BOOL(fm4_scenery_shadows, false, "Forza Motorsport 4",
+                    "Shadows of cones and barriers in races, as the game does in replays and "
+                    "photo mode");
+REXCVAR_DEFINE_STRING(fm4_reflection_updates, "console", "Forza Motorsport 4",
+                      "Faces of the cars' reflection cube redrawn per frame: console (none in "
+                      "16-car races and split screen), every_race (the console's rate there too) "
+                      "or double")
+    .allowed({"console", "every_race", "double"});
+REXCVAR_DEFINE_BOOL(fm4_race_4x_msaa, false, "Forza Motorsport 4",
+                    "4x MSAA in races (three tiles) instead of the game's 2x (two)");
+REXCVAR_DEFINE_BOOL(fm4_crowds_every_race, false, "Forza Motorsport 4",
+                    "Crowds in every race, where the game leaves them out (1- and 16-car races)");
+REXCVAR_DEFINE_STRING(fm4_render_scenario_omit, "", "Forza Motorsport 4",
+                      "Diagnostics: render scenario values left to the game, comma-separated: "
+                      "tiling, lod_thresholds, focus_lod, other_lod, lod_distances, keep_lod0, "
+                      "force_no_lod0, wheel_lod, mirror_collidables, collidable_shadows, crowds, "
+                      "reflections, mirror_cars, mirror_half_rate, bloom_half_rate, "
+                      "soft_particles");
+REXCVAR_DEFINE_STRING(fm4_graphics_lod_thresholds, "", "Forza Motorsport 4",
+                      "Diagnostics: the car LOD rank thresholds of fm4_level_of_detail high and "
+                      "ultra as lod1,lod2,count (the console's are 2,4,6: the two nearest other "
+                      "cars may use the best LOD, the next two the middle one, and both limits "
+                      "drop by one once six cars are visible)");
+
 namespace {
 std::atomic<bool> g_race_session{false};
 // The main loop's measured milliseconds since the showroom's and the UI's last update.
@@ -104,10 +146,168 @@ void EndFastLoad(const char* reason, bool after_start_only = false) {
   REXLOG_INFO("Race load: fast vblank off after {:.2f} s ({})",
               std::chrono::duration<double>(elapsed).count(), reason);
 }
+
+// The settings fill the override layer of the game's render scenario manager, which
+// its accessors consult before the stack of RenderScenarios\*.xml files, so they win in
+// every scenario. Ids are CDynamicRenderSettings control ids.
+struct ScenarioValue {
+  uint32_t id;
+  bool byte;
+  uint32_t count;
+  std::array<uint32_t, 3> words;
+};
+
+constexpr ScenarioValue Byte(uint32_t id, uint8_t value) { return {id, true, 1, {value}}; }
+
+constexpr ScenarioValue Words(uint32_t id, uint32_t a, uint32_t b = 0, uint32_t c = 0,
+                              uint32_t count = 1) {
+  return {id, false, count, {a, b, c}};
+}
+
+constexpr ScenarioValue Floats(uint32_t id, float a, float b, float c) {
+  return {id, false, 3,
+          {std::bit_cast<uint32_t>(a), std::bit_cast<uint32_t>(b), std::bit_cast<uint32_t>(c)}};
+}
+
+constexpr ScenarioValue Float(uint32_t id, float value) {
+  return {id, false, 1, {std::bit_cast<uint32_t>(value)}};
+}
+
+enum : uint32_t {
+  kTilingScenario = 1,
+  kCarLODThresholds = 7,
+  kCarFocusLODMinMax = 8,
+  kCarNonFocusLODMinMax = 9,
+  kCarLODTransDist = 10,
+  kCarKeepLOD0 = 11,
+  kCarForceNoLOD0 = 12,
+  kCarMinWheelLOD = 13,
+  kCollidablesInMirror = 18,
+  kCollidableShadows = 19,
+  kCrowdLoad = 20,
+  kEnvMapFrequencyScale = 29,
+  kMaxCarsInMirror = 30,
+  kHalfRateMirror = 31,
+  kHalfRateBloom = 32,
+  kSoftParticles = 33,
+};
+
+constexpr ScenarioValue kHighDetail[] = {
+    Words(kCarLODThresholds, 3, 5, 7, 3),
+    Floats(kCarLODTransDist, 20.0f, 35.0f, 70.0f),
+};
+
+// Other cars keep the game's LOD range (CarNonFocusLODMinMax 0..5), and the
+// distances let them reach LOD3 as on the console: a car held at LOD2 or
+// better far away keeps a projected shadow the game does not expect there,
+// which then shows only its outline for a moment.
+constexpr ScenarioValue kUltraDetail[] = {
+    Words(kCarLODThresholds, 4, 6, 8, 3),
+    Floats(kCarLODTransDist, 30.0f, 60.0f, 120.0f),
+    Words(kCarMinWheelLOD, 0),
+    Byte(kCarKeepLOD0, 1),
+    Byte(kCarForceNoLOD0, 0),
+    Words(kCarFocusLODMinMax, 0, 0, 0, 2),
+};
+
+constexpr ScenarioValue kFullRateMirror[] = {
+    Byte(kHalfRateMirror, 0),
+    Words(kMaxCarsInMirror, 16),
+    Byte(kCollidablesInMirror, 1),
+};
+constexpr ScenarioValue kFullRateBloom[] = {Byte(kHalfRateBloom, 0)};
+constexpr ScenarioValue kSoftParticlesOn[] = {Byte(kSoftParticles, 1)};
+constexpr ScenarioValue kSceneryShadowsOn[] = {Byte(kCollidableShadows, 1)};
+constexpr ScenarioValue kReflectionsEveryRace[] = {Float(kEnvMapFrequencyScale, 1.0f)};
+constexpr ScenarioValue kReflectionsDouble[] = {Float(kEnvMapFrequencyScale, 2.0f)};
+constexpr ScenarioValue kRace4xMsaa[] = {Words(kTilingScenario, 0)};
+constexpr ScenarioValue kCrowdsEveryRace[] = {Byte(kCrowdLoad, 1)};
+
+constexpr std::pair<std::string_view, uint32_t> kScenarioValueNames[] = {
+    {"tiling", kTilingScenario},
+    {"lod_thresholds", kCarLODThresholds},
+    {"focus_lod", kCarFocusLODMinMax},
+    {"other_lod", kCarNonFocusLODMinMax},
+    {"lod_distances", kCarLODTransDist},
+    {"keep_lod0", kCarKeepLOD0},
+    {"force_no_lod0", kCarForceNoLOD0},
+    {"wheel_lod", kCarMinWheelLOD},
+    {"mirror_collidables", kCollidablesInMirror},
+    {"collidable_shadows", kCollidableShadows},
+    {"crowds", kCrowdLoad},
+    {"reflections", kEnvMapFrequencyScale},
+    {"mirror_cars", kMaxCarsInMirror},
+    {"mirror_half_rate", kHalfRateMirror},
+    {"bloom_half_rate", kHalfRateBloom},
+    {"soft_particles", kSoftParticles},
+};
+
+// The ids fm4_render_scenario_omit names; read once, as the option is a
+// launch option.
+// fm4_graphics_lod_thresholds as three numbers, or nothing.
+std::optional<std::array<uint32_t, 3>> LodThresholdsOverride() {
+  static const std::optional<std::array<uint32_t, 3>> thresholds =
+      []() -> std::optional<std::array<uint32_t, 3>> {
+    std::array<uint32_t, 3> values;
+    const std::string text = REXCVAR_GET(fm4_graphics_lod_thresholds);
+    if (std::sscanf(text.c_str(), "%u,%u,%u", &values[0], &values[1], &values[2]) != 3) {
+      return std::nullopt;
+    }
+    return values;
+  }();
+  return thresholds;
+}
+
+uint64_t OmittedScenarioMask() {
+  static const uint64_t mask = [] {
+    uint64_t omitted = 0;
+    const std::string list = REXCVAR_GET(fm4_render_scenario_omit);
+    size_t at = 0;
+    while (at <= list.size()) {
+      size_t end = list.find(',', at);
+      if (end == std::string::npos) {
+        end = list.size();
+      }
+      const std::string_view name = std::string_view(list).substr(at, end - at);
+      for (const auto& [known, id] : kScenarioValueNames) {
+        if (name == known) {
+          omitted |= uint64_t(1) << id;
+        }
+      }
+      at = end + 1;
+    }
+    return omitted;
+  }();
+  return mask;
+}
+
+constexpr uint64_t ValueMask(std::span<const ScenarioValue> values) {
+  uint64_t mask = 0;
+  for (const ScenarioValue& value : values) {
+    mask |= uint64_t(1) << value.id;
+  }
+  return mask;
+}
+
+constexpr uint64_t kSettingsOwnedMask =
+    ValueMask(kHighDetail) | ValueMask(kUltraDetail) | ValueMask(kFullRateMirror) |
+    ValueMask(kFullRateBloom) | ValueMask(kSoftParticlesOn) | ValueMask(kSceneryShadowsOn) |
+    ValueMask(kReflectionsEveryRace) | ValueMask(kRace4xMsaa) | ValueMask(kCrowdsEveryRace);
+
+constexpr uint32_t kScenarioManagerPointer = 0x82DC3750;
+constexpr uint32_t kControlOffsetTable = 0x82D59FF0;
+constexpr uint32_t kOverrideValueOffset = 0x40;
+constexpr uint32_t kOverrideMaskOffset = 0x60;
+
 uint32_t LoadGuestWord(const uint8_t* address) {
   uint32_t word;
   std::memcpy(&word, address, sizeof(word));
   return std::byteswap(word);
+}
+
+void StoreGuestWord(uint8_t* address, uint32_t value) {
+  value = std::byteswap(value);
+  std::memcpy(address, &value, sizeof(value));
 }
 
 // Above 768 the variance map's colour and depth surfaces fit the 10 MB of
@@ -146,6 +346,75 @@ class SessionBuffer {
   uint32_t address_ = 0;
   uint32_t size_ = 0;
 };
+
+void ApplyRenderScenarioSettings() {
+  std::array<std::span<const ScenarioValue>, 8> groups;
+  size_t count = 0;
+  const std::string& detail = REXCVAR_GET(fm4_level_of_detail);
+  if (detail == "high") {
+    groups[count++] = kHighDetail;
+  } else if (detail == "ultra") {
+    groups[count++] = kUltraDetail;
+  }
+  if (REXCVAR_GET(fm4_full_rate_mirror)) {
+    groups[count++] = kFullRateMirror;
+  }
+  if (REXCVAR_GET(fm4_full_rate_bloom)) {
+    groups[count++] = kFullRateBloom;
+  }
+  if (REXCVAR_GET(fm4_soft_particles)) {
+    groups[count++] = kSoftParticlesOn;
+  }
+  if (REXCVAR_GET(fm4_scenery_shadows)) {
+    groups[count++] = kSceneryShadowsOn;
+  }
+  const std::string& reflections = REXCVAR_GET(fm4_reflection_updates);
+  if (reflections == "every_race") {
+    groups[count++] = kReflectionsEveryRace;
+  } else if (reflections == "double") {
+    groups[count++] = kReflectionsDouble;
+  }
+  if (REXCVAR_GET(fm4_race_4x_msaa)) {
+    groups[count++] = kRace4xMsaa;
+  }
+  if (REXCVAR_GET(fm4_crowds_every_race)) {
+    groups[count++] = kCrowdsEveryRace;
+  }
+  uint8_t* const membase = rex::system::kernel_state()->memory()->virtual_membase();
+  const uint32_t manager_address = LoadGuestWord(membase + kScenarioManagerPointer);
+  if (!manager_address) {
+    return;
+  }
+  uint8_t* const manager = membase + manager_address;
+  const uint64_t omitted = OmittedScenarioMask();
+  uint64_t mask = 0;
+  for (size_t group = 0; group < count; ++group) {
+    for (const ScenarioValue& value : groups[group]) {
+      if (omitted & (uint64_t(1) << value.id)) {
+        continue;
+      }
+      mask |= uint64_t(1) << value.id;
+      uint8_t* const target = manager + kOverrideValueOffset +
+                              LoadGuestWord(membase + kControlOffsetTable + 4 * value.id);
+      std::array<uint32_t, 3> words = value.words;
+      if (value.id == kCarLODThresholds && LodThresholdsOverride()) {
+        words = *LodThresholdsOverride();
+      }
+      if (value.byte) {
+        *target = uint8_t(words[0]);
+      } else {
+        for (uint32_t i = 0; i < value.count; ++i) {
+          StoreGuestWord(target + 4 * i, words[i]);
+        }
+      }
+    }
+  }
+  for (uint32_t half = 0; half < 2; ++half) {
+    uint8_t* const word = manager + kOverrideMaskOffset + 4 * half;
+    const uint32_t owned = uint32_t(kSettingsOwnedMask >> (32 * half));
+    StoreGuestWord(word, (LoadGuestWord(word) & ~owned) | uint32_t(mask >> (32 * half)));
+  }
+}
 
 std::mutex g_physics_log_mutex;
 
@@ -367,6 +636,8 @@ void Fm4MainLoopSession(PPCRegister& r11) {
     rex::cvar::SetFlagByName("fh1_async_readbacks_hold", held ? "true" : "false");
     REXLOG_INFO("Async readbacks {} ({})", held ? "held" : "released", race ? "race" : "menus");
   }
+  // Every tick, so the values are in place before a race loads its cars.
+  ApplyRenderScenarioSettings();
 }
 
 bool Fm4SkipVblankCallback() {
