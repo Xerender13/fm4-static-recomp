@@ -767,6 +767,30 @@ address = 0x828223C4
 name = "Fm4PhysicsLogOtherCar"
 registers = ["r30", "r11", "f31"]
 
+# GRAPHICS in My Profile -> Options (src/ui/graphics_page.cpp). The menu builder
+# has added the last Options item and released its temporaries: the hook adds
+# GRAPHICS (action 23) after it with guest calls, as the game adds each item.
+[[midasm_hook]]
+address = 0x8256CCF4
+name = "Fm4AddGraphicsOption"
+context = true
+registers = ["r1", "r30", "r31"]
+
+# The string table lookup (table, key) answers the entry's key itself.
+[[midasm_hook]]
+address = 0x823A4780
+name = "Fm4GraphicsOptionText"
+registers = ["r3", "r4"]
+return_on_true = true
+
+# The Options dispatcher (this, action): action 23 opens the host page. The
+# game ignores actions it has no scene for, so nothing else changes.
+[[midasm_hook]]
+address = 0x82589460
+name = "Fm4OpenGraphicsOption"
+registers = ["r4"]
+return_on_true = true
+
 # The showroom's update has just loaded 1/60 s as its camera queue's step
 # (lfs f1 before the virtual call through camera +0xC), whatever the tick
 # length, so the camera ran 2x real time at 120 ticks a second (measured

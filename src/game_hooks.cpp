@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
+#include <initializer_list>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -21,6 +23,7 @@
 #include <rex/logging.h>
 #include <rex/memory.h>
 #include <rex/ppc/context.h>
+#include <rex/ppc/func.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
@@ -145,6 +148,43 @@ void EndFastLoad(const char* reason, bool after_start_only = false) {
   g_fast_load.store(false, std::memory_order_relaxed);
   REXLOG_INFO("Race load: fast vblank off after {:.2f} s ({})",
               std::chrono::duration<double>(elapsed).count(), reason);
+}
+
+// The GRAPHICS entry of My Profile -> Options: an action and a string key of
+// its own. The key is free in every string table (IDS_Graphics' hash, 0x7157,
+// is LiveStrings' IDS_MatchmakingBlockedTitle).
+constexpr uint32_t kGraphicsAction = 23;
+constexpr uint32_t kGraphicsStringKey = 0x7158;
+constexpr uint32_t kMakeLocString = 0x822B1AE8;
+constexpr uint32_t kMakeMenuLabel = 0x82971220;
+constexpr uint32_t kMenuAddItem = 0x8266FF00;
+
+std::mutex g_graphics_page_mutex;
+std::function<void()> g_graphics_page_opener;
+
+// Calls a guest function from a hook on a copy of the live context, below the
+// hooked frame's stack, leaving the hooked code's registers as they were.
+uint32_t CallGuest(PPCContext& ctx, uint8_t* base, uint32_t stack, uint32_t address,
+                   std::initializer_list<uint32_t> args) {
+  PPCFunc* const function = rex::runtime::ResolveIndirectFunction(address);
+  if (!function) {
+    return 0;
+  }
+  const uint32_t saved_csr = ctx.fpscr.csr;
+  PPCContext nested = ctx;
+  nested.dispatch_address = 0;
+  nested.lr = 0;
+  nested.r1.u32 = stack - 0x70;
+  PPCRegister* const registers[] = {&nested.r3, &nested.r4, &nested.r5,
+                                    &nested.r6, &nested.r7, &nested.r8};
+  size_t index = 0;
+  for (uint32_t arg : args) {
+    registers[index++]->u64 = arg;
+  }
+  function(nested, base);
+  ctx.fpscr.csr = saved_csr;
+  ctx.fpscr.setcsr(saved_csr);
+  return nested.r3.u32;
 }
 
 // The settings fill the override layer of the game's render scenario manager, which
@@ -414,6 +454,10 @@ void ApplyRenderScenarioSettings() {
     const uint32_t owned = uint32_t(kSettingsOwnedMask >> (32 * half));
     StoreGuestWord(word, (LoadGuestWord(word) & ~owned) | uint32_t(mask >> (32 * half)));
   }
+}
+
+uint32_t LoadGuestWord(const uint8_t* base, uint32_t address) {
+  return LoadGuestWord(base + address);
 }
 
 std::mutex g_physics_log_mutex;
@@ -687,4 +731,61 @@ void InstallRoadDetailBlurSwitch() {
   });
 }
 
+void SetGraphicsPageOpener(std::function<void()> opener) {
+  const std::lock_guard lock(g_graphics_page_mutex);
+  g_graphics_page_opener = std::move(opener);
+}
+
 }  // namespace fm4_native
+
+// The end of the Options items in My Profile's menu builder (r30 = the Options
+// category, r31 = the "MyProfile" table name): GRAPHICS after them, added as
+// the game adds each item, through the frame's own two temporaries, which the
+// last item has just released.
+void Fm4AddGraphicsOption(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRegister& r30,
+                          PPCRegister& r31) {
+  const uint32_t string_id = r1.u32 + 0xA0;
+  const uint32_t label = r1.u32 + 0xA4;
+  CallGuest(ctx, base, r1.u32, kMakeLocString, {string_id, r31.u32, kGraphicsStringKey});
+  CallGuest(ctx, base, r1.u32, kMakeMenuLabel, {label, string_id});
+  CallGuest(ctx, base, r1.u32, kMenuAddItem, {r30.u32, label, kGraphicsAction, 1, 0});
+  // AddItem keeps the label's reference; the string id's is released.
+  if (const uint32_t object = LoadGuestWord(base, string_id)) {
+    const uint32_t release = LoadGuestWord(base, LoadGuestWord(base, object) + 8);
+    CallGuest(ctx, base, r1.u32, release, {object});
+  }
+}
+
+// The string table lookup (table, key): GRAPHICS for the entry's key.
+bool Fm4GraphicsOptionText(PPCRegister& r3, PPCRegister& r4) {
+  if ((r4.u32 & 0xFFFF) != kGraphicsStringKey) {
+    return false;
+  }
+  static const uint32_t text = [] {
+    constexpr std::u16string_view kText = u"GRAPHICS";
+    const uint32_t address =
+        rex::system::kernel_state()->memory()->SystemHeapAlloc(uint32_t(2 * (kText.size() + 1)));
+    uint8_t* const host = rex::system::kernel_state()->memory()->virtual_membase() + address;
+    for (size_t i = 0; i <= kText.size(); ++i) {
+      const char16_t c = i < kText.size() ? kText[i] : u'\0';
+      host[2 * i] = uint8_t(c >> 8);
+      host[2 * i + 1] = uint8_t(c);
+    }
+    return address;
+  }();
+  r3.u64 = text;
+  return true;
+}
+
+// The Options dispatcher (this, action): GRAPHICS opens the host page; the
+// game's own actions go on as before.
+bool Fm4OpenGraphicsOption(PPCRegister& r4) {
+  if (r4.u32 != kGraphicsAction) {
+    return false;
+  }
+  const std::lock_guard lock(g_graphics_page_mutex);
+  if (g_graphics_page_opener) {
+    g_graphics_page_opener();
+  }
+  return true;
+}

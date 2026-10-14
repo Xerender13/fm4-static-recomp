@@ -18,6 +18,8 @@ add_executable(fm4_native WIN32
     src/disc2_install.cpp
     src/game_hooks.cpp
     src/scripted_input.cpp
+    src/config/host_config.cpp
+    src/ui/graphics_page.cpp
     src/ui/hostui/glyph_atlas.cpp
     src/ui/hostui/host_ui.cpp
     src/ui/hostui/menu.cpp
