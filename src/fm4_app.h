@@ -1,6 +1,8 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
+#include <string>
 
 #include <rex/cvar.h>
 #include <rex/input/input_system.h>
@@ -13,12 +15,15 @@
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "built_in_defaults.h"
 #include "config/host_config.h"
 #include "disc2_install.h"
 #include "game_hooks.h"
 #include "scripted_input.h"
 #include "ui/graphics_page.h"
 #include "ui/hostui/host_ui.h"
+
+REXCVAR_DECLARE(std::string, fm4_config_root);
 
 class Fm4App final : public rex::ReXApp {
  public:
@@ -30,20 +35,24 @@ class Fm4App final : public rex::ReXApp {
 
  protected:
   void OnConfigurePaths(rex::PathConfig& paths) override {
-    // The GRAPHICS page's own file, beside the user data of this state, so
-    // the player and test sessions keep separate settings.
-    graphics_config_ = std::make_unique<fm4_native::config::HostConfig>(
-        paths.user_data_root.parent_path() / "config" / "graphics.toml");
+    const std::string configured = REXCVAR_GET(fm4_config_root);
+    const std::filesystem::path config_root =
+        configured.empty() ? paths.user_data_root.parent_path() / "config"
+                           : std::filesystem::path(configured);
+    graphics_config_ =
+        std::make_unique<fm4_native::config::HostConfig>(config_root / "graphics.toml");
   }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
     config.gpu_plugin = "fh1";
     fm4_native::ConfigureScriptedInput(config);
+    fm4_native::ApplyBuiltInDefaults(fm4_native::DefaultStage::kBeforeGpuPlugin);
     // The GPU settings are registered by the plugin, so it is loaded here
     // rather than by the app, and the saved values reach them before the GPU
     // is set up.
     config.graphics =
         rex::system::LoadGpuPlugin(config.gpu_plugin, rex::cvar::GetFlagByName("gpu_backend"));
+    fm4_native::ApplyBuiltInDefaults(fm4_native::DefaultStage::kAfterGpuPlugin);
     if (graphics_config_->Load()) {
       fm4_native::ui::ApplySavedGraphicsSettings(*graphics_config_);
     } else {

@@ -15,6 +15,7 @@ include(cmake/Fm4RexGlue.cmake)
 
 add_executable(fm4_native WIN32
     src/main.cpp
+    src/built_in_defaults.cpp
     src/disc2_install.cpp
     src/game_hooks.cpp
     src/scripted_input.cpp
