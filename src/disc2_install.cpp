@@ -1,6 +1,7 @@
 #include "disc2_install.h"
 
 #include <filesystem>
+#include <string>
 #include <string_view>
 #include <system_error>
 
@@ -24,32 +25,45 @@ using rex::X_RESULT;
 
 namespace {
 
+struct InstallCounts {
+  int installed = 0;
+  int skipped = 0;
+  int failed = 0;
+};
+
 void InstallPackage(rex::system::xam::ContentManager& content,
-                    const std::filesystem::path& package) {
+                    const std::filesystem::path& package, InstallCounts& counts) {
+  const std::string name = rex::path_to_utf8(package.filename());
   // The header is written after the files, so it marks a complete install.
   rex::system::xam::XCONTENT_AGGREGATE_DATA installed;
-  if (content.ReadContentHeaderFile(rex::path_to_utf8(package.filename()), 0,
-                                    rex::system::xam::kCurrentlyRunningTitleId,
+  if (content.ReadContentHeaderFile(name, 0, rex::system::xam::kCurrentlyRunningTitleId,
                                     rex::system::XContentType::kMarketplaceContent,
                                     installed) == X_ERROR_SUCCESS) {
+    REXLOG_INFO("Content: skipped {} (installed)", name);
+    ++counts.skipped;
     return;
   }
   REXLOG_INFO("Content: installing {}", rex::path_to_utf8(package));
   const X_RESULT result = content.InstallContent(package);
   if (result != X_ERROR_SUCCESS) {
     REXLOG_ERROR("Content: installing {} failed: {:08X}", rex::path_to_utf8(package), uint32_t(result));
+    ++counts.failed;
+    return;
   }
+  REXLOG_INFO("Content: installed {}", name);
+  ++counts.installed;
 }
 
 }  // namespace
 
 void InstallContentPackages(rex::Runtime& runtime) {
   auto& content = *runtime.kernel_state()->content_manager();
+  InstallCounts counts;
   const std::filesystem::path disc2 = REXCVAR_GET(fm4_disc2_packages);
   if (!disc2.empty()) {
     for (std::string_view name : {"4d53091000000001", "4d53091000000002", "4d53091000000003",
                                   "4d53091000000004"}) {
-      InstallPackage(content, disc2 / name);
+      InstallPackage(content, disc2 / name, counts);
     }
   }
   const std::filesystem::path dlc = REXCVAR_GET(fm4_dlc_packages);
@@ -57,11 +71,16 @@ void InstallContentPackages(rex::Runtime& runtime) {
     std::error_code ec;
     for (std::filesystem::recursive_directory_iterator it(dlc, ec), end; !ec && it != end;
          it.increment(ec)) {
-      if (it->is_regular_file()) InstallPackage(content, it->path());
+      if (it->is_regular_file()) InstallPackage(content, it->path(), counts);
     }
     if (ec) {
       REXLOG_ERROR("Content: reading {} failed: {}", rex::path_to_utf8(dlc), ec.message());
+      ++counts.failed;
     }
+  }
+  if (!disc2.empty() || !dlc.empty()) {
+    REXLOG_INFO("Content: install finished, {} installed, {} skipped, {} failed",
+                counts.installed, counts.skipped, counts.failed);
   }
 }
 
