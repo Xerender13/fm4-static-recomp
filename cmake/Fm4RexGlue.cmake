@@ -36,8 +36,10 @@ if(TARGET rexruntime AND FM4_NATIVE_TRACE_IMPORTS)
     target_compile_definitions(rexruntime PRIVATE REXGLUE_TRACE_IMPORTS=1)
 endif()
 
-set(FM4_NATIVE_MANIFEST
-    "${CMAKE_CURRENT_SOURCE_DIR}/config/rexglue/fm4_manifest.toml")
+set(FM4_NATIVE_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/config/rexglue/fm4_manifest.toml")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config/rexglue/fm4_manifest.local.toml")
+    set(FM4_NATIVE_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/config/rexglue/fm4_manifest.local.toml")
+endif()
 set(FM4_NATIVE_GENERATED_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.local/generated")
 set(FM4_NATIVE_GENERATED_DIR "${FM4_NATIVE_GENERATED_ROOT}/default")
 set(FM4_NATIVE_CODEGEN_LOG "${CMAKE_CURRENT_SOURCE_DIR}/.local/logs/codegen.log")

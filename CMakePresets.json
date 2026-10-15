@@ -16,7 +16,6 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_C_FLAGS": "-msse4.1",
         "CMAKE_CXX_FLAGS": "-msse4.1",
-        "REXSDK_DIR": "${sourceDir}/../pinyon-shift/thirdparty/shiftglue-sdk",
         "REXGLUE_USE_VULKAN": "ON"
       }
     },

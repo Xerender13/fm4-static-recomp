@@ -11,15 +11,13 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
 
-# The toolchain and the ShiftGlue checkout are borrowed from the sibling pinyon-shift tree.
-$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$pinyonTools = [IO.Path]::GetFullPath((Join-Path $root '../pinyon-shift/tools'))
-. (Join-Path $pinyonTools 'release-common.ps1')
+. (Join-Path $PSScriptRoot 'release-common.ps1')
+$root = Get-Fm4RepoRoot
 
-$environment = Enter-PinyonBuildEnvironment
+$environment = Enter-Fm4BuildEnvironment
 $logs = Join-Path $root '.local/logs'
 [void](New-Item -ItemType Directory -Force -Path $logs)
-if ($Parallel -eq 0) { $Parallel = Get-PinyonBuildJobCount }
+if ($Parallel -eq 0) { $Parallel = Get-Fm4BuildJobCount }
 $preset = 'win-amd64-' + $Configuration.ToLowerInvariant()
 
 # A running game keeps its executable and libraries open, and the linker cannot replace them.
@@ -40,13 +38,16 @@ foreach ($process in @(Get-Process fm4_native -ErrorAction SilentlyContinue)) {
     }
 }
 
+# A build folder copied from another install (an update seeds the new version's folder
+# with the old one) keeps a cache CMake refuses.
+[void](Reset-Fm4RelocatedCMakeCache -BuildDirectory $output)
 Push-Location $root
 try {
     # The Vulkan backend's glslang reads its version through Python.
-    Invoke-PinyonBuildCommand $environment.CMake @('--preset', $preset,
-        "-DPYTHON_EXECUTABLE=$(Get-PinyonPython)") `
+    Invoke-Fm4BuildCommand $environment.CMake @('--preset', $preset,
+        "-DPYTHON_EXECUTABLE=$(Get-Fm4Python)", "-DREXSDK_DIR=$(Resolve-Fm4SdkRoot)") `
         (Join-Path $logs 'configure.log') 'Configuration failed.'
-    Invoke-PinyonBuildCommand $environment.CMake @('--build', '--preset', $preset, '--parallel', "$Parallel") `
+    Invoke-Fm4BuildCommand $environment.CMake @('--build', '--preset', $preset, '--parallel', "$Parallel") `
         (Join-Path $logs 'build.log') 'Compilation failed.'
 }
 finally { Pop-Location }

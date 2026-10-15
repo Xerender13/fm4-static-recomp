@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [ValidateRange(0, 32)] [int]$Parallel = 0,
-    [switch]$SkipSdkBuild
+    [switch]$SkipSdkBuild,
+    # The extracted Disc 1 (the folder holding default.xex).
+    [string]$GameRoot
 )
 
 Set-StrictMode -Version Latest
@@ -10,26 +12,36 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
 
-# The toolchain and the ShiftGlue checkout are borrowed from the sibling pinyon-shift tree.
-$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$pinyonTools = [IO.Path]::GetFullPath((Join-Path $root '../pinyon-shift/tools'))
-. (Join-Path $pinyonTools 'release-common.ps1')
+. (Join-Path $PSScriptRoot 'release-common.ps1')
+$root = Get-Fm4RepoRoot
+if (-not $GameRoot) { $GameRoot = [IO.Path]::GetFullPath((Join-Path $root '../extracted/fm4')) }
 
-$environment = Enter-PinyonBuildEnvironment
-$sdkRoot = Resolve-PinyonRexGlueRoot
+$environment = Enter-Fm4BuildEnvironment
+$sdkRoot = Resolve-Fm4SdkRoot
 $rexglueExe = Join-Path $sdkRoot 'out/win-amd64/Release/rexglue.exe'
-$manifest = Join-Path $root 'config/rexglue/fm4_manifest.toml'
 $logs = Join-Path $root '.local/logs'
 [void](New-Item -ItemType Directory -Force -Path $logs)
-if ($Parallel -eq 0) { $Parallel = Get-PinyonBuildJobCount }
+if ($Parallel -eq 0) { $Parallel = Get-Fm4BuildJobCount }
+
+$game = [IO.Path]::GetFullPath($GameRoot).Replace('\', '/')
+if (-not (Test-Path -LiteralPath (Join-Path $game 'default.xex') -PathType Leaf)) {
+    throw "default.xex is missing in $GameRoot"
+}
+$tracked = Join-Path $root 'config/rexglue/fm4_manifest.toml'
+$manifest = Join-Path $root 'config/rexglue/fm4_manifest.local.toml'
+# The launcher runs setup under Windows PowerShell 5.1 when PowerShell 7 is absent, whose
+# Set-Content has no BOM-less UTF-8.
+[IO.File]::WriteAllText($manifest,
+    (Get-Content -LiteralPath $tracked -Raw).Replace('../../../extracted/fm4', $game),
+    [Text.UTF8Encoding]::new($false))
 
 if (-not $SkipSdkBuild) {
     Push-Location $sdkRoot
     try {
-        Invoke-PinyonBuildCommand $environment.CMake @('--preset', 'win-amd64',
+        Invoke-Fm4BuildCommand $environment.CMake @('--preset', 'win-amd64',
             '-DREXGLUE_ENABLE_TRACY=OFF', '-DSDL_HIDAPI_LIBUSB=OFF') `
             (Join-Path $logs 'rexglue-configure.log') 'ReXGlue configuration failed.'
-        Invoke-PinyonBuildCommand $environment.CMake @('--build', '--preset', 'win-amd64-release',
+        Invoke-Fm4BuildCommand $environment.CMake @('--build', '--preset', 'win-amd64-release',
             '--target', 'rexglue', '--parallel', "$Parallel") `
             (Join-Path $logs 'rexglue-build.log') 'ReXGlue code-generator build failed.'
     }
