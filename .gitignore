@@ -2,3 +2,4 @@
 out/
 __pycache__/
 config/rexglue/fm4_manifest.local.toml
+.artifacts/

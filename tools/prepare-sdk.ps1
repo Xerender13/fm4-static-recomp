@@ -14,7 +14,7 @@ $sdkRoot = Resolve-Fm4SdkRoot
 $managedRoot = Resolve-Fm4LocalPath -RelativePath $config.sdk.fallback_path
 # FM4_SDK_ROOT, the development sibling or a submodule: an SDK someone else manages.
 if (-not [string]::Equals($sdkRoot, $managedRoot, [StringComparison]::OrdinalIgnoreCase)) {
-    Write-Fm4Event tools 39 "Using the SDK at $sdkRoot" -JsonEvents:$JsonEvents
+    Write-Fm4Event sdk 44 "Using the SDK at $sdkRoot" -JsonEvents:$JsonEvents
     return
 }
 $git = Get-Fm4Git
@@ -38,7 +38,7 @@ function Invoke-Fm4GitWithRetry {
         $code = $LASTEXITCODE
         if ($code -eq 0) { return }
         if ($attempt -lt $maximumAttempts) {
-            Write-Fm4Event tools 35 `
+            Write-Fm4Event sdk 37 `
                 "$Activity failed (attempt $attempt of $maximumAttempts); retrying." `
                 -JsonEvents:$JsonEvents
             Start-Sleep -Seconds (2 * $attempt)
@@ -90,7 +90,7 @@ if (Test-Path -LiteralPath $sdkRoot) {
     }
 }
 if (-not (Test-Path -LiteralPath $sdkRoot)) {
-    Write-Fm4Event tools 34 'Downloading the pinned ShiftGlue SDK source.' -JsonEvents:$JsonEvents
+    Write-Fm4Event sdk 36 'Downloading the pinned ShiftGlue SDK source.' -JsonEvents:$JsonEvents
     [void](New-Item -ItemType Directory -Force -Path $sdkRoot)
     & $git -C $sdkRoot init --quiet
     if ($LASTEXITCODE -ne 0) { throw "Unable to create the SDK checkout: $sdkRoot" }
@@ -116,4 +116,4 @@ if ($head.Count -ne 1 -or $head[0] -ne $config.sdk.revision) {
     throw 'The prepared SDK is not at the pinned revision.'
 }
 Repair-MaterializedLinks -RepositoryRoot $sdkRoot
-Write-Fm4Event tools 39 'The SDK source is ready.' -JsonEvents:$JsonEvents
+Write-Fm4Event sdk 44 'The SDK source is ready.' -JsonEvents:$JsonEvents
