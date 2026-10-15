@@ -1,0 +1,10 @@
+#pragma once
+
+namespace fm4_native {
+
+// Launcher helpers that run the executable without starting the game.
+enum class ToolMode { kNone, kInstall, kSchema };
+
+ToolMode CurrentToolMode();
+
+}  // namespace fm4_native

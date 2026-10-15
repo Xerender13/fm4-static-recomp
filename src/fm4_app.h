@@ -20,10 +20,12 @@
 #include "disc2_install.h"
 #include "game_hooks.h"
 #include "scripted_input.h"
+#include "tool_mode.h"
 #include "ui/graphics_page.h"
 #include "ui/hostui/host_ui.h"
 
 REXCVAR_DECLARE(std::string, fm4_config_root);
+REXCVAR_DECLARE(std::string, fm4_write_graphics_schema);
 
 class Fm4App final : public rex::ReXApp {
  public:
@@ -44,6 +46,13 @@ class Fm4App final : public rex::ReXApp {
   }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
+    const fm4_native::ToolMode mode = fm4_native::CurrentToolMode();
+    if (mode == fm4_native::ToolMode::kInstall) {
+      config.gpu_plugin.clear();
+      config.audio_factory = nullptr;
+      config.tool_mode = true;
+      return;
+    }
     config.gpu_plugin = "fh1";
     fm4_native::ConfigureScriptedInput(config);
     fm4_native::ApplyBuiltInDefaults(fm4_native::DefaultStage::kBeforeGpuPlugin);
@@ -52,6 +61,9 @@ class Fm4App final : public rex::ReXApp {
     // is set up.
     config.graphics =
         rex::system::LoadGpuPlugin(config.gpu_plugin, rex::cvar::GetFlagByName("gpu_backend"));
+    if (mode == fm4_native::ToolMode::kSchema) {
+      return;
+    }
     fm4_native::ApplyBuiltInDefaults(fm4_native::DefaultStage::kAfterGpuPlugin);
     if (graphics_config_->Load()) {
       fm4_native::ui::ApplySavedGraphicsSettings(*graphics_config_);
@@ -61,13 +73,41 @@ class Fm4App final : public rex::ReXApp {
     fm4_native::InstallRoadDetailBlurSwitch();
   }
 
+  bool WantsPresentation() const override {
+    return fm4_native::CurrentToolMode() == fm4_native::ToolMode::kNone;
+  }
+
+  bool ConstructRuntime(const rex::PathConfig& paths) override {
+    if (fm4_native::CurrentToolMode() == fm4_native::ToolMode::kSchema) {
+      const std::filesystem::path path = std::string(REXCVAR_GET(fm4_write_graphics_schema));
+      if (fm4_native::ui::WriteGraphicsSchema(path)) {
+        REXLOG_INFO("Graphics schema written to {}", path.string());
+      } else {
+        REXLOG_ERROR("Graphics schema: cannot write {}", path.string());
+      }
+      return true;
+    }
+    return rex::ReXApp::ConstructRuntime(paths);
+  }
+
+  void LaunchModule() override {
+    if (fm4_native::CurrentToolMode() == fm4_native::ToolMode::kNone) {
+      rex::ReXApp::LaunchModule();
+      return;
+    }
+    app_context().RequestDeferredQuit();
+  }
+
   void OnPostSetup() override {
+    fm4_native::InstallContentPackages(*runtime());
+    if (fm4_native::CurrentToolMode() != fm4_native::ToolMode::kNone) {
+      return;
+    }
     if (rex::ui::Window* const window = this->window()) {
       window->SetCursorVisibility(rex::ui::Window::CursorVisibility::kAutoHidden);
       fm4_native::ui::LimitFrameRateToDisplay(
           fm4_native::ui::DisplayRefreshHz(window->GetNativeWindowHandle()));
     }
-    fm4_native::InstallContentPackages(*runtime());
     fm4_native::StartCaptureWatcher([this]() -> rex::ui::Presenter* {
       return runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
                                                        : nullptr;

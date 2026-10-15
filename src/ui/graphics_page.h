@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -20,6 +21,10 @@ namespace fm4_native::ui {
 // settings given on the command line and values the page does not offer.
 // Before the GPU is created.
 void ApplySavedGraphicsSettings(const config::HostConfig& config);
+
+// The rows, choices, defaults and presets as JSON for the launcher (schema
+// version 1). False when the file cannot be written.
+bool WriteGraphicsSchema(const std::filesystem::path& path);
 
 // The refresh rate of the display showing `native_window` (an HWND), or 0.
 uint32_t DisplayRefreshHz(void* native_window);

@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iterator>
 #include <string>
 #include <string_view>
@@ -110,6 +111,135 @@ const Preset kPresets[] = {
       "true", "true", "true", "true", "true"}},
 };
 constexpr int kPresetCount = int(std::size(kPresets));
+
+struct RowText {
+  const char* label;
+  const Setting* setting;  // null for the preset row
+  const char* description;
+  bool divider_above = false;
+};
+
+// The page's rows in order; the frame rate, scale and preset rows add live
+// behaviour of their own in CreateGraphicsPage.
+const RowText kRows[] = {
+    {"FRAME RATE", &kFrameRate,
+     "Frames per second in races, from the console's 60 up to your display's refresh rate. A "
+     "rate the GPU cannot hold stutters: lower it or the resolution scale."},
+    {"RESOLUTION SCALE", &kScale,
+     "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load."},
+    {"GRAPHICS PRESET", nullptr,
+     "Sets every setting below. Console is the game as on the console; High raises most and "
+     "adds FXAA; Ultra also raises the level of detail, the mirror and particles and uses FXAA "
+     "Extreme; Experimental adds 4x MSAA in races, double reflection updates and crowds in "
+     "every race. A change to one setting makes the preset Custom."},
+    {"GAME MSAA", &kGameMsaa,
+     "The game's own multisampling of its scenes. Off is faster above 1x and leaves edges to "
+     "the resolution scale.",
+     true},
+    {"RACE MSAA", &kRaceMsaa,
+     "The game's multisampling in races: 4x has twice the samples of the console's 2x and "
+     "draws the scene in three tiles instead of two. Heavy on the GPU."},
+    {"ANISOTROPIC FILTERING", &kAnisotropy,
+     "Keeps textures sharp at grazing angles. Game leaves each texture the filtering the game "
+     "asks for."},
+    {"LEVEL OF DETAIL", &kDetail,
+     "How far cars keep their detailed models. Ultra also keeps the best model loaded for your "
+     "car, at more guest memory per car. Applies from the next race."},
+    {"CAR SHADOWS", &kShadows,
+     "Resolution of the shadow your car casts on itself and the road: sharper edges and "
+     "details. Applies from the next race or showroom."},
+    {"SCENERY SHADOWS", &kSceneryShadows,
+     "Shadows of the cones and barriers in races, which the game draws only in replays and "
+     "photo mode."},
+    {"CAR REFLECTIONS", &kReflections,
+     "Resolution of the surroundings reflected in car paint, glass and chrome. Applies from "
+     "the next race or showroom."},
+    {"REFLECTION UPDATES", &kReflectionUpdates,
+     "How often car reflections are redrawn. The console leaves them frozen in 16-car races "
+     "and split screen; Every Race redraws them there too; Double redraws twice as many "
+     "faces each frame."},
+    {"MIRROR", &kMirror,
+     "Full draws the mirror every frame with up to 16 cars and the cones and barriers, where "
+     "the console halves its rate and draws 6 cars (12- and 16-car races)."},
+    {"SOFT PARTICLES", &kSoftParticles,
+     "Smoke and dust fade where they meet the ground and cars instead of cutting into them, "
+     "as the game does in replays and photo mode."},
+    {"CROWDS", &kCrowds,
+     "Every Race adds the crowds the console leaves out of 1- and 16-car races. Uses more "
+     "guest memory."},
+    {"POST AA", &kPostAa,
+     "Smooths edges in the finished picture. FXAA Extreme smooths more and softens more.", true},
+    {"BLOOM", &kBloom,
+     "Full Rate updates the glow every frame, where the console skips every second one "
+     "(16-car races)."},
+    {"MOTION BLUR", &kMotionBlur,
+     "Blurs the road surface with speed. Off keeps the asphalt as sharp as when standing "
+     "still."},
+    {"DEPTH OF FIELD", &kDepthOfField,
+     "Blurs what is out of focus in the showroom, pre-race and replay cameras and photo mode. "
+     "Applies from the next screen."},
+};
+
+const RowText& Text(const char* label) {
+  for (const RowText& row : kRows) {
+    if (std::string_view(row.label) == label) {
+      return row;
+    }
+  }
+  std::abort();
+}
+
+std::string JsonString(std::string_view text) {
+  std::string out = "\"";
+  for (const char c : text) {
+    switch (c) {
+      case '"':
+        out += "\\\"";
+        break;
+      case '\\':
+        out += "\\\\";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      default:
+        out += c;
+    }
+  }
+  return out + "\"";
+}
+
+std::string EffectiveDefault(const Setting& setting) {
+  // ApplySavedGraphicsSettings turns GAME MSAA off unless a launch option says otherwise.
+  if (&setting == &kGameMsaa) {
+    return "true";
+  }
+  const rex::cvar::FlagEntry* info = rex::cvar::GetFlagInfo(setting.name);
+  return info ? info->default_value : std::string();
+}
+
+std::string RowJson(const RowText& row) {
+  std::string out = "{\"label\":" + JsonString(row.label);
+  if (!row.setting) {
+    return out + ",\"kind\":\"preset\",\"description\":" + JsonString(row.description) + "}";
+  }
+  const Setting& setting = *row.setting;
+  out += ",\"key\":" + JsonString(setting.name);
+  out += std::string(",\"string\":") + (setting.string ? "true" : "false");
+  if (setting.choices.empty()) {
+    out += ",\"kind\":\"range\",\"low\":" + std::to_string(setting.low) +
+           ",\"high\":" + std::to_string(setting.high);
+  } else {
+    out += ",\"kind\":\"choice\",\"choices\":[";
+    for (size_t i = 0; i < setting.choices.size(); ++i) {
+      out += std::string(i ? "," : "") + "{\"label\":" + JsonString(setting.choices[i].label) +
+             ",\"value\":" + JsonString(setting.choices[i].value) + "}";
+    }
+    out += "]";
+  }
+  out += ",\"default\":" + JsonString(EffectiveDefault(setting));
+  return out + ",\"description\":" + JsonString(row.description) + "}";
+}
 
 // Each scale switch rebuilds the renderer for most of a second, so steps
 // through the scales apply once the choice has rested this long.
@@ -246,6 +376,8 @@ MenuRow Row(const char* label, const Setting& setting, config::HostConfig& confi
             const GraphicsPageServices& services) {
   MenuRow row;
   row.label = label;
+  row.description = Text(label).description;
+  row.divider_above = Text(label).divider_above;
   row.value = [&setting] { return Label(setting, Find(setting, Live(setting.name))); };
   // A launch option sets the starting value only; the badge goes once the
   // page changes the setting.
@@ -261,6 +393,33 @@ MenuRow Row(const char* label, const Setting& setting, config::HostConfig& confi
 }
 
 }  // namespace
+
+bool WriteGraphicsSchema(const std::filesystem::path& path) {
+  std::string out = "{\"schema_version\":1,\"blocks\":[{\"rows\":[";
+  bool first = true;
+  for (const RowText& row : kRows) {
+    if (row.divider_above) {
+      out += "]},{\"rows\":[";
+      first = true;
+    }
+    out += (first ? "" : ",") + RowJson(row);
+    first = false;
+  }
+  out += "]}],\"presets\":[";
+  for (int i = 0; i < kPresetCount; ++i) {
+    out += std::string(i ? "," : "") + "{\"label\":" + JsonString(kPresets[i].label) +
+           ",\"values\":{";
+    for (size_t j = 0; j < kPresetSettingCount; ++j) {
+      out += std::string(j ? "," : "") + JsonString(kPresetSettings[j]->name) + ":" +
+             JsonString(kPresets[i].values[j]);
+    }
+    out += "}}";
+  }
+  out += "]}\n";
+  std::ofstream file(path, std::ios::binary | std::ios::trunc);
+  file << out;
+  return bool(file);
+}
 
 void ApplySavedGraphicsSettings(const config::HostConfig& config) {
   // GAME MSAA OFF, as in every preset but CONSOLE: above 1x the single-sampled surfaces' alpha
@@ -343,9 +502,7 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
     return SetByLaunchOption(kFrameRate) ? std::string("Set by a launch option for this session.")
                                          : std::string();
   };
-  frame_rate.description =
-      "Frames per second in races, from the console's 60 up to your display's refresh rate. A "
-      "rate the GPU cannot hold stutters: lower it or the resolution scale.";
+  frame_rate.description = Text("FRAME RATE").description;
   frame_rate.note = [services] {
     const uint32_t hz = services.display_refresh_hz ? services.display_refresh_hz() : 0;
     return hz ? "Your display refreshes at " + std::to_string(hz) + " Hz." : std::string();
@@ -368,8 +525,6 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
     pending->index = Step(kScale, current, direction);
     pending->chosen_at = std::chrono::steady_clock::now();
   };
-  scale.description =
-      "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load.";
   scale.note = [services] { return ResolutionLine(services); };
   // The renderer switches between frames; until it has, the change waits.
   scale.pending = [services, pending] {
@@ -394,105 +549,55 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
     }
     Save(config, saved);
   };
-  preset.description =
-      "Sets every setting below. Console is the game as on the console; High raises most and "
-      "adds FXAA; Ultra also raises the level of detail, the mirror and particles and uses FXAA "
-      "Extreme; Experimental adds 4x MSAA in races, double reflection updates and crowds in "
-      "every race. A change to one setting makes the preset Custom.";
+  preset.description = Text("GRAPHICS PRESET").description;
   rows.push_back(std::move(preset));
 
   MenuRow msaa = Row("GAME MSAA", kGameMsaa, config, services);
-  msaa.description =
-      "The game's own multisampling of its scenes. Off is faster above 1x and leaves edges to "
-      "the resolution scale.";
   msaa.note = [services] {
     return LiveScale(services) < 2 ? std::string("Does nothing at 1x.") : std::string();
   };
-  msaa.divider_above = true;
   rows.push_back(std::move(msaa));
 
   MenuRow race_msaa = Row("RACE MSAA", kRaceMsaa, config, services);
-  race_msaa.description =
-      "The game's multisampling in races: 4x has twice the samples of the console's 2x and "
-      "draws the scene in three tiles instead of two. Heavy on the GPU.";
   rows.push_back(std::move(race_msaa));
 
   MenuRow anisotropy = Row("ANISOTROPIC FILTERING", kAnisotropy, config, services);
-  anisotropy.description =
-      "Keeps textures sharp at grazing angles. Game leaves each texture the filtering the game "
-      "asks for.";
   rows.push_back(std::move(anisotropy));
 
   MenuRow detail = Row("LEVEL OF DETAIL", kDetail, config, services);
-  detail.description =
-      "How far cars keep their detailed models. Ultra also keeps the best model loaded for your "
-      "car, at more guest memory per car. Applies from the next race.";
   rows.push_back(std::move(detail));
 
   MenuRow shadows = Row("CAR SHADOWS", kShadows, config, services);
-  shadows.description =
-      "Resolution of the shadow your car casts on itself and the road: sharper edges and "
-      "details. Applies from the next race or showroom.";
   rows.push_back(std::move(shadows));
 
   MenuRow scenery_shadows = Row("SCENERY SHADOWS", kSceneryShadows, config, services);
-  scenery_shadows.description =
-      "Shadows of the cones and barriers in races, which the game draws only in replays and "
-      "photo mode.";
   rows.push_back(std::move(scenery_shadows));
 
   MenuRow reflections = Row("CAR REFLECTIONS", kReflections, config, services);
-  reflections.description =
-      "Resolution of the surroundings reflected in car paint, glass and chrome. Applies from "
-      "the next race or showroom.";
   rows.push_back(std::move(reflections));
 
   MenuRow reflection_updates = Row("REFLECTION UPDATES", kReflectionUpdates, config, services);
-  reflection_updates.description =
-      "How often car reflections are redrawn. The console leaves them frozen in 16-car races "
-      "and split screen; Every Race redraws them there too; Double redraws twice as many "
-      "faces each frame.";
   rows.push_back(std::move(reflection_updates));
 
   MenuRow mirror = Row("MIRROR", kMirror, config, services);
-  mirror.description =
-      "Full draws the mirror every frame with up to 16 cars and the cones and barriers, where "
-      "the console halves its rate and draws 6 cars (12- and 16-car races).";
   rows.push_back(std::move(mirror));
 
   MenuRow soft_particles = Row("SOFT PARTICLES", kSoftParticles, config, services);
-  soft_particles.description =
-      "Smoke and dust fade where they meet the ground and cars instead of cutting into them, "
-      "as the game does in replays and photo mode.";
   rows.push_back(std::move(soft_particles));
 
   MenuRow crowds = Row("CROWDS", kCrowds, config, services);
-  crowds.description =
-      "Every Race adds the crowds the console leaves out of 1- and 16-car races. Uses more "
-      "guest memory.";
   rows.push_back(std::move(crowds));
 
   MenuRow post_aa = Row("POST AA", kPostAa, config, services);
-  post_aa.description =
-      "Smooths edges in the finished picture. FXAA Extreme smooths more and softens more.";
-  post_aa.divider_above = true;
   rows.push_back(std::move(post_aa));
 
   MenuRow bloom = Row("BLOOM", kBloom, config, services);
-  bloom.description = "Full Rate updates the glow every frame, where the console skips every "
-                      "second one (16-car races).";
   rows.push_back(std::move(bloom));
 
   MenuRow motion_blur = Row("MOTION BLUR", kMotionBlur, config, services);
-  motion_blur.description =
-      "Blurs the road surface with speed. Off keeps the asphalt as sharp as when standing "
-      "still.";
   rows.push_back(std::move(motion_blur));
 
   MenuRow depth_of_field = Row("DEPTH OF FIELD", kDepthOfField, config, services);
-  depth_of_field.description =
-      "Blurs what is out of focus in the showroom, pre-race and replay cameras and photo mode. "
-      "Applies from the next screen.";
   rows.push_back(std::move(depth_of_field));
 
   auto screen = std::make_unique<MenuScreen>("GRAPHICS", std::move(rows));
