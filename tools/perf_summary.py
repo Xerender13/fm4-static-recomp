@@ -19,6 +19,7 @@ stamp = re.compile(r"^\[\d+-\d+-\d+ (\d+:\d+:\d+\.\d+)\] \[\w+\] \[(\w+)\] \[t(\
 roles = collections.defaultdict(collections.Counter)
 frames = []
 extra = []
+swaps = []
 for line in open(f"{base}-runtime.log", errors="replace"):
     m = stamp.match(line)
     if not m:
@@ -30,6 +31,8 @@ for line in open(f"{base}-runtime.log", errors="replace"):
     if f:
         stats = dict(kv.split("=") for kv in re.search(r"stats=\{(.*)\}", text).group(1).split(","))
         frames.append((time, int(f.group(1)), int(f.group(2)), int(f.group(3)), stats))
+    elif start <= time <= end and text.startswith('CRITICAL_PATH {"event":"consumed_swap"'):
+        swaps.append(int(re.search(r'"time_ns":(\d+)', text).group(1)))
     elif start <= time <= end and re.search(r"gpu ms/frame|transfer tile-passes|per frame over", text):
         extra.append(text[text.find("(Vulkan)") + 9:][:330])
 
@@ -47,6 +50,13 @@ if len(span) >= 2:
             "clear_color", "clear_depth", "depth_overwrite_draw"]
     print("per frame: " + ", ".join(
         f"{k} {(int(b[4].get(k, 0)) - int(a[4].get(k, 0))) / n:.1f}" for k in keys))
+# With --perf_critical_path_trace=true: the 1 % low is the frame rate over the slowest 1 % of
+# the frames the renderer consumed, timed at each swap.
+if len(swaps) >= 101:
+    times = sorted((b - a) / 1e6 for a, b in zip(swaps, swaps[1:]))
+    slowest = times[-max(1, len(times) // 100):]
+    print(f"frames: avg {1000 * len(times) / sum(times):.1f} fps, 1% low {1000 * len(slowest) / sum(slowest):.1f} fps, "
+          f"slowest {times[-1]:.2f} ms over {len(times)} frames")
 for text in extra[-4:]:
     print("  " + text)
 
