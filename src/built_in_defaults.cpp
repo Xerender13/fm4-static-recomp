@@ -19,7 +19,10 @@ constexpr std::array kBeforeGpuPlugin = {Default{"gpu_backend", "vulkan"}};
 
 // clear_memory_page_state: the SDK default re-uploads every CPU-written page each frame.
 // texture_cache_memory_limit_soft: a race needs about 300 MB at 2x; 256 saved 300 MB.
+// async_shader_compilation: a draw whose pipeline is still compiling is dropped, and FM4
+// keeps some render targets across frames, so a cold cache darkened the asphalt for seconds.
 constexpr std::array kAfterGpuPlugin = {
+    Default{"async_shader_compilation", "false"},
     Default{"clear_memory_page_state", "false"},
     Default{"host_present_fps_limit", "0"},
     Default{"gpu_record_thread", "true"},
