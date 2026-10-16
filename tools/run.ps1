@@ -2,6 +2,8 @@
 param(
     [ValidateSet('Release', 'RelWithDebInfo')]
     [string]$Configuration = 'Release',
+    # The extracted Disc 1 (the folder holding default.xex).
+    [string]$GameRoot,
     [string]$StateRoot,
     # Stop the game after this many seconds; 0 leaves it running.
     [int]$TimeoutSeconds = 0,
@@ -20,7 +22,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$game = [IO.Path]::GetFullPath((Join-Path $root '../extracted/fm4'))
+if (-not $GameRoot) { $GameRoot = Join-Path $root '../extracted/fm4' }
+$game = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameRoot)
 if (-not $StateRoot) { $StateRoot = Join-Path $root '.local/state' }
 $StateRoot = [IO.Path]::GetFullPath($StateRoot)
 $executable = Join-Path $root "out/build/win-amd64-$($Configuration.ToLowerInvariant())/fm4_native.exe"
