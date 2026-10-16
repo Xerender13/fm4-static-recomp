@@ -408,7 +408,7 @@ function New-Fm4CommandFailure {
         [Parameter(Mandatory)] [int]$ExitCode,
         [string]$CommandLine
     )
-    $detail = Get-Fm4CommandFailureDetail -Lines (Read-Fm4LogLines -LogPath $LogPath)
+    $detail = Get-Fm4CommandFailureDetail -Lines @(Read-Fm4LogLines -LogPath $LogPath)
     $failure = [Exception]::new("$FailureMessage Exit code: $ExitCode. Build log: $LogPath")
     $failure.Data['step'] = $Step
     $failure.Data['build_log'] = $LogPath
@@ -459,7 +459,7 @@ function New-Fm4FailureRecord {
         if ($data.Contains($key) -and $null -ne $data[$key]) { $record[$key] = $data[$key] }
     }
     $logLines = [string[]]@()
-    if ($record.Contains('build_log')) { $logLines = Read-Fm4LogLines -LogPath $record.build_log }
+    if ($record.Contains('build_log')) { $logLines = @(Read-Fm4LogLines -LogPath $record.build_log) }
     if ($data.Contains('error_excerpt') -and $null -ne $data['error_excerpt']) {
         $record.error_excerpt = [string[]]@($data['error_excerpt'])
     }
@@ -625,4 +625,45 @@ function Get-Fm4Git {
         throw 'Git is not available. Run provision-toolchain.ps1 first.'
     }
     $candidate
+}
+
+# Windows PowerShell 5.1 under 'Stop' can turn a native command's stderr into a terminating
+# error even when it is redirected, and a fetch that failed after `git init` leaves an unborn
+# HEAD that git complains about. Both queries decide from their output alone.
+function Get-Fm4GitHead {
+    param(
+        [Parameter(Mandatory)] [string]$Git,
+        [Parameter(Mandatory)] [string]$Repository
+    )
+    $ErrorActionPreference = 'Continue'
+    $head = @(& $Git -C $Repository rev-parse --verify --quiet HEAD 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $head.Count -eq 1) { $head[0] } else { $null }
+}
+
+function Test-Fm4GitDirty {
+    param(
+        [Parameter(Mandatory)] [string]$Git,
+        [Parameter(Mandatory)] [string]$Repository
+    )
+    $ErrorActionPreference = 'Continue'
+    @(& $Git -C $Repository status --porcelain --ignore-submodules=dirty 2>$null).Count -ne 0
+}
+
+# The launcher draws its Settings panel from graphics-settings.json beside the executable.
+function Write-Fm4GraphicsSchema {
+    param(
+        [Parameter(Mandatory)] [string]$ExecutableDirectory,
+        [Parameter(Mandatory)] [string]$GameRoot,
+        [Parameter(Mandatory)] [string]$LogPath
+    )
+    $schema = Join-Path $ExecutableDirectory 'graphics-settings.json'
+    # A previous build's file (a rerun, an update's seeded folder) must not pass for this one's.
+    if (Test-Path -LiteralPath $schema) { Remove-Item -LiteralPath $schema -Force }
+    $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_native.exe') -Wait -PassThru `
+        -ArgumentList "`"--game_data_root=$GameRoot`"", "`"--fm4_write_graphics_schema=$schema`"",
+        "`"--log_file=$LogPath`""
+    if (-not (Test-Path -LiteralPath $schema -PathType Leaf)) {
+        throw (New-Fm4CommandFailure -FailureMessage 'The graphics settings file was not written.' `
+            -Step 'schema' -LogPath $LogPath -ExitCode $process.ExitCode)
+    }
 }

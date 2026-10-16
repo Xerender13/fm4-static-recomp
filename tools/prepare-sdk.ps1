@@ -80,12 +80,10 @@ function Repair-MaterializedLinks {
 }
 
 if (Test-Path -LiteralPath $sdkRoot) {
-    $head = @(& $git -C $sdkRoot rev-parse HEAD 2>$null | Select-Object -First 1)
-    $dirty = @(& $git -C $sdkRoot status --porcelain --ignore-submodules=dirty 2>$null).Count -ne 0
-    if ($dirty) {
+    if (Test-Fm4GitDirty -Git $git -Repository $sdkRoot) {
         throw "The managed SDK checkout has local changes: $sdkRoot"
     }
-    if ($head.Count -ne 1 -or $head[0] -ne $config.sdk.revision) {
+    if ((Get-Fm4GitHead -Git $git -Repository $sdkRoot) -ne $config.sdk.revision) {
         Remove-Item -LiteralPath $sdkRoot -Recurse -Force
     }
 }
@@ -111,8 +109,7 @@ Invoke-Fm4GitWithRetry -Activity 'Downloading the SDK dependencies' -Arguments @
     'submodule', 'update', '--init', '--recursive', '--jobs', '8'
 )
 
-$head = @(& $git -C $sdkRoot rev-parse HEAD 2>$null | Select-Object -First 1)
-if ($head.Count -ne 1 -or $head[0] -ne $config.sdk.revision) {
+if ((Get-Fm4GitHead -Git $git -Repository $sdkRoot) -ne $config.sdk.revision) {
     throw 'The prepared SDK is not at the pinned revision.'
 }
 Repair-MaterializedLinks -RepositoryRoot $sdkRoot

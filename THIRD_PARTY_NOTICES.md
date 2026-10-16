@@ -3,7 +3,8 @@
 ## Pinyon Shift
 
 `tools/release-common.ps1`, `tools/provision-toolchain.ps1`, `tools/prepare-sdk.ps1`,
-`tools/install-build-tools.ps1`, `src/ui/hostui/*`, `src/config/host_config.*` and the
+`tools/install-build-tools.ps1`, `tools/package-source.ps1` (its zip function),
+`cmake/Fm4RexGlue.cmake`, `src/ui/hostui/*`, `src/config/host_config.*` and the
 launcher (`launcher/`) are adapted from Pinyon Shift (https://github.com/arcanite24/pinyon-shift).
 
 ```text
