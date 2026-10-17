@@ -61,11 +61,6 @@ const Setting kAnisotropy = {"anisotropic_override",
 const Setting kMotionBlur = {"fm4_road_detail_blur", false, {{"ON", "true"}, {"OFF", "false"}}};
 const Setting kDepthOfField = {"fm4_depth_of_field", false, {{"ON", "true"}, {"OFF", "false"}}};
 
-const Setting kShadows = {
-    "fm4_shadow_map_size", false, {{"CONSOLE", "512"}, {"HIGH", "768"}}};
-const Setting kReflections = {
-    "fm4_reflection_cube_size", false, {{"CONSOLE", "256"}, {"HIGH", "512"}}};
-
 const Setting kRaceMsaa = {"fm4_race_4x_msaa", false, {{"2X", "false"}, {"4X", "true"}}};
 const Setting kSceneryShadows = {"fm4_scenery_shadows", false, {{"OFF", "false"}, {"ON", "true"}}};
 const Setting kReflectionUpdates = {
@@ -80,15 +75,14 @@ const Setting kCrowds = {
 
 // Every setting but the frame rate and the resolution scale.
 const Setting* const kPresetSettings[] = {
-    &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kShadows, &kSceneryShadows, &kReflections,
-    &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur,
-    &kDepthOfField};
+    &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows, &kReflectionUpdates,
+    &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur, &kDepthOfField};
 constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
-    &kFrameRate, &kScale, &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kShadows,
-    &kSceneryShadows, &kReflections, &kReflectionUpdates, &kDetail, &kMirror, &kBloom,
-    &kSoftParticles, &kCrowds, &kMotionBlur, &kDepthOfField};
+    &kFrameRate, &kScale, &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows,
+    &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur,
+    &kDepthOfField};
 
 struct Preset {
   const char* label;
@@ -98,17 +92,17 @@ struct Preset {
 // The page shows the preset all settings match, or CUSTOM.
 const Preset kPresets[] = {
     {"CONSOLE",
-     {"none", "false", "false", "-1", "512", "false", "256", "console", "console", "false",
-      "false", "false", "false", "true", "true"}},
+     {"none", "false", "false", "-1", "false", "console", "console", "false", "false", "false",
+      "false", "true", "true"}},
     {"HIGH",
-     {"fxaa", "true", "false", "5", "768", "true", "256", "console", "high", "false", "true",
-      "false", "false", "true", "true"}},
+     {"fxaa", "true", "false", "5", "true", "console", "high", "false", "true", "false",
+      "false", "true", "true"}},
     {"ULTRA",
-     {"fxaa_extreme", "true", "false", "5", "768", "true", "512", "every_race", "ultra", "true",
-      "true", "true", "false", "true", "true"}},
+     {"fxaa_extreme", "true", "false", "5", "true", "every_race", "ultra", "true", "true",
+      "true", "false", "true", "true"}},
     {"EXPERIMENTAL",
-     {"fxaa_extreme", "true", "true", "5", "768", "true", "512", "double", "ultra", "true",
-      "true", "true", "true", "true", "true"}},
+     {"fxaa_extreme", "true", "true", "5", "true", "double", "ultra", "true", "true", "true",
+      "true", "true", "true"}},
 };
 constexpr int kPresetCount = int(std::size(kPresets));
 
@@ -145,15 +139,9 @@ const RowText kRows[] = {
     {"LEVEL OF DETAIL", &kDetail,
      "How far cars keep their detailed models. Ultra also keeps the best model loaded for your "
      "car, at more guest memory per car. Applies from the next race."},
-    {"CAR SHADOWS", &kShadows,
-     "Resolution of the shadow your car casts on itself and the road: sharper edges and "
-     "details. Applies from the next race or showroom."},
     {"SCENERY SHADOWS", &kSceneryShadows,
      "Shadows of the cones and barriers in races, which the game draws only in replays and "
      "photo mode."},
-    {"CAR REFLECTIONS", &kReflections,
-     "Resolution of the surroundings reflected in car paint, glass and chrome. Applies from "
-     "the next race or showroom."},
     {"REFLECTION UPDATES", &kReflectionUpdates,
      "How often car reflections are redrawn. The console leaves them frozen in 16-car races "
      "and split screen; Every Race redraws them there too; Double redraws twice as many "
@@ -567,14 +555,8 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   MenuRow detail = Row("LEVEL OF DETAIL", kDetail, config, services);
   rows.push_back(std::move(detail));
 
-  MenuRow shadows = Row("CAR SHADOWS", kShadows, config, services);
-  rows.push_back(std::move(shadows));
-
   MenuRow scenery_shadows = Row("SCENERY SHADOWS", kSceneryShadows, config, services);
   rows.push_back(std::move(scenery_shadows));
-
-  MenuRow reflections = Row("CAR REFLECTIONS", kReflections, config, services);
-  rows.push_back(std::move(reflections));
 
   MenuRow reflection_updates = Row("REFLECTION UPDATES", kReflectionUpdates, config, services);
   rows.push_back(std::move(reflection_updates));

@@ -78,7 +78,7 @@ hooks and renderer changes):
 | Race loading | Console speed | Console speed | Faster (the load runs on a fast guest vblank) |
 | Sun and lights | Correct | Screen-filling glare (occlusion queries miscounted) | Correct |
 | Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Game MSAA on or off, 4x race MSAA, FXAA, FXAA Extreme, resolution scale |
-| Graphics settings | Fixed | Fixed | Level of detail, car shadow map and reflection cube size, reflection updates, full-rate mirror and bloom, scenery shadows, soft particles, crowds in every race, motion blur and depth of field switches |
+| Graphics settings | Fixed | Fixed | Level of detail, reflection updates, full-rate mirror and bloom, scenery shadows, soft particles, crowds in every race, motion blur and depth of field switches |
 | Settings menu | - | Launch options only | In-game GRAPHICS page in My Profile → Options (also F6), saved between sessions; see [Graphics settings](#graphics-settings) |
 | VRAM at 3x | - | About 8 GB for the game's share | About 2.5 GB |
 | Renderer threads | - | One thread parses and records | Parsing and Vulkan recording on separate threads (about +10 % frame rate at 2x) |
@@ -229,9 +229,7 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 | Race MSAA | 2x | 2x | 2x | 4x |
 | Anisotropic filtering | Game | 16x | 16x | 16x |
 | Level of detail | Console | High | Ultra | Ultra |
-| Car shadows | Console | High | High | High |
 | Scenery shadows | Off | On | On | On |
-| Car reflections | Console | Console | High | High |
 | Reflection updates | Console | Console | Every race | Double |
 | Mirror | Console | Console | Full | Full |
 | Soft particles | Off | Off | On | On |
@@ -271,13 +269,9 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
   the three nearest cars. Ultra moves them out about twice as far, allows the four nearest
   cars, and keeps your own car always on its best model with the best wheels, at more guest
   memory per car. Applies from the next race load.
-- **CAR SHADOWS**: the resolution of the shadow your car casts on itself and the road, 512
-  (console) or 768 per side: sharper edges and detail.
-- **CAR REFLECTIONS**: the resolution of the surroundings reflected in paint, glass and
-  chrome, 256 (console) or 512 per cube face.
-- **REFLECTION UPDATES**: how often those reflections are redrawn. The console freezes them
-  in 16-car races and split screen; Every race redraws them there too; Double redraws twice
-  as many faces each frame.
+- **REFLECTION UPDATES**: how often the reflections in car paint, glass and chrome are
+  redrawn. The console freezes them in 16-car races and split screen; Every race redraws
+  them there too; Double redraws twice as many faces each frame.
 
 **Track and effects**
 
