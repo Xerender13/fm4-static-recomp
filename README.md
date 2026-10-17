@@ -367,6 +367,36 @@ rate over the slowest 1 % of frames) come from the renderer's per-frame timestam
 At 1x and 2x the CPU is the limit (one game thread runs a full core); at 3x and 4x the GPU
 is. In play the frame rate is capped at the display's refresh rate.
 
+### Compared with Xenia
+
+The same race on the same PC and disc image in Xenia Canary, build
+[`dac2794ca`](https://github.com/xenia-canary/xenia-canary/commit/dac2794ca72e20b2cb5e6ca9e765da8811a19d6d)
+(`canary_experimental`, 16 October 2026). Xenia test ran using following settings: Direct3D 12 backend, vsync off, no frame rate limit, `readback_resolve = "fast"`,
+`occlusion_query = "strict"` (without these two the game renders incorrectly);
+only `draw_resolution_scale` changed between rows. Xenia's figures are the median of three
+runs per resolution; this recomp's measurements are of the Console preset rows above.
+
+**Frame rate**
+
+| Scale | Average fps, Xenia | Average fps, this recomp | 1 % low, Xenia | 1 % low, this recomp |
+|---|---|---|---|---|
+| 1x | 102 | 207 | 54 | 106 |
+| 2x | 88 | 194 | 55 | 124 |
+| 3x | 68 | 148 | 45 | 76 |
+| 4x | 45 | 92 | 35 | 47 |
+
+**GPU use and video memory**
+
+| Scale | GPU use, Xenia | GPU use, this recomp | VRAM (game), Xenia | VRAM (game), this recomp |
+|---|---|---|---|---|
+| 1x | 38 % | 54 % | 1.5 GB | 1.2 GB |
+| 2x | 56 % | 80 % | 4.2 GB | 1.6 GB |
+| 3x | 81 % | 99 % | 7.8 GB | 2.3 GB |
+| 4x | 90 % | 99 % | 13.0 GB | 3.1 GB |
+
+This recomp runs about twice as fast at every scale and needs a quarter to two fifths of Xenia's
+video memory from 2x up. Xenia is CPU-bound up to 2x (its GPU use stays under 60 %).
+
 ## Known issues
 
 - **Damage rendering** sometimes causes a texture seam to appear on the hood and front
