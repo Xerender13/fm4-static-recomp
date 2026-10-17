@@ -3,6 +3,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string]$GameRoot,
+    # The player's state whose shader cache the warm-up fills, as run.ps1 takes it.
+    [string]$StateRoot,
+    [switch]$SkipWarmUp,
     # Parallel compile jobs; 0 picks them from the processor count and memory.
     [ValidateRange(0, 32)] [int]$Parallel = 0,
     [switch]$JsonEvents
@@ -68,3 +71,19 @@ catch {
     [Console]::Error.WriteLine("Setup failed: $($failure.Exception.Message)")
     exit 1
 }
+
+# The build is done whatever the warm-up does: without it the game compiles shaders in play.
+if (-not $SkipWarmUp) {
+    $warmUp = @{ GameRoot = $GameRoot; IfNeeded = $true; JsonEvents = $JsonEvents }
+    if ($StateRoot) { $warmUp.StateRoot = $StateRoot }
+    $warmedUp = $false
+    try {
+        & (Join-Path $PSScriptRoot 'warm-up.ps1') @warmUp | Out-Host
+        $warmedUp = $LASTEXITCODE -eq 0
+    }
+    catch { [Console]::Out.WriteLine("Shader warm-up: $($_.Exception.Message)") }
+    if (-not $warmedUp) {
+        [Console]::Out.WriteLine('The shader warm-up did not finish; the game will compile shaders while you play.')
+    }
+}
+exit 0

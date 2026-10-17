@@ -104,8 +104,8 @@ hooks and renderer changes):
   - this repository with the downloaded SDK and the build: about 3.1 GB;
   - the build tools setup downloads (CMake, LLVM, Git, Python, xz): about 4.1 GB;
   - Disc 2 and DLC, once installed into your save folder: about 2.8 GB and 2.2 GB.
-- About 40 minutes for the first setup on a fast PC with a fast connection; a rebuild after
-  an update takes minutes.
+- About 40 minutes for the first setup on a fast PC with a fast connection, plus about
+  10 for the shader warm-up; a rebuild after an update takes minutes.
 
 ## Install
 
@@ -158,7 +158,15 @@ Give `-GameRoot` without a trailing backslash. Setup:
 3. downloads the pinned ShiftGlue SDK revision into `.local\shiftglue-sdk` and builds its
    recompiler;
 4. translates `default.xex` into C++ (several minutes);
-5. compiles `out\build\win-amd64-release\fm4_native.exe`.
+5. compiles `out\build\win-amd64-release\fm4_native.exe`;
+6. warms the shader cache: the game runs hidden in the background (nothing on screen, no
+   sound) through the menus and a short race on five tracks, so that your first races do
+   not stall while shaders compile (about 10 minutes; after 25 minutes it skips the
+   tracks it has not reached, so a slow PC may take a few minutes longer). It runs only
+   when the cache is missing or out of date, so a rebuild after an update usually skips
+   it. Add `-SkipWarmUp` to leave it out; the game then compiles shaders while you play,
+   with short stalls the first time each effect appears. Pass the same `-StateRoot` you
+   play with (see below) so the cache lands in that state folder.
 
 Everything stays inside the repository folder; nothing else on the system changes apart
 from the Build Tools. If a step fails, the last lines name it, and
@@ -375,6 +383,14 @@ is. In play the frame rate is capped at the display's refresh rate.
   one within minutes. They keep races smooth by not stalling the GPU; but in theory a texture
   could still be read before its copy lands. Should you ever see a corrupted texture,
   launch with `--fh1_async_readbacks=false` and please report it.
+- **Shader stutter:** the first time an effect appears on a PC, the game stops for a
+  moment to compile its shaders. Setup's warm-up covers the menus and five tracks; other
+  tracks compile as you meet them, once. After changing the graphics card, GAME MSAA or
+  the resolution scale, or whenever the stalls come back, run the warm-up again (add
+  `-StateRoot` if you play with one):
+  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\warm-up.ps1 -GameRoot D:\FM4\disc1`.
+  A GPU driver update needs nothing: the next launch rebuilds the cache, with one longer
+  loading screen.
 - **Frame pacing:** a rare, minor frame-time hitch in races, usually visible only in
   monitoring tools and not in play. A frame rate the PC cannot hold is less smooth, so
   pick one a little below your average.
@@ -409,6 +425,7 @@ Limitations rather than bugs:
 | `config/rexglue/` | The recompiler's input: function analysis, hooks, the manifest |
 | `config/*.json` | The pinned toolchain and SDK, the supported disc's file list |
 | `tools/setup.ps1`, `build.ps1`, `codegen.ps1`, `run.ps1` | Setup, build and launch |
+| `tools/warm-up.ps1`, `config/warm-up/` | The shader warm-up and the profile it plays with |
 | `tools/` (the rest) | Development tools: scripted races and measurements, dumps, disassembly helpers. Several assume the author's folder layout |
 
 ## AI use

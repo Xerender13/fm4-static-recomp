@@ -60,6 +60,9 @@ if ($Dumps) {
     $arguments += '--fh1_native_gpu_profile=true', "--fh1_resolve_dump_dir=$dumpRoot", '--fh1_resolve_dump_frame=-1',
         "--dump_shaders=$(Join-Path $dumpRoot 'shaders')"
 }
+# Start-Process joins its arguments with spaces and quotes none of them. Backslashes before the
+# closing quote are doubled, or the last one would escape it.
+$arguments = @($arguments | ForEach-Object { if ($_ -match '\s' -and $_ -notmatch '^".*"$') { "`"$($_ -replace '(\\+)$', '$1$1')`"" } else { $_ } })
 $env:FM4_NATIVE_INPUT_RECORD = if ($RecordInput) { [IO.Path]::GetFullPath($RecordInput, $root) } else { '' }
 $process = Start-Process -FilePath $executable -ArgumentList $arguments `
     -WorkingDirectory (Split-Path $executable -Parent) -PassThru
