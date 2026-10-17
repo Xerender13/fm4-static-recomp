@@ -35,6 +35,7 @@ legally obtained copy of the game, and the executable is built on your computer.
 - [What has not been tested](#what-has-not-been-tested)
 - [Benchmarks](#benchmarks)
 - [Known issues](#known-issues)
+- [Reporting issues](#reporting-issues)
 - [Roadmap](#roadmap)
 - [Repository layout](#repository-layout)
 - [AI use](#ai-use)
@@ -427,6 +428,63 @@ Limitations rather than bugs:
 - Install folders with non-English letters (for example a Cyrillic Windows user name in
   the path) or `[`/`]` are untested or known to break the scripts.
 - No tests on any AMD GPUs yet 
+
+## Reporting issues
+
+Before you open an issue:
+
+- check [Known issues](#known-issues) and the open issues; add to an existing one rather
+  than opening a duplicate;
+- check that `default.xex` has the supported hash (see [Install](#1-extract-disc-1));
+- update to the latest version (see [Updating](#updating)) and check that the problem is
+  still there;
+- for anything that looks wrong on screen, try a `-Compat` launch too (see
+  [Launch options](#launch-options)) and note whether it looks the same there.
+
+**Title:** `<Area>: <what happens> (<where>)`, for example
+`Graphics: car shadows flicker at 3x (Bernese Alps, cockpit view)`. Area is one of
+`Crash`, `Graphics`, `Performance`, `Audio`, `Input`, `Setup`, `Disc 2/DLC`, `Gameplay`,
+`Other`.
+
+**Body:** copy this template and fill in every line; write "unknown" rather than leaving
+one out.
+
+```markdown
+### What happens
+<!-- What you see, and what you expected instead. -->
+
+### Steps to reproduce
+1. <!-- Mode (World Tour, Free Play, ...), track, car, camera, number of AI cars. -->
+2.
+
+### How often
+<!-- Always / sometimes (about how often) / once. -->
+
+### Version
+<!-- Output of `git rev-parse --short HEAD` in the repository folder,
+     or the date you downloaded the ZIP. -->
+
+### System
+- Windows:
+- CPU:
+- GPU and driver version:
+- RAM:
+- Display resolution and refresh rate:
+
+### Settings
+- GRAPHICS preset (or attach `config\graphics.toml` from the state folder):
+- Launch options:
+- Same with `-Compat`? <!-- yes / no / not tried; graphics issues only -->
+- Disc 2 installed / DLC installed:
+
+### Attachments
+<!-- runtime.log from the state folder's logs (.local\state\logs\runtime.log by default).
+     Setup problems: .local\logs\setup-error.json and the logs next to it.
+     Graphics problems: a screenshot or a short video. -->
+```
+
+Logs can contain folder paths with your Windows user name; edit them out if you prefer.
+Never attach game files, disc images or a built executable.
 
 ## Roadmap
 
