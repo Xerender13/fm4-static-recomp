@@ -32,7 +32,7 @@ class Fm4App final : public rex::ReXApp {
   using rex::ReXApp::ReXApp;
 
   static std::unique_ptr<rex::ui::WindowedApp> Create(rex::ui::WindowedAppContext& context) {
-    return std::unique_ptr<Fm4App>(new Fm4App(context, "fm4_native", PPCImageConfig));
+    return std::unique_ptr<Fm4App>(new Fm4App(context, "fm4_static_recomp", PPCImageConfig));
   }
 
  protected:
@@ -42,45 +42,45 @@ class Fm4App final : public rex::ReXApp {
         configured.empty() ? paths.user_data_root.parent_path() / "config"
                            : std::filesystem::path(configured);
     graphics_config_ =
-        std::make_unique<fm4_native::config::HostConfig>(config_root / "graphics.toml");
+        std::make_unique<fm4_static_recomp::config::HostConfig>(config_root / "graphics.toml");
   }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
-    const fm4_native::ToolMode mode = fm4_native::CurrentToolMode();
-    if (mode == fm4_native::ToolMode::kInstall) {
+    const fm4_static_recomp::ToolMode mode = fm4_static_recomp::CurrentToolMode();
+    if (mode == fm4_static_recomp::ToolMode::kInstall) {
       config.gpu_plugin.clear();
       config.audio_factory = nullptr;
       config.tool_mode = true;
       return;
     }
     config.gpu_plugin = "fh1";
-    fm4_native::ConfigureScriptedInput(config);
-    fm4_native::ApplyBuiltInDefaults(fm4_native::DefaultStage::kBeforeGpuPlugin);
+    fm4_static_recomp::ConfigureScriptedInput(config);
+    fm4_static_recomp::ApplyBuiltInDefaults(fm4_static_recomp::DefaultStage::kBeforeGpuPlugin);
     // The GPU settings are registered by the plugin, so it is loaded here
     // rather than by the app, and the saved values reach them before the GPU
     // is set up.
     config.graphics =
         rex::system::LoadGpuPlugin(config.gpu_plugin, rex::cvar::GetFlagByName("gpu_backend"));
-    if (mode == fm4_native::ToolMode::kSchema) {
+    if (mode == fm4_static_recomp::ToolMode::kSchema) {
       return;
     }
-    fm4_native::ApplyBuiltInDefaults(fm4_native::DefaultStage::kAfterGpuPlugin);
+    fm4_static_recomp::ApplyBuiltInDefaults(fm4_static_recomp::DefaultStage::kAfterGpuPlugin);
     if (graphics_config_->Load()) {
-      fm4_native::ui::ApplySavedGraphicsSettings(*graphics_config_);
+      fm4_static_recomp::ui::ApplySavedGraphicsSettings(*graphics_config_);
     } else {
       REXLOG_ERROR("Graphics settings: cannot read {}", graphics_config_->path().string());
     }
-    fm4_native::InstallRoadDetailBlurSwitch();
+    fm4_static_recomp::InstallRoadDetailBlurSwitch();
   }
 
   bool WantsPresentation() const override {
-    return fm4_native::CurrentToolMode() == fm4_native::ToolMode::kNone;
+    return fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kNone;
   }
 
   bool ConstructRuntime(const rex::PathConfig& paths) override {
-    if (fm4_native::CurrentToolMode() == fm4_native::ToolMode::kSchema) {
+    if (fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kSchema) {
       const std::filesystem::path path = std::string(REXCVAR_GET(fm4_write_graphics_schema));
-      if (fm4_native::ui::WriteGraphicsSchema(path)) {
+      if (fm4_static_recomp::ui::WriteGraphicsSchema(path)) {
         REXLOG_INFO("Graphics schema written to {}", path.string());
       } else {
         REXLOG_ERROR("Graphics schema: cannot write {}", path.string());
@@ -91,7 +91,7 @@ class Fm4App final : public rex::ReXApp {
   }
 
   void LaunchModule() override {
-    if (fm4_native::CurrentToolMode() == fm4_native::ToolMode::kNone) {
+    if (fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kNone) {
       rex::ReXApp::LaunchModule();
       return;
     }
@@ -99,20 +99,20 @@ class Fm4App final : public rex::ReXApp {
   }
 
   void OnPostSetup() override {
-    fm4_native::InstallContentPackages(*runtime());
-    if (fm4_native::CurrentToolMode() != fm4_native::ToolMode::kNone) {
+    fm4_static_recomp::InstallContentPackages(*runtime());
+    if (fm4_static_recomp::CurrentToolMode() != fm4_static_recomp::ToolMode::kNone) {
       return;
     }
     if (rex::ui::Window* const window = this->window()) {
       window->SetCursorVisibility(rex::ui::Window::CursorVisibility::kAutoHidden);
-      fm4_native::ui::LimitFrameRateToDisplay(
-          fm4_native::ui::DisplayRefreshHz(window->GetNativeWindowHandle()));
+      fm4_static_recomp::ui::LimitFrameRateToDisplay(
+          fm4_static_recomp::ui::DisplayRefreshHz(window->GetNativeWindowHandle()));
     }
-    fm4_native::StartCaptureWatcher([this]() -> rex::ui::Presenter* {
+    fm4_static_recomp::StartCaptureWatcher([this]() -> rex::ui::Presenter* {
       return runtime() && runtime()->graphics_system() ? runtime()->graphics_system()->presenter()
                                                        : nullptr;
     });
-    fm4_native::SetGraphicsPageOpener([this] {
+    fm4_static_recomp::SetGraphicsPageOpener([this] {
       if (rex::ui::Window* const window = this->window()) {
         window->app_context().CallInUIThreadDeferred([this] { OpenGraphicsPage(); });
       }
@@ -128,7 +128,7 @@ class Fm4App final : public rex::ReXApp {
 
   void OnShutdown() override {
     rex::ui::UnregisterBind("bind_graphics_page");
-    fm4_native::SetGraphicsPageOpener(nullptr);
+    fm4_static_recomp::SetGraphicsPageOpener(nullptr);
     host_ui_.reset();
   }
 
@@ -154,13 +154,13 @@ class Fm4App final : public rex::ReXApp {
       return;
     }
     if (!host_ui_) {
-      host_ui_ = std::make_unique<fm4_native::hostui::HostUi>(
+      host_ui_ = std::make_unique<fm4_static_recomp::hostui::HostUi>(
           *this, *presenter, *immediate_drawer(), *window(),
           static_cast<rex::input::InputSystem*>(runtime()->input_system()), game_data_root());
     }
-    fm4_native::ui::GraphicsPageServices services;
-    services.display_refresh_hz =
-        [hz = fm4_native::ui::DisplayRefreshHz(window()->GetNativeWindowHandle())] { return hz; };
+    fm4_static_recomp::ui::GraphicsPageServices services;
+    services.display_refresh_hz = [hz = fm4_static_recomp::ui::DisplayRefreshHz(
+                                       window()->GetNativeWindowHandle())] { return hz; };
     services.draw_resolution_scale = [this]() -> uint32_t {
       auto* graphics = runtime() ? runtime()->graphics_system() : nullptr;
       return graphics ? graphics->draw_resolution_scale() : 0;
@@ -178,9 +178,10 @@ class Fm4App final : public rex::ReXApp {
                                                          : std::pair{width, width * 9 / 16};
     };
     services.saved = [this] { host_ui_->NotifySaved(); };
-    host_ui_->Open(fm4_native::ui::CreateGraphicsPage(*graphics_config_, std::move(services)));
+    host_ui_->Open(
+        fm4_static_recomp::ui::CreateGraphicsPage(*graphics_config_, std::move(services)));
   }
 
-  std::unique_ptr<fm4_native::config::HostConfig> graphics_config_;
-  std::unique_ptr<fm4_native::hostui::HostUi> host_ui_;
+  std::unique_ptr<fm4_static_recomp::config::HostConfig> graphics_config_;
+  std::unique_ptr<fm4_static_recomp::hostui::HostUi> host_ui_;
 };

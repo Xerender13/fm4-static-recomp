@@ -268,16 +268,16 @@ function Get-Fm4FailureHint {
     param([AllowEmptyCollection()] [string[]]$Lines = @())
     $text = $Lines -join "`n"
     if ($text -match '(?i)No space left on device|not enough space on the disk|There is not enough space|disk (is )?full|LNK1180|ENOSPC') {
-        return 'The drive ran out of free space. Free at least 30 GB on the drive that holds FM4 Native, then run setup again.'
+        return 'The drive ran out of free space. Free at least 30 GB on the drive that holds FM4 Static Recomp, then run setup again.'
     }
     if ($text -match '(?i)out of memory|bad_alloc|not enough memory|Allocation failed|paging file is too small|insufficient system resources|0xC0000017|0xC000012D') {
         return 'The compiler ran out of memory. Close other programs, or let Windows manage the paging file size, then run setup again; it resumes where it stopped.'
     }
     if ($text -match '(?i)contains a virus|potentially unwanted software|Operation did not complete successfully because the file') {
-        return 'Antivirus blocked a file the build produced. Allow the FM4 Native folder in your antivirus, then run setup again.'
+        return 'Antivirus blocked a file the build produced. Allow the FM4 Static Recomp folder in your antivirus, then run setup again.'
     }
     if ($text -match '(?i)Error copying file|is being used by another process|Access is denied|Permission denied|LNK1104|LNK1168|cannot open (output )?file|failed to write the output file|unable to (open|remove) .* for writing|Could not replace .* beside|open in another program') {
-        return 'A file could not be written because another program has it open. Close FM4 Native and any tool started from its out\build folder, wait for antivirus scanning to finish (or allow the FM4 Native folder in your antivirus), then run setup again.'
+        return 'A file could not be written because another program has it open. Close FM4 Static Recomp and any tool started from its out\build folder, wait for antivirus scanning to finish (or allow the FM4 Static Recomp folder in your antivirus), then run setup again.'
     }
     if ($text -match '(?i)PLEASE submit a bug report|frontend command failed due to signal|clang.*crashed|Exception Code: 0x|Stack dump:') {
         return 'The compiler process crashed. This is most often caused by running out of memory or by antivirus stopping the compiler. Close other programs and run setup again; it resumes where it stopped.'
@@ -659,7 +659,7 @@ function Write-Fm4GraphicsSchema {
     $schema = Join-Path $ExecutableDirectory 'graphics-settings.json'
     # A previous build's file (a rerun, an update's seeded folder) must not pass for this one's.
     if (Test-Path -LiteralPath $schema) { Remove-Item -LiteralPath $schema -Force }
-    $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_native.exe') -Wait -PassThru `
+    $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_static_recomp.exe') -Wait -PassThru `
         -ArgumentList "`"--game_data_root=$GameRoot`"", "`"--fm4_write_graphics_schema=$schema`"",
         "`"--log_file=$LogPath`""
     if (-not (Test-Path -LiteralPath $schema -PathType Leaf)) {

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <utility>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 MenuScreen::MenuScreen(std::string title, std::vector<MenuRow> rows)
     : title_(std::move(title)), rows_(std::move(rows)) {
@@ -129,4 +129,4 @@ std::vector<NavCommand> PadNavigator::Poll(uint16_t buttons, int16_t thumb_lx, i
   return commands;
 }
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

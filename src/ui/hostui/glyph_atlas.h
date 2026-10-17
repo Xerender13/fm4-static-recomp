@@ -8,7 +8,7 @@
 
 #include "ui/hostui/vector_font.h"
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 std::u32string DecodeUtf8(std::string_view text);
 
@@ -59,4 +59,4 @@ class GlyphAtlas {
   int shelf_height_ = 0;
 };
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

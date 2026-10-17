@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 struct RgbaImage {
   uint32_t width = 0;
@@ -22,4 +22,4 @@ int32_t TiledOffset2D(int32_t x, int32_t y, uint32_t pitch, uint32_t bytes_per_b
 // formats the UI archives use (RGBA8, BC1 to BC4, DXT3A).
 std::optional<RgbaImage> DecodeXds(std::span<const uint8_t> data);
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

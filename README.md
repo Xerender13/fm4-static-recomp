@@ -1,4 +1,4 @@
-# FM4 Native
+# FM4 Static Recomp
 
 An unofficial static recompilation of the Xbox 360 release of *Forza Motorsport 4* for
 Windows, built on your own PC from your own disc.
@@ -70,7 +70,7 @@ Compared with the original game on an Xbox 360, and with what the stock ShiftGlu
 FM4 (the same translation built against upstream ShiftGlue, without this project's game
 hooks and renderer changes):
 
-| | Xbox 360 | Stock ShiftGlue SDK | FM4 Native |
+| | Xbox 360 | Stock ShiftGlue SDK | FM4 Static Recomp |
 |---|---|---|---|
 | Resolution | 1280x720 | 1x to 4x of 720p, but the road and FM4's integer-format targets (car shadows) render wrong | 1x to 4x of 720p (up to 5120x2880), switchable live in the game |
 | Race frame rate | 60 fps | The console's pacing | 60 fps up to the display's refresh rate (`--fm4_frame_rate`, the GRAPHICS page) |
@@ -136,16 +136,16 @@ The hash must be `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7
 ### 2. Get the source
 
 ```powershell
-git clone https://github.com/i2kiselev/fm4-native D:\FM4\fm4-native
+git clone https://github.com/i2kiselev/fm4-static-recomp D:\FM4\fm4-static-recomp
 ```
 
 Without Git, download the repository as a ZIP from GitHub and extract it to
-`D:\FM4\fm4-native` instead. No submodules are needed: setup downloads the pinned SDK.
+`D:\FM4\fm4-static-recomp` instead. No submodules are needed: setup downloads the pinned SDK.
 
 ### 3. Build
 
 ```powershell
-cd D:\FM4\fm4-native
+cd D:\FM4\fm4-static-recomp
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:\FM4\disc1
 ```
 
@@ -158,7 +158,7 @@ Give `-GameRoot` without a trailing backslash. Setup:
 3. downloads the pinned ShiftGlue SDK revision into `.local\shiftglue-sdk` and builds its
    recompiler;
 4. translates `default.xex` into C++ (several minutes);
-5. compiles `out\build\win-amd64-release\fm4_native.exe`;
+5. compiles `out\build\win-amd64-release\fm4_static_recomp.exe`;
 6. warms the shader cache: the game runs hidden in the background (nothing on screen, no
    sound) through the menus and a short race on five tracks, so that your first races do
    not stall while shaders compile (about 10 minutes; after 25 minutes it skips the
@@ -440,7 +440,7 @@ Code, scripts, documentation and reverse engineering of the game binary are AI-a
 - [ShiftGlue SDK](https://github.com/arcanite24/shiftglue-sdk), Pinyon Shift's fork of the
   [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk): the recompiler and runtime. This
   project uses [a fork of it](https://github.com/i2kiselev/shiftglue-sdk) (branch
-  `fm4-native`) with FM4's renderer fixes.
+  `fm4-static-recomp`) with FM4's renderer fixes.
 - [Xenia](https://xenia.jp), from which much of the runtime and GPU emulation in ReXGlue
   derives.
 - [fm4-recomp](https://github.com/GabrielCRadu/fm4-recomp), an earlier FM4 recompilation

@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace fm4_native::config {
+namespace fm4_static_recomp::config {
 
 // Edits of a flat file of `name = value` lines:
 //
@@ -56,4 +56,4 @@ class HostConfig {
   bool backed_up_ = false;
 };
 
-}  // namespace fm4_native::config
+}  // namespace fm4_static_recomp::config

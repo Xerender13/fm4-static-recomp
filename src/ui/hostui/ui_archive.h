@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 // Splits an Xbox XMem stream (ZIP method 21) into the raw LZX blocks that
 // lzx_decompress expects. Blocks carry a two-byte compressed size, or 0xFF,
@@ -49,4 +49,4 @@ class UiArchive {
   std::unordered_map<std::string, Member> members_;
 };
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

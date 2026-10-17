@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 // An 8-bit coverage bitmap. `left` and `top` place its top-left texel
 // relative to the pen position on the baseline, in pixels with y down.
@@ -62,4 +62,4 @@ class VectorFont {
   float descent_ = 0.25f;
 };
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

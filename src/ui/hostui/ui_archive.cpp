@@ -7,7 +7,7 @@
 
 #include <rex/system/lzx.h>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 namespace {
 
 constexpr uint32_t kLocalHeaderSignature = 0x04034B50;
@@ -214,4 +214,4 @@ std::optional<std::vector<uint8_t>> UiArchive::Read(std::string_view name) const
   return data;
 }
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

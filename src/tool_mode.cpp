@@ -9,7 +9,7 @@ REXCVAR_DEFINE_BOOL(fm4_install_only, false, "Forza Motorsport 4",
 REXCVAR_DEFINE_STRING(fm4_write_graphics_schema, "", "Forza Motorsport 4",
                       "Write the GRAPHICS rows as JSON to this file, then quit");
 
-namespace fm4_native {
+namespace fm4_static_recomp {
 
 ToolMode CurrentToolMode() {
   if (!std::string(REXCVAR_GET(fm4_write_graphics_schema)).empty()) {
@@ -18,4 +18,4 @@ ToolMode CurrentToolMode() {
   return REXCVAR_GET(fm4_install_only) ? ToolMode::kInstall : ToolMode::kNone;
 }
 
-}  // namespace fm4_native
+}  // namespace fm4_static_recomp

@@ -19,7 +19,7 @@
 #include "ui/hostui/ui_archive.h"
 #include "ui/hostui/xds_texture.h"
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 namespace {
 
 using rex::ui::ImmediateTexture;
@@ -1054,4 +1054,4 @@ void HostUi::OnMouseWheel(rex::ui::MouseEvent& e) {
   }
 }
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

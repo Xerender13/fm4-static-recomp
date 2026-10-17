@@ -27,7 +27,7 @@ class Window;
 }  // namespace ui
 }  // namespace rex
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 // A host-drawn menu screen over the title, after FM4's HUD Options screen:
 // drawn with the title's own vector fonts and UI textures, rasterized at load
@@ -187,4 +187,4 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   std::string layout_key_;
 };
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

@@ -19,7 +19,7 @@ REXCVAR_DEFINE_STRING(fm4_dlc_packages, "", "Forza Motorsport 4",
                       "Directory searched recursively for marketplace content packages (DLC), "
                       "each installed into the user data at launch");
 
-namespace fm4_native {
+namespace fm4_static_recomp {
 
 using rex::X_RESULT;
 
@@ -84,4 +84,4 @@ void InstallContentPackages(rex::Runtime& runtime) {
   }
 }
 
-}  // namespace fm4_native
+}  // namespace fm4_static_recomp

@@ -2,7 +2,7 @@
 # Game inputs and translated output resolve outside the tracked tree.
 
 [project]
-name = "fm4_native"
+name = "fm4_static_recomp"
 sdk_version = "0.10.0"
 game_root = "../../../extracted/fm4"
 

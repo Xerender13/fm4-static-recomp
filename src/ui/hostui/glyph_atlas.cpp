@@ -4,7 +4,7 @@
 #include <bit>
 #include <cmath>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 namespace {
 
 constexpr uint32_t kMaximumSize = 4096;
@@ -145,4 +145,4 @@ void GlyphAtlas::Grow(uint32_t minimum_height) {
   height_ = height;
 }
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

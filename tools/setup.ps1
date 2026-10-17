@@ -1,4 +1,4 @@
-# Builds FM4 Native from this source folder for a verified, extracted Disc 1 (the launcher's
+# Builds FM4 Static Recomp from this source folder for a verified, extracted Disc 1 (the launcher's
 # build step). The launcher reads the ::fm4:: event lines.
 [CmdletBinding()]
 param(
@@ -33,7 +33,7 @@ try {
         $path -and $path.StartsWith($buildTree, [StringComparison]::OrdinalIgnoreCase)
     })
     if ($locking.Count -gt 0) {
-        throw 'Close FM4 Native before building this version. Windows locks its files while it runs.'
+        throw 'Close FM4 Static Recomp before building this version. Windows locks its files while it runs.'
     }
     & (Join-Path $PSScriptRoot 'provision-toolchain.ps1') -JsonEvents:$JsonEvents | Out-Host
     Write-Fm4Event sdk 35 'Preparing the ShiftGlue SDK.' -JsonEvents:$JsonEvents
@@ -44,12 +44,12 @@ try {
         throw (New-Fm4CommandFailure -FailureMessage 'Translating the game code failed.' -Step 'codegen' `
             -LogPath (Join-Path $logs 'codegen.log') -ExitCode $LASTEXITCODE)
     }
-    Write-Fm4Event build 70 'Compiling FM4 Native.' -JsonEvents:$JsonEvents
+    Write-Fm4Event build 70 'Compiling FM4 Static Recomp.' -JsonEvents:$JsonEvents
     & (Join-Path $PSScriptRoot 'build.ps1') -Parallel $Parallel | Out-Host
     Write-Fm4Event schema 97 'Reading the graphics settings.' -JsonEvents:$JsonEvents
     Write-Fm4GraphicsSchema -ExecutableDirectory (Join-Path $root 'out/build/win-amd64-release') `
         -GameRoot $GameRoot -LogPath (Join-Path $logs 'schema.log')
-    Write-Fm4Event schema 100 'FM4 Native is built.' -JsonEvents:$JsonEvents
+    Write-Fm4Event schema 100 'FM4 Static Recomp is built.' -JsonEvents:$JsonEvents
 }
 catch {
     # Plain text and an exit code: Write-Error under 'Stop' would raise a second error whose

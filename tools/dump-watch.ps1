@@ -16,7 +16,7 @@ $dumps = Join-Path $root '.local\dumps'
 [void](New-Item -ItemType Directory -Force -Path $dumps)
 
 function Get-DumpGame {
-    Get-CimInstance Win32_Process -Filter "Name='fm4_native.exe'" |
+    Get-CimInstance Win32_Process -Filter "Name='fm4_static_recomp.exe'" |
         Where-Object { $_.CommandLine -like "*fh1_resolve_dump_dir=$dumps*" } | Select-Object -First 1
 }
 

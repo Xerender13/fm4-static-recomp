@@ -19,7 +19,7 @@ $script = Join-Path $state 'live.input'
 
 function Get-Game {
     # Only the session's own game: the player may have theirs open on the real state.
-    $own = Get-CimInstance Win32_Process -Filter "Name='fm4_native.exe'" |
+    $own = Get-CimInstance Win32_Process -Filter "Name='fm4_static_recomp.exe'" |
         Where-Object { $_.CommandLine -like '*\.local\state-test\*' } | Sort-Object CreationDate | Select-Object -Last 1
     if (-not $own) { throw 'The session game is not running; use "session.ps1 start".' }
     Get-Process -Id $own.ProcessId
@@ -34,13 +34,13 @@ switch ($Action) {
             Copy-Item -LiteralPath (Join-Path $player 'cache/shaders') -Destination (Join-Path $state 'cache') -Recurse
         }
         Set-Content -LiteralPath $script -Value '# live session' -Encoding ascii
-        $env:FM4_NATIVE_INPUT_SCRIPT = $script
+        $env:FM4_STATIC_RECOMP_INPUT_SCRIPT = $script
         $env:SDL_WINDOW_ACTIVATE_WHEN_SHOWN = '0'
         & (Join-Path $PSScriptRoot 'run.ps1') -StateRoot $state -GameArguments $GameArguments
-        $env:FM4_NATIVE_INPUT_SCRIPT = ''
+        $env:FM4_STATIC_RECOMP_INPUT_SCRIPT = ''
         $env:SDL_WINDOW_ACTIVATE_WHEN_SHOWN = ''
         # Minimised without activation, so the player's focus stays where it is.
-        Add-Type -Namespace Fm4Native -Name Show -MemberDefinition @'
+        Add-Type -Namespace Fm4StaticRecomp -Name Show -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool ShowWindowAsync(System.IntPtr window, int command);
 '@
@@ -51,7 +51,7 @@ public static extern bool ShowWindowAsync(System.IntPtr window, int command);
             Start-Sleep -Milliseconds 100
             $process.Refresh()
         }
-        [void][Fm4Native.Show]::ShowWindowAsync($process.MainWindowHandle, 7)
+        [void][Fm4StaticRecomp.Show]::ShowWindowAsync($process.MainWindowHandle, 7)
     }
     'press' {
         $elapsed = ((Get-Date) - (Get-Game).StartTime).TotalSeconds

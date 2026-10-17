@@ -25,7 +25,7 @@
 #include <rex/logging.h>
 #include <rex/ui/presenter.h>
 
-namespace fm4_native {
+namespace fm4_static_recomp {
 namespace {
 
 using rex::X_RESULT;
@@ -581,7 +581,7 @@ void StartCaptureWatcher(std::function<rex::ui::Presenter*()> presenter) {
 void ConfigureScriptedInput(rex::RuntimeConfig& config) {
   char* path = nullptr;
   size_t length = 0;
-  if (_dupenv_s(&path, &length, "FM4_NATIVE_INPUT_RECORD") == 0 && path) {
+  if (_dupenv_s(&path, &length, "FM4_STATIC_RECOMP_INPUT_RECORD") == 0 && path) {
     if (*path) {
       g_recording = true;
       std::thread(RecordInput, std::string(path)).detach();
@@ -589,7 +589,7 @@ void ConfigureScriptedInput(rex::RuntimeConfig& config) {
     std::free(path);
     path = nullptr;
   }
-  if (_dupenv_s(&path, &length, "FM4_NATIVE_INPUT_SCRIPT") != 0 || !path) {
+  if (_dupenv_s(&path, &length, "FM4_STATIC_RECOMP_INPUT_SCRIPT") != 0 || !path) {
     return;
   }
   g_path = path;
@@ -601,4 +601,4 @@ void ConfigureScriptedInput(rex::RuntimeConfig& config) {
   }
 }
 
-}  // namespace fm4_native
+}  // namespace fm4_static_recomp

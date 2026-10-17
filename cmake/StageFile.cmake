@@ -35,4 +35,4 @@ endforeach()
 message(FATAL_ERROR
     "Could not replace ${_name} beside the game after ${ATTEMPTS} attempts: ${_result}\n"
     "  Destination: ${DESTINATION}\n"
-    "  The file is most likely open in another program. Close fm4_native.exe and retry.")
+    "  The file is most likely open in another program. Close fm4_static_recomp.exe and retry.")

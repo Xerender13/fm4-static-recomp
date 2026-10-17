@@ -1,7 +1,7 @@
 # Forza Motorsport 4 - native ShiftGlue host
 
 cmake_minimum_required(VERSION 3.25)
-project(fm4_native LANGUAGES C CXX)
+project(fm4_static_recomp LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,7 +13,7 @@ set(SDL_HIDAPI_LIBUSB OFF CACHE BOOL "Disable optional libusb HID backend on Win
 
 include(cmake/Fm4RexGlue.cmake)
 
-add_executable(fm4_native WIN32
+add_executable(fm4_static_recomp WIN32
     src/main.cpp
     src/built_in_defaults.cpp
     src/tool_mode.cpp
@@ -30,12 +30,12 @@ add_executable(fm4_native WIN32
     src/ui/hostui/xds_texture.cpp
 )
 
-fm4_native_attach_rexglue(fm4_native)
-target_link_libraries(fm4_native PRIVATE d3d12 dxgi rex::gpu-fh1)
+fm4_static_recomp_attach_rexglue(fm4_static_recomp)
+target_link_libraries(fm4_static_recomp PRIVATE d3d12 dxgi rex::gpu-fh1)
 
-fm4_native_add_generated_module(
-    fm4_native_SpeechFacade_default speech
-    "${FM4_NATIVE_SPEECH_GENERATED_SOURCES}")
-fm4_native_add_generated_module(
-    fm4_native_XMediaFacade_default xmedia
-    "${FM4_NATIVE_XMEDIA_GENERATED_SOURCES}")
+fm4_static_recomp_add_generated_module(
+    fm4_static_recomp_SpeechFacade_default speech
+    "${FM4_STATIC_RECOMP_SPEECH_GENERATED_SOURCES}")
+fm4_static_recomp_add_generated_module(
+    fm4_static_recomp_XMediaFacade_default xmedia
+    "${FM4_STATIC_RECOMP_XMEDIA_GENERATED_SOURCES}")

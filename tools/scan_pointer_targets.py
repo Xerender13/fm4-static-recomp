@@ -28,7 +28,7 @@ HEADER = "# Code pointers in .rdata/.data to fragments without PDATA, found by\n
 
 def scan(module):
     xex = Xex(GAME / module)
-    init = (ROOT / ".local/generated" / GENERATED[module] / "fm4_native_init.cpp").read_text(
+    init = (ROOT / ".local/generated" / GENERATED[module] / "fm4_static_recomp_init.cpp").read_text(
         encoding="utf-8", errors="replace")
     registered = {int(a, 16) for a in re.findall(r"\{\s*0x([0-9A-F]{8}),\s*\w+\s*\}", init)}
     code = [(va, va + size) for _, va, size, flags in xex.sections if flags & 0x20]

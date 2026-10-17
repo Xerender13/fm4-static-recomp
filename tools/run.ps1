@@ -26,7 +26,7 @@ if (-not $GameRoot) { $GameRoot = Join-Path $root '../extracted/fm4' }
 $game = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameRoot)
 if (-not $StateRoot) { $StateRoot = Join-Path $root '.local/state' }
 $StateRoot = [IO.Path]::GetFullPath($StateRoot)
-$executable = Join-Path $root "out/build/win-amd64-$($Configuration.ToLowerInvariant())/fm4_native.exe"
+$executable = Join-Path $root "out/build/win-amd64-$($Configuration.ToLowerInvariant())/fm4_static_recomp.exe"
 foreach ($directory in 'user', 'update', 'cache', 'logs') {
     [void](New-Item -ItemType Directory -Force -Path (Join-Path $StateRoot $directory))
 }
@@ -63,10 +63,10 @@ if ($Dumps) {
 # Start-Process joins its arguments with spaces and quotes none of them. Backslashes before the
 # closing quote are doubled, or the last one would escape it.
 $arguments = @($arguments | ForEach-Object { if ($_ -match '\s' -and $_ -notmatch '^".*"$') { "`"$($_ -replace '(\\+)$', '$1$1')`"" } else { $_ } })
-$env:FM4_NATIVE_INPUT_RECORD = if ($RecordInput) { [IO.Path]::GetFullPath($RecordInput, $root) } else { '' }
+$env:FM4_STATIC_RECOMP_INPUT_RECORD = if ($RecordInput) { [IO.Path]::GetFullPath($RecordInput, $root) } else { '' }
 $process = Start-Process -FilePath $executable -ArgumentList $arguments `
     -WorkingDirectory (Split-Path $executable -Parent) -PassThru
-$env:FM4_NATIVE_INPUT_RECORD = ''
+$env:FM4_STATIC_RECOMP_INPUT_RECORD = ''
 if ($TimeoutSeconds -gt 0) {
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         $process.Kill()
@@ -75,4 +75,4 @@ if ($TimeoutSeconds -gt 0) {
     }
     else { "exited with code $($process.ExitCode)" }
 }
-else { "started fm4_native (PID $($process.Id)); log: $log" }
+else { "started fm4_static_recomp (PID $($process.Id)); log: $log" }

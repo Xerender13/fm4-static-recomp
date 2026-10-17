@@ -1,4 +1,4 @@
-# Packs the source payload the launcher builds from into .artifacts\fm4-native-source.zip.
+# Packs the source payload the launcher builds from into .artifacts\fm4-static-recomp-source.zip.
 [CmdletBinding()]
 param()
 
@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifacts = Join-Path $root '.artifacts'
 $payloadRoot = Join-Path $artifacts 'payload'
-$payloadZip = Join-Path $artifacts 'fm4-native-source.zip'
+$payloadZip = Join-Path $artifacts 'fm4-static-recomp-source.zip'
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem

@@ -27,7 +27,7 @@ $preset = 'win-amd64-' + $Configuration.ToLowerInvariant()
 $output = [IO.Path]::GetFullPath((Join-Path $root "out/build/$preset"))
 Get-ChildItem -LiteralPath $output -Filter '*.inuse-*' -File -ErrorAction SilentlyContinue |
     ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop } catch {} }
-foreach ($process in @(Get-Process fm4_native -ErrorAction SilentlyContinue)) {
+foreach ($process in @(Get-Process fm4_static_recomp -ErrorAction SilentlyContinue)) {
     $loaded = @($process.Modules | ForEach-Object FileName |
         Where-Object { $_.StartsWith($output + '\', [StringComparison]::OrdinalIgnoreCase) })
     foreach ($file in $loaded) {
@@ -52,8 +52,8 @@ try {
 }
 finally { Pop-Location }
 
-$executable = Join-Path $root "out/build/$preset/fm4_native.exe"
+$executable = Join-Path $root "out/build/$preset/fm4_static_recomp.exe"
 if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
-    throw 'Compilation completed without producing fm4_native.exe.'
+    throw 'Compilation completed without producing fm4_static_recomp.exe.'
 }
 "built $executable"

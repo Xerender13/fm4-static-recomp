@@ -14,18 +14,18 @@ function Resolve-Fm4Path {
 function Get-Fm4StateGame {
     param([Parameter(Mandatory)] [string]$StateRoot)
     $marker = Resolve-Fm4Path (Join-Path $StateRoot 'user')
-    Get-CimInstance Win32_Process -Filter "Name='fm4_native.exe'" |
+    Get-CimInstance Win32_Process -Filter "Name='fm4_static_recomp.exe'" |
         Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
         Sort-Object CreationDate | Select-Object -Last 1
 }
 
 # A job that ends its processes when its last handle closes: this PowerShell holds the handle, so
 # the hidden game cannot outlive a console that is closed or killed mid-run.
-if (-not ('Fm4Native.KillOnCloseJob' -as [type])) {
+if (-not ('Fm4StaticRecomp.KillOnCloseJob' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-namespace Fm4Native {
+namespace Fm4StaticRecomp {
 public static class KillOnCloseJob {
     [StructLayout(LayoutKind.Sequential)]
     struct BasicLimits {
@@ -70,13 +70,13 @@ function Start-Fm4HiddenGame {
         [string]$InputScript,
         [string[]]$GameArguments = @()
     )
-    $names = 'REX_WINDOW_HIDDEN', 'SDL_WINDOW_ACTIVATE_WHEN_SHOWN', 'FM4_NATIVE_INPUT_SCRIPT'
+    $names = 'REX_WINDOW_HIDDEN', 'SDL_WINDOW_ACTIVATE_WHEN_SHOWN', 'FM4_STATIC_RECOMP_INPUT_SCRIPT'
     $saved = @{}
     foreach ($name in $names) { $saved[$name] = [Environment]::GetEnvironmentVariable($name) }
     try {
         $env:REX_WINDOW_HIDDEN = '1'
         $env:SDL_WINDOW_ACTIVATE_WHEN_SHOWN = '0'
-        $env:FM4_NATIVE_INPUT_SCRIPT = $InputScript
+        $env:FM4_STATIC_RECOMP_INPUT_SCRIPT = $InputScript
         & (Join-Path $script:Fm4ToolsRoot 'run.ps1') -StateRoot $StateRoot -GameRoot $GameRoot `
             -GameArguments (@('--audio_mute=true') + $GameArguments) | Out-Null
     }
@@ -86,7 +86,7 @@ function Start-Fm4HiddenGame {
     $own = Get-Fm4StateGame -StateRoot $StateRoot
     if (-not $own) { throw 'The warm-up game did not start.' }
     $game = Get-Process -Id $own.ProcessId
-    [Fm4Native.KillOnCloseJob]::Add($game.Handle)
+    [Fm4StaticRecomp.KillOnCloseJob]::Add($game.Handle)
     $game
 }
 

@@ -10,7 +10,7 @@
 #include "config/host_config.h"
 #include "ui/hostui/menu.h"
 
-namespace fm4_native::ui {
+namespace fm4_static_recomp::ui {
 
 // The GRAPHICS page of My Profile -> Options: the race frame rate (a slider),
 // preset, resolution scale, post-process anti-aliasing, the game's MSAA,
@@ -48,4 +48,4 @@ struct GraphicsPageServices {
 std::unique_ptr<hostui::MenuScreen> CreateGraphicsPage(config::HostConfig& config,
                                                        GraphicsPageServices services);
 
-}  // namespace fm4_native::ui
+}  // namespace fm4_static_recomp::ui

@@ -11,7 +11,7 @@
 #include <windows.h>
 #endif
 
-namespace fm4_native::config {
+namespace fm4_static_recomp::config {
 namespace {
 
 bool IsSpace(char c) { return c == ' ' || c == '\t'; }
@@ -242,4 +242,4 @@ bool HostConfig::Save() {
   return true;
 }
 
-}  // namespace fm4_native::config
+}  // namespace fm4_static_recomp::config

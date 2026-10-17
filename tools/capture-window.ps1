@@ -9,8 +9,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
-if (-not ('Fm4Native.Capture' -as [type])) {
-    Add-Type -Namespace Fm4Native -Name Capture -MemberDefinition @'
+if (-not ('Fm4StaticRecomp.Capture' -as [type])) {
+    Add-Type -Namespace Fm4StaticRecomp -Name Capture -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool GetClientRect(System.IntPtr window, out RECT rect);
 [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -24,14 +24,14 @@ public struct RECT { public int Left, Top, Right, Bottom; }
 $window = (Get-Process -Id $ProcessId).MainWindowHandle
 if ($window -eq [IntPtr]::Zero) { throw "Process $ProcessId has no main window." }
 # Per-monitor aware, so the client rectangle is in physical pixels on a scaled display.
-[void][Fm4Native.Capture]::SetThreadDpiAwarenessContext([IntPtr](-4))
-$rect = New-Object Fm4Native.Capture+RECT
-[void][Fm4Native.Capture]::GetClientRect($window, [ref]$rect)
+[void][Fm4StaticRecomp.Capture]::SetThreadDpiAwarenessContext([IntPtr](-4))
+$rect = New-Object Fm4StaticRecomp.Capture+RECT
+[void][Fm4StaticRecomp.Capture]::GetClientRect($window, [ref]$rect)
 $bitmap = New-Object System.Drawing.Bitmap ($rect.Right - $rect.Left), ($rect.Bottom - $rect.Top)
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 $dc = $graphics.GetHdc()
 # PW_CLIENTONLY | PW_RENDERFULLCONTENT, so a swapchain-presented window is captured.
-$ok = [Fm4Native.Capture]::PrintWindow($window, $dc, 3)
+$ok = [Fm4StaticRecomp.Capture]::PrintWindow($window, $dc, 3)
 $graphics.ReleaseHdc($dc)
 $graphics.Dispose()
 [void](New-Item -ItemType Directory -Force -Path (Split-Path $Path -Parent))

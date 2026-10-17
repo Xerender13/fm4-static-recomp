@@ -10,7 +10,7 @@ $perf = Join-Path $raceRoot '.local\perf'
 [void](New-Item -ItemType Directory -Force -Path $perf)
 
 function Get-RaceGame {
-    $own = Get-CimInstance Win32_Process -Filter "Name='fm4_native.exe'" |
+    $own = Get-CimInstance Win32_Process -Filter "Name='fm4_static_recomp.exe'" |
         Where-Object { $_.CommandLine -like '*\.local\state-test\*' } | Sort-Object CreationDate | Select-Object -Last 1
     Get-Process -Id $own.ProcessId
 }

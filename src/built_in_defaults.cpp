@@ -10,7 +10,7 @@
 REXCVAR_DEFINE_STRING(fm4_config_root, "", "Forza Motorsport 4",
                       "Folder of graphics.toml; empty means the state root's config folder");
 
-namespace fm4_native {
+namespace fm4_static_recomp {
 namespace {
 
 using Default = std::pair<std::string_view, std::string_view>;
@@ -54,4 +54,4 @@ void ApplyBuiltInDefaults(DefaultStage stage) {
   }
 }
 
-}  // namespace fm4_native
+}  // namespace fm4_static_recomp

@@ -560,7 +560,7 @@ void Fm4AutovistaCameraUpdate() {
   static auto last = std::chrono::steady_clock::time_point{};
   const auto now = std::chrono::steady_clock::now();
   if (now - last > std::chrono::seconds(1)) {
-    fm4_native::MarkInputEvent("autovista");
+    fm4_static_recomp::MarkInputEvent("autovista");
   }
   last = now;
 }
@@ -712,7 +712,7 @@ bool Fm4SkipVblankCallback() {
   return ++vblank_index % divisor != 0;
 }
 
-namespace fm4_native {
+namespace fm4_static_recomp {
 
 // The road detail pass (PS 79B4914F) writes the grain's luminance times c5.w
 // plus the speed streaks times c5.x into the texture the road samples. A still
@@ -736,7 +736,7 @@ void SetGraphicsPageOpener(std::function<void()> opener) {
   g_graphics_page_opener = std::move(opener);
 }
 
-}  // namespace fm4_native
+}  // namespace fm4_static_recomp
 
 // The end of the Options items in My Profile's menu builder (r30 = the Options
 // category, r31 = the "MyProfile" table name): GRAPHICS after them, added as

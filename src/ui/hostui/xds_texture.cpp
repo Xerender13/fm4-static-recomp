@@ -4,7 +4,7 @@
 #include <array>
 #include <bit>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 namespace {
 
 constexpr size_t kHeaderSize = 0x34;
@@ -213,4 +213,4 @@ std::optional<RgbaImage> DecodeXds(std::span<const uint8_t> data) {
   return image;
 }
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

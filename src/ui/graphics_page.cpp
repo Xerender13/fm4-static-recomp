@@ -24,7 +24,7 @@
 #include <windows.h>
 #endif
 
-namespace fm4_native::ui {
+namespace fm4_static_recomp::ui {
 namespace {
 
 using hostui::MenuRow;
@@ -615,4 +615,4 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   return screen;
 }
 
-}  // namespace fm4_native::ui
+}  // namespace fm4_static_recomp::ui

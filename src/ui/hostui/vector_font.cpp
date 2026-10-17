@@ -6,7 +6,7 @@
 #include <cstring>
 #include <limits>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 namespace {
 
 constexpr size_t kDataOffset = 0x190;
@@ -234,4 +234,4 @@ GlyphBitmap VectorFont::Rasterize(const Glyph& glyph, float pixels_per_em) const
   return bitmap;
 }
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

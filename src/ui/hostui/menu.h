@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace fm4_native::hostui {
+namespace fm4_static_recomp::hostui {
 
 enum class NavCommand {
   kUp,
@@ -115,4 +115,4 @@ class PadNavigator {
   uint64_t next_repeat_ms_ = 0;
 };
 
-}  // namespace fm4_native::hostui
+}  // namespace fm4_static_recomp::hostui

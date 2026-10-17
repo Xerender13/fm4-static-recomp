@@ -50,7 +50,7 @@ Stop-Fm4LeftoverGame -StateRoot (Join-Path $root '.local\warm-up-probe')
 $playerFolder = Join-Path $CacheRoot 'shaders\shareable'
 foreach ($file in @(Get-ChildItem -Path (Join-Path $playerFolder '4D530910.*') -ErrorAction SilentlyContinue)) {
     if (Test-Fm4FileLocked $file.FullName) {
-        [Console]::Out.WriteLine('FM4 Native is running on this state. Close it and run the warm-up again.')
+        [Console]::Out.WriteLine('FM4 Static Recomp is running on this state. Close it and run the warm-up again.')
         exit 1
     }
 }
@@ -189,7 +189,7 @@ finally {
 
 $minutes = ((Get-Date) - $started).TotalMinutes
 if ($locked) {
-    [Console]::Out.WriteLine('FM4 Native was started on this state during the warm-up, so its shader cache was left as it was. Run the warm-up again with the game closed.')
+    [Console]::Out.WriteLine('FM4 Static Recomp was started on this state during the warm-up, so its shader cache was left as it was. Run the warm-up again with the game closed.')
     exit 1
 }
 if ($failure) {
