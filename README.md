@@ -433,6 +433,8 @@ video memory from 2x up. Xenia is CPU-bound up to 2x (its GPU use stays under 60
 - **Frame pacing:** a rare, minor frame-time hitch in races, usually visible only in
   monitoring tools and not in play. A frame rate the PC cannot hold is less smooth, so
   pick one a little below your average.
+- **AMD GPUs** require explicit use of `--vulkan_async_submission=false` launch parameter. If not used GPU driver crashes and requires a reboot.
+  More info in corresponding issue - https://github.com/i2kiselev/fm4-static-recomp/issues/2 
 
 Limitations rather than bugs:
 
@@ -441,7 +443,7 @@ Limitations rather than bugs:
 - **No launcher yet**, so no profile switching, disc verification or in-app updates.
 - Install folders with non-English letters (for example a Cyrillic Windows user name in
   the path) or `[`/`]` are untested or known to break the scripts.
-- No tests on any AMD GPUs yet 
+- Only basic tests on AMD GPUs currently 
 
 ## Reporting issues
 
