@@ -65,6 +65,8 @@ newer `default.xex` (media ID `42C67824`, 15,187,968 bytes, SHA-256
 `B34DFB88978819CCCDA6DAFD755E7139970A58FBF6707DFBCBA06846857F52BD`) whose code sits at
 other addresses than the translation expects. Disc 2 of the Rev 1 release works: its four content packages are identical.
 
+Any other discs weren't yet tested and cannot be guaranteed to work.
+
 ## Features
 
 Compared with the original game on an Xbox 360, and with what the stock ShiftGlue SDK gives
@@ -84,7 +86,6 @@ hooks and renderer changes):
 | VRAM at 3x | - | About 8 GB for the game's share | About 2.5 GB |
 | Renderer threads | - | One thread parses and records | Parsing and Vulkan recording on separate threads (about +10 % frame rate at 2x) |
 | Disc 2 and DLC | Installed from the disc and Marketplace | Not wired up | Installed at launch from folders you name |
-| Minimising the window | - | The picture freezes after a restore | Works |
 | Frame generation tools | - | Not visible to them | Opt-in DXGI presentation for Lossless Scaling and NVIDIA Smooth Motion |
 | Xbox LIVE (online, Storefront, Auction House) | Yes (servers closed) | No | No |
 | Kinect | Yes | No | No |
@@ -205,16 +206,17 @@ log (`.local\state\logs\runtime.log`) ends the install with a `Content: ...` sum
 
 ### Updating
 
+**Close the game first**: Windows locks game files while it runs.
+
 ```powershell
 git pull
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:\FM4\disc1
 ```
 
-Close the game first: Windows locks its files while it runs.
 
 ## Graphics settings
 
-**My Profile → Options → GRAPHICS**, or **F6** anywhere, opens a settings page drawn in the
+In-game **Play Career → My Profile → Options → GRAPHICS**, or **F6** anywhere, opens a settings page drawn in the
 game's own style. Each row describes itself on the page, applies at once or from the next
 race or screen, and is saved to `config\graphics.toml` in the state folder. A launch option
 for one of these settings sets its starting value for that session only; the row says so.
@@ -245,7 +247,7 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 **Frame rate and resolution**
 
 - **FRAME RATE**: the race frame rate, from the console's 60 fps up to your display's
-  refresh rate (at most 240). Menus run at 120. Pick a rate your PC holds (see
+  refresh rate (at most 240). Menus run at 120 fps max. Pick a rate your PC holds (see
   [Benchmarks](#benchmarks)).
 - **RESOLUTION SCALE**: renders the game at 1x to 4x of 1280x720 on each axis, up to
   5120x2880. Sharper edges and textures, more GPU load.
@@ -321,7 +323,7 @@ does not look right with it yet.
 
 - Offline game modes: World Tour (the career), Event List, Free Play (Quick
   Race, Hot Lap), Test Drive and Autovista, plus the garage (upgrades,
-  tuning, paint and decals), replays and saving.
+  tuning presets, paint and decals), replays and saving.
 - World Tour played up to the Expert Division.
 - About 30 Event List races completed without an issue.
 - Autovista works as intended.
@@ -331,8 +333,10 @@ does not look right with it yet.
 
 - Any mode that uses Xbox Live functions
 - Split-screen mode
+- Wheel support
 
 ## Benchmarks
+**Test bench**:
 
 | | |
 |---|---|
@@ -366,7 +370,7 @@ rate over the slowest 1 % of frames) come from the renderer's per-frame timestam
 | 4x | 5120x2880 | 68 | 46 | 99 % | 3.3 GB |
 
 At 1x and 2x the CPU is the limit (one game thread runs a full core); at 3x and 4x the GPU
-is. In play the frame rate is capped at the display's refresh rate.
+is the limit.
 
 ### Compared with Xenia
 
@@ -498,6 +502,7 @@ Never attach game files, disc images or a built executable.
 5. **AMD GPU** testing 
 6. **Linux**: a native Linux build of the game and the launcher. Windows is the only
    supported system today.
+7. Test other disc releases for compatibility (e.g. Forza Motorsport 4: Essentials Edition)
 
 ## Repository layout
 
