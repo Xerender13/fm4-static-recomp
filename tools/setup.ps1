@@ -3,6 +3,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string]$GameRoot,
+    # Parallel compile jobs; 0 picks them from the processor count and memory.
+    [ValidateRange(0, 32)] [int]$Parallel = 0,
     [switch]$JsonEvents
 )
 
@@ -34,13 +36,13 @@ try {
     Write-Fm4Event sdk 35 'Preparing the ShiftGlue SDK.' -JsonEvents:$JsonEvents
     & (Join-Path $PSScriptRoot 'prepare-sdk.ps1') -JsonEvents:$JsonEvents | Out-Host
     Write-Fm4Event codegen 45 'Translating the game code. This takes several minutes.' -JsonEvents:$JsonEvents
-    & (Join-Path $PSScriptRoot 'codegen.ps1') -GameRoot $GameRoot | Out-Host
+    & (Join-Path $PSScriptRoot 'codegen.ps1') -GameRoot $GameRoot -Parallel $Parallel | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw (New-Fm4CommandFailure -FailureMessage 'Translating the game code failed.' -Step 'codegen' `
             -LogPath (Join-Path $logs 'codegen.log') -ExitCode $LASTEXITCODE)
     }
     Write-Fm4Event build 70 'Compiling FM4 Native.' -JsonEvents:$JsonEvents
-    & (Join-Path $PSScriptRoot 'build.ps1') | Out-Host
+    & (Join-Path $PSScriptRoot 'build.ps1') -Parallel $Parallel | Out-Host
     Write-Fm4Event schema 97 'Reading the graphics settings.' -JsonEvents:$JsonEvents
     Write-Fm4GraphicsSchema -ExecutableDirectory (Join-Path $root 'out/build/win-amd64-release') `
         -GameRoot $GameRoot -LogPath (Join-Path $logs 'schema.log')
