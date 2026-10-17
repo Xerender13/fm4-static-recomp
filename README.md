@@ -25,6 +25,7 @@ legally obtained copy of the game, and the executable is built on your computer.
 
 ## Contents
 
+- [Showcase](#showcase)
 - [Supported game](#supported-game)
 - [Features](#features)
 - [What you need](#what-you-need)
@@ -41,6 +42,15 @@ legally obtained copy of the game, and the executable is built on your computer.
 - [AI use](#ai-use)
 - [Credits](#credits)
 - [License](#license)
+
+## Showcase
+
+| 3840x2160 (3x), 120 fps | 2560x1440 (2x), 160 fps |
+|---|---|
+| [![Nürburgring GP, BMW M3 E92, 2160p at 120 fps](https://img.youtube.com/vi/Kf01UV4NT_Y/maxresdefault.jpg)](https://www.youtube.com/watch?v=Kf01UV4NT_Y) | [![Hockenheimring Short, BMW M5, 1440p at 160 fps](https://img.youtube.com/vi/nxM1L6pbW0U/maxresdefault.jpg)](https://www.youtube.com/watch?v=nxM1L6pbW0U) |
+| Nürburgring GP, BMW M3 E92 | Hockenheimring Short, BMW M5 |
+
+YouTube plays video at up to 60 fps; the frame rates are the game's during the recording.
 
 ## Supported game
 
