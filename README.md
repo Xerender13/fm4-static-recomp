@@ -264,7 +264,12 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 
 - **FRAME RATE**: the race frame rate, from the console's 60 fps up to your display's
   refresh rate (at most 240). Menus run at 120 fps max. Pick a rate your PC holds (see
-  [Benchmarks](#benchmarks)).
+  [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick your display's refresh rate
+  or a whole fraction of it (60 on a 120 Hz display): other rates show some frames for one
+  refresh and others for two.
+- **VSYNC**: off by default. Turn it on if you see tearing, which happens on a display
+  without G-Sync or FreeSync. With either, leave it off: on an Nvidia GPU, vsync shows the
+  frames through the desktop, without variable refresh and at a slightly lower frame rate.
 - **RESOLUTION SCALE**: renders the game at 1x to 4x of 1280x720 on each axis, up to
   5120x2880. Sharper edges and textures, more GPU load.
 
@@ -316,6 +321,7 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 |---|---|
 | `--resolution_scale=1..4` | Internal resolution, a multiple of 1280x720 |
 | `--fm4_frame_rate=60..240` | Race frame rate |
+| `--vulkan_present_mode=immediate\|fifo` | VSYNC off or on |
 | `--swap_post_effect=none\|fxaa\|fxaa_extreme` | Post-process anti-aliasing |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |

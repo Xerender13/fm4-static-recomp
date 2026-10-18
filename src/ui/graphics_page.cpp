@@ -44,6 +44,7 @@ struct Setting {
 };
 
 const Setting kFrameRate = {"fm4_frame_rate", false, {}, 60, 240};
+const Setting kVsync = {"vulkan_present_mode", true, {{"OFF", "immediate"}, {"ON", "fifo"}}};
 const Setting kDetail = {"fm4_level_of_detail",
                          true,
                          {{"CONSOLE", "console"},
@@ -80,7 +81,7 @@ const Setting* const kPresetSettings[] = {
 constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
-    &kFrameRate, &kScale, &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows,
+    &kFrameRate, &kVsync, &kScale, &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows,
     &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur,
     &kDepthOfField};
 
@@ -119,6 +120,10 @@ const RowText kRows[] = {
     {"FRAME RATE", &kFrameRate,
      "Frames per second in races, from the console's 60 up to your display's refresh rate. A "
      "rate the GPU cannot hold stutters: lower it or the resolution scale."},
+    {"VSYNC", &kVsync,
+     "On stops tearing on a display without G-Sync or FreeSync. With either, leave it off: "
+     "on, an Nvidia GPU shows frames through the desktop, without variable refresh and at a "
+     "lower frame rate."},
     {"RESOLUTION SCALE", &kScale,
      "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load."},
     {"GRAPHICS PRESET", nullptr,
@@ -201,6 +206,10 @@ std::string EffectiveDefault(const Setting& setting) {
   // ApplySavedGraphicsSettings turns GAME MSAA off unless a launch option says otherwise.
   if (&setting == &kGameMsaa) {
     return "true";
+  }
+  // A built-in default (built_in_defaults.cpp), over the SDK's auto.
+  if (&setting == &kVsync) {
+    return "immediate";
   }
   const rex::cvar::FlagEntry* info = rex::cvar::GetFlagInfo(setting.name);
   return info ? info->default_value : std::string();
@@ -496,6 +505,9 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
     return hz ? "Your display refreshes at " + std::to_string(hz) + " Hz." : std::string();
   };
   rows.push_back(std::move(frame_rate));
+
+  MenuRow vsync = Row("VSYNC", kVsync, config, services);
+  rows.push_back(std::move(vsync));
 
   // A chosen scale applies once it has rested for kScaleSettle, or when the
   // page closes.
