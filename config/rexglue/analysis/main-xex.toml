@@ -1,5 +1,6 @@
 # Manual main-XEX analysis facts for default.xex
-# (SHA-256 6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1).
+# (SHA-256 6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1 for 1.0 PAL,
+# 3618E85AF83E972DDCC1B0D0DD808E78E29AB4AB3890A15B31C210A6A3E93E09 for 1.0 USA: the same image).
 
 # Microsoft CRT non-local jump pair (9 setjmp and 8 longjmp call sites). These
 # must be semantic codegen hooks so a longjmp restores the host-side PPCContext

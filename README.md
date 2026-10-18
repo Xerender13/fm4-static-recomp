@@ -58,14 +58,17 @@ YouTube plays video at up to 60 fps; the frame rates are the game's during the r
 |---|---|
 | Game | Forza Motorsport 4, Xbox 360, retail |
 | Title ID | `4D530910` |
-| Disc 1 tested | Forza Motorsport 4 (Europe, Australia) (Disc 1) (Play Disc): the 1.0 PAL release, verified file by file against `config/supported-discs.json` |
-| Disc 1 media ID | `61D62D9F` |
-| Disc 1 `default.xex` | 15,155,200 bytes, SHA-256 `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1` |
+| Disc 1, 1.0 PAL | Forza Motorsport 4 (Europe, Australia) (Disc 1) (Play Disc), media ID `61D62D9F`; `default.xex` 15,155,200 bytes, SHA-256 `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1` |
+| Disc 1, 1.0 USA | Forza Motorsport 4 (USA) (Disc 1) (Play Disc), media ID `26FF1101`; `default.xex` 15,155,200 bytes, SHA-256 `3618E85AF83E972DDCC1B0D0DD808E78E29AB4AB3890A15B31C210A6A3E93E09` |
 | Disc 2 | The four content packages of the install disc (optional, more cars and tracks) |
 | DLC | Marketplace packages for title `4D530910` (optional) |
 
-Other versions of `default.xex` will not work: the translation is made for this exact
-file. `config/supported-discs.json` lists every Disc 1 file with its size and hash.
+The two Disc 1 releases differ only in their three executables (`default.xex`,
+`XMediaFacade_default.xex`, `SpeechFacade_default.xex`), and those only in their headers
+(region, media ID, signature): the code inside is byte for byte the same, and so is the
+translation. All other files are identical. Other versions of `default.xex` will not work:
+the translation is made for this exact code. `config/supported-discs.json` lists every Disc 1
+file with its size and hash; the `$SystemUpdate` folder is optional, the game never reads it.
 
 The project was developed on a modified copy of the same release with the unicorn cars
 unlocked; only `Media/db/gamedb.slt` differs, and it works the same.
@@ -143,7 +146,10 @@ supported version:
 Get-FileHash D:\FM4\disc1\default.xex -Algorithm SHA256
 ```
 
-The hash must be `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1`.
+The hash must be one of:
+
+- `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1` (1.0 PAL)
+- `3618E85AF83E972DDCC1B0D0DD808E78E29AB4AB3890A15B31C210A6A3E93E09` (1.0 USA)
 
 ### 2. Get the source
 
@@ -451,7 +457,7 @@ Before you open an issue:
 
 - check [Known issues](#known-issues) and the open issues; add to an existing one rather
   than opening a duplicate;
-- check that `default.xex` has the supported hash (see [Install](#1-extract-disc-1));
+- check that `default.xex` has a supported hash (see [Install](#1-extract-disc-1));
 - update to the latest version (see [Updating](#updating)) and check that the problem is
   still there;
 - for anything that looks wrong on screen, try a `-Compat` launch too (see
@@ -522,7 +528,7 @@ Never attach game files, disc images or a built executable.
 |---|---|
 | `src/` | The host app: game hooks, built-in defaults, Disc 2 and DLC install, the GRAPHICS page and its UI |
 | `config/rexglue/` | The recompiler's input: function analysis, hooks, the manifest |
-| `config/*.json` | The pinned toolchain and SDK, the supported disc's file list |
+| `config/*.json` | The pinned toolchain and SDK, the supported discs' file lists |
 | `tools/setup.ps1`, `build.ps1`, `codegen.ps1`, `run.ps1` | Setup, build and launch |
 | `tools/warm-up.ps1`, `config/warm-up/` | The shader warm-up and the profile it plays with |
 | `tools/` (the rest) | Development tools: scripted races and measurements, dumps, disassembly helpers. Several assume the author's folder layout |
