@@ -64,6 +64,10 @@ REXCVAR_DEFINE_INT32(fm4_reflection_cube_size, 256, "Forza Motorsport 4",
                      "console's) to 512, before the resolution scale; applies from the next "
                      "scene load");
 
+REXCVAR_DEFINE_BOOL(fm4_skip_intro, false, "Forza Motorsport 4",
+                    "Skip the startup disclaimer and the studio logo videos (the game's own "
+                    "disablesplashintro developer option)");
+
 REXCVAR_DEFINE_DOUBLE(fm4_ui_speed, 1.0, "Forza Motorsport 4",
                       "Speed of the menus' animations against real time (1 = the console's)");
 
@@ -563,6 +567,13 @@ void Fm4AutovistaCameraUpdate() {
     fm4_static_recomp::MarkInputEvent("autovista");
   }
   last = now;
+}
+
+void Fm4SplashIntroOption(PPCRegister& r23) {
+  constexpr uint32_t kDisableSplashIntro = 0xB5C;
+  if (REXCVAR_GET(fm4_skip_intro)) {
+    rex::system::kernel_state()->memory()->virtual_membase()[r23.u32 + kDisableSplashIntro] = 1;
+  }
 }
 
 void Fm4DepthOfFieldOption(PPCRegister& r4) {

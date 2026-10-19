@@ -63,9 +63,9 @@ function Get-DrawsPerFrame([datetime]$since) {
 # -Fullscreen keeps the game's own fullscreen window instead of a 1280x720 one.
 function Start-Race([string[]]$GameArguments = @(), [switch]$Fullscreen, [int]$EnvironmentSteps = 0, [switch]$HotLap) {
     $window = if ($Fullscreen) { @() } else { '--fullscreen=false', '--window_width=1280', '--window_height=720' }
-    & $session start -GameArguments (@('--audio_mute=true') + $window + $GameArguments) | Out-Null
+    & $session start -GameArguments (@('--audio_mute=true', '--fm4_skip_intro=true') + $window + $GameArguments) | Out-Null
     # START skips the intro movie and A leaves the title; the profile is read when it is left.
-    Start-Sleep -Seconds 8
+    Start-Sleep -Seconds 2
     $deadline = (Get-Date).AddSeconds(120)
     $control = 'START'
     while (-not (Select-String -LiteralPath $log -Pattern 'root="B13EBABEBABEBABE"' -Quiet)) {
