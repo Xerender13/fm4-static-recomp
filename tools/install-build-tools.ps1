@@ -9,8 +9,11 @@ if (-not (Test-Path -LiteralPath $Bootstrapper -PathType Leaf)) {
     throw "Build Tools bootstrapper is missing: $Bootstrapper"
 }
 
+Write-Host 'Installing the Microsoft C++ Build Tools (a download of about 2 GB, often 10 minutes or more).'
+Write-Host 'The installer shows its own progress window. Keep this window open; it closes when the installation ends.'
+# --passive rather than --quiet: with no visible progress, players closed this window believing it hung.
 $arguments = @(
-    '--quiet', '--wait', '--norestart', '--nocache',
+    '--passive', '--wait', '--norestart', '--nocache',
     '--add', 'Microsoft.VisualStudio.Workload.VCTools',
     '--includeRecommended'
 )

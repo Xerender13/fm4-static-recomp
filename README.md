@@ -170,7 +170,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:
 Give `-GameRoot` without a trailing backslash. Setup:
 
 1. installs the Microsoft C++ Build Tools if they are missing (Windows asks for
-   administrator permission once; choose Yes);
+   administrator permission once; choose Yes). They are about 2 GB, so the installer can take
+   10 minutes or more; keep its windows open until they close by themselves;
 2. downloads pinned, hash-checked copies of CMake, LLVM/clang, MinGit, xz and an embedded
    Python into `.local\toolchain`;
 3. downloads the pinned ShiftGlue SDK revision into `.local\shiftglue-sdk` and builds its
