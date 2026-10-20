@@ -8,12 +8,23 @@ REXCVAR_DEFINE_BOOL(fm4_install_only, false, "Forza Motorsport 4",
                     "Install --fm4_disc2_packages and --fm4_dlc_packages, then quit");
 REXCVAR_DEFINE_STRING(fm4_write_graphics_schema, "", "Forza Motorsport 4",
                       "Write the GRAPHICS rows as JSON to this file, then quit");
+REXCVAR_DEFINE_STRING(fm4_dump_disc_shaders, "", "Forza Motorsport 4",
+                      "Write every shader on the disc to this folder, then quit");
+REXCVAR_DEFINE_STRING(fm4_build_shader_cache, "", "Forza Motorsport 4",
+                      "Add the shipped shader list's shaders and pipelines from the disc to this "
+                      "shareable shader cache folder, then quit");
+REXCVAR_DEFINE_STRING(fm4_shader_list_dir, "", "Forza Motorsport 4",
+                      "Folder of the shipped shader list for --fm4_build_shader_cache");
 
 namespace fm4_static_recomp {
 
 ToolMode CurrentToolMode() {
   if (!std::string(REXCVAR_GET(fm4_write_graphics_schema)).empty()) {
     return ToolMode::kSchema;
+  }
+  if (!std::string(REXCVAR_GET(fm4_dump_disc_shaders)).empty() ||
+      !std::string(REXCVAR_GET(fm4_build_shader_cache)).empty()) {
+    return ToolMode::kShaderCache;
   }
   return REXCVAR_GET(fm4_install_only) ? ToolMode::kInstall : ToolMode::kNone;
 }

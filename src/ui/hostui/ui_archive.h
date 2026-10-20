@@ -36,6 +36,9 @@ class UiArchive {
   // The member's bytes after decompression and a CRC check, or nullopt.
   std::optional<std::vector<uint8_t>> Read(std::string_view name) const;
 
+  // Lowercase member names, sorted.
+  std::vector<std::string> MemberNames() const;
+
  private:
   struct Member {
     uint64_t header_offset = 0;

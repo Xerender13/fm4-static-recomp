@@ -119,8 +119,8 @@ hooks and renderer changes):
   - this repository with the downloaded SDK and the build: about 3.1 GB;
   - the build tools setup downloads (CMake, LLVM, Git, Python, xz): about 4.1 GB;
   - Disc 2 and DLC, once installed into your save folder: about 2.8 GB and 2.2 GB.
-- About 40 minutes for the first setup on a fast PC with a fast connection, plus about
-  20 for the shader warm-up; a rebuild after an update takes minutes.
+- About 40 minutes for the first setup on a fast PC with a fast connection; a rebuild after
+  an update takes minutes.
 
 ## Install
 
@@ -178,15 +178,19 @@ Give `-GameRoot` without a trailing backslash. Setup:
    recompiler;
 4. translates `default.xex` into C++ (several minutes);
 5. compiles `out\build\win-amd64-release\fm4_static_recomp.exe`;
-6. warms the shader cache: the game runs hidden in the background (nothing on screen, no
-   sound) through the menus and ten short races, each with another car and track, so
-   that your first races do not stall while shaders compile (about 20 minutes). Press
-   Ctrl+C or close the window to stop it at any time: every shader compiled so far is
-   already in your cache, and the races come in the order that covers the most first.
-   It runs only when the cache is missing or out of date, so a rebuild after an update
-   usually skips it. Add `-SkipWarmUp` to leave it out; the game then compiles shaders
-   while you play, with short stalls the first time each effect appears. Pass the same
-   `-StateRoot` you play with (see below) so the cache lands in that state folder.
+6. builds the shader cache from your disc, so that your first races do not stall while
+   shaders compile: it reads the shaders on your Disc 1 (the executable, `Media\Shaders`
+   and each track's `bin.zip`) and adds those that the pipeline list in `config\shaders`
+   needs to your shader cache, with the list's pipelines (about a second); vertex shaders
+   are rebuilt from the disc's with the table of edits beside the list. The repository
+   ships only that list and table, which hold hashes, render states and edit positions,
+   no game data. The first launch then compiles every listed pipeline for your GPU before
+   the title screen: about 20 seconds on the test bench below (8 cores, 16 threads) with
+   an empty driver cache, longer on a processor with fewer threads. The step only adds to a
+   cache you already have; nothing of yours is removed. Add `-SkipShaderCache` to leave it
+   out; the game then compiles shaders while you play, with short stalls the first time
+   each effect appears. Pass the same `-StateRoot` you play with (see below) so the cache
+   lands in that state folder; without it, setup uses `.local\state`, as `run.ps1` does.
 
 Everything stays inside the repository folder; nothing else on the system changes apart
 from the Build Tools. If a step fails, the last lines name it, and
@@ -437,12 +441,12 @@ video memory from 2x up. Xenia is CPU-bound up to 2x (its GPU use stays under 60
   could still be read before its copy lands. Should you ever see a corrupted texture,
   launch with `--fh1_async_readbacks=false` and please report it.
 - **Shader stutter:** the first time an effect appears on a PC, the game stops for a
-  moment to compile its shaders. Setup's warm-up covers the menus, ten cars and ten
-  tracks; other tracks compile as you meet them, once. After changing the graphics card,
-  GAME MSAA or the resolution scale, or whenever the stalls come back, run the warm-up
-  again (add `-StateRoot` if you play with one):
-  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\warm-up.ps1 -GameRoot D:\FM4\disc1`.
-  A GPU driver update needs nothing: the next launch rebuilds the cache, with one longer
+  moment to compile its shaders. The shader cache setup builds holds 3,497 pipelines from
+  hours of play and scripted races, with GAME MSAA on and off: in a scripted race on a
+  fresh install, 16 pipelines compiled in play instead of 574, all of them for 3 shaders
+  that are not on the disc (they are cached after their first appearance too). Tracks,
+  cars and modes the list never met compile as you meet them, once. A new graphics card
+  or GPU driver needs nothing: the next launch compiles the cache again, with one longer
   loading screen.
 - **Frame pacing:** a rare, minor frame-time hitch in races, usually visible only in
   monitoring tools and not in play. A frame rate the PC cannot hold is less smooth, so
@@ -538,7 +542,8 @@ Never attach game files, disc images or a built executable.
 | `config/rexglue/` | The recompiler's input: function analysis, hooks, the manifest |
 | `config/*.json` | The pinned toolchain and SDK, the supported discs' file lists |
 | `tools/setup.ps1`, `build.ps1`, `codegen.ps1`, `run.ps1` | Setup, build and launch |
-| `tools/warm-up.ps1`, `config/warm-up/` | The shader warm-up and the profile it plays with |
+| `config/shaders/` | The pipeline list and vertex shader table setup builds the shader cache from |
+| `tools/shader_list.py`, `tools/warm-up.ps1`, `config/warm-up/` | Development tools that make that list: a scripted shader warm-up, the profile it plays with, list merging and checks |
 | `tools/` (the rest) | Development tools: scripted races and measurements, dumps, disassembly helpers. Several assume the author's folder layout |
 
 ## AI use

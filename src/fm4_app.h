@@ -1,14 +1,18 @@
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
+#include <vector>
 
 #include <rex/cvar.h>
 #include <rex/input/input_system.h>
 #include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/system/gpu_plugin.h>
+#include <rex/system/xmemory.h>
 #include <rex/ui/flags.h>
 #include <rex/ui/keybinds.h>
 #include <rex/ui/overlay/achievement_notification.h>
@@ -20,12 +24,17 @@
 #include "disc2_install.h"
 #include "game_hooks.h"
 #include "scripted_input.h"
+#include "shader_cache/cache_writer.h"
+#include "shader_cache/disc_shaders.h"
 #include "tool_mode.h"
 #include "ui/graphics_page.h"
 #include "ui/hostui/host_ui.h"
 
 REXCVAR_DECLARE(std::string, fm4_config_root);
 REXCVAR_DECLARE(std::string, fm4_write_graphics_schema);
+REXCVAR_DECLARE(std::string, fm4_dump_disc_shaders);
+REXCVAR_DECLARE(std::string, fm4_build_shader_cache);
+REXCVAR_DECLARE(std::string, fm4_shader_list_dir);
 
 class Fm4App final : public rex::ReXApp {
  public:
@@ -47,7 +56,8 @@ class Fm4App final : public rex::ReXApp {
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
     const fm4_static_recomp::ToolMode mode = fm4_static_recomp::CurrentToolMode();
-    if (mode == fm4_static_recomp::ToolMode::kInstall) {
+    if (mode == fm4_static_recomp::ToolMode::kInstall ||
+        mode == fm4_static_recomp::ToolMode::kShaderCache) {
       config.gpu_plugin.clear();
       config.audio_factory = nullptr;
       config.tool_mode = true;
@@ -87,7 +97,13 @@ class Fm4App final : public rex::ReXApp {
       }
       return true;
     }
-    return rex::ReXApp::ConstructRuntime(paths);
+    if (!rex::ReXApp::ConstructRuntime(paths)) {
+      return false;
+    }
+    if (fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kShaderCache) {
+      return RunShaderCacheTool();
+    }
+    return true;
   }
 
   void LaunchModule() override {
@@ -142,6 +158,60 @@ class Fm4App final : public rex::ReXApp {
   }
 
  private:
+  // Returning false makes the process exit with a failure code.
+  bool RunShaderCacheTool() {
+    namespace shader_cache = fm4_static_recomp::shader_cache;
+    const std::span<const uint8_t> image(
+        runtime()->memory()->TranslateVirtual<const uint8_t*>(PPCImageConfig.image_base),
+        PPCImageConfig.image_size);
+    size_t files = 0;
+    std::string error;
+    const auto scanned = shader_cache::ScanDisc(game_data_root(), image, &error, &files);
+    if (!scanned) {
+      REXLOG_ERROR("Shader cache: {}", error);
+      return false;
+    }
+    const std::vector<shader_cache::DiscShader>& shaders = *scanned;
+    const size_t pixel = size_t(std::count_if(shaders.begin(), shaders.end(),
+                                              [](const auto& shader) { return shader.pixel; }));
+    REXLOG_INFO("Disc shaders: {} distinct ({} vertex, {} pixel) from {} files", shaders.size(),
+                shaders.size() - pixel, pixel, files);
+    const std::string dump = REXCVAR_GET(fm4_dump_disc_shaders);
+    if (!dump.empty() && !shader_cache::WriteDump(shaders, dump)) {
+      REXLOG_ERROR("Disc shaders: cannot write the dump to {}", dump);
+      return false;
+    }
+    const std::string shareable = REXCVAR_GET(fm4_build_shader_cache);
+    if (shareable.empty()) {
+      return true;
+    }
+    const auto result = shader_cache::WriteShaderCache(
+        shaders, std::string(REXCVAR_GET(fm4_shader_list_dir)), shareable, &error);
+    if (!result) {
+      REXLOG_ERROR("Shader cache: {}", error);
+      return false;
+    }
+    if (!result->shaders_written && !result->pipelines_added && !result->pipelines_skipped) {
+      REXLOG_INFO("Shader cache: already complete, nothing to add ({} of {} shaders, {} not on the "
+                  "disc; {} pipelines)",
+                  result->shaders_needed - result->shaders_missing, result->shaders_needed,
+                  result->shaders_missing, result->pipelines_listed);
+      return true;
+    }
+    const std::string pipelines =
+        result->cache_version
+            ? fmt::format("pipelines skipped: list version {:08X}, cache version {:08X}",
+                          result->list_version, result->cache_version)
+        : result->pipelines_skipped
+            ? fmt::format("pipelines skipped: list version {:08X}, tool {:08X}",
+                          result->list_version, shader_cache::kPipelineStorageVersion)
+            : fmt::format("{} of {} pipelines added", result->pipelines_added,
+                          result->pipelines_listed);
+    REXLOG_INFO("Shader cache: {} of {} shaders ({} not on the disc), {}", result->shaders_written,
+                result->shaders_needed, result->shaders_missing, pipelines);
+    return true;
+  }
+
   void OpenGraphicsPage() {
     if (host_ui_ && host_ui_->is_open()) {
       return;

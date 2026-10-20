@@ -3,9 +3,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string]$GameRoot,
-    # The player's state whose shader cache the warm-up fills, as run.ps1 takes it.
+    # The player's state whose shader cache setup fills, as run.ps1 takes it.
     [string]$StateRoot,
-    [switch]$SkipWarmUp,
+    [switch]$SkipShaderCache,
     # Parallel compile jobs; 0 picks them from the processor count and memory.
     [ValidateRange(0, 32)] [int]$Parallel = 0,
     [switch]$JsonEvents
@@ -18,6 +18,8 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
 }
 . (Join-Path $PSScriptRoot 'release-common.ps1')
 $root = Get-Fm4RepoRoot
+if (-not $StateRoot) { $StateRoot = Join-Path $root '.local/state' }
+$StateRoot = [IO.Path]::GetFullPath($StateRoot)
 $logs = Resolve-Fm4LocalPath -RelativePath '.local/logs'
 [void](New-Item -ItemType Directory -Force -Path $logs)
 $errorPath = Join-Path $logs 'setup-error.json'
@@ -72,18 +74,16 @@ catch {
     exit 1
 }
 
-# The build is done whatever the warm-up does: without it the game compiles shaders in play.
-if (-not $SkipWarmUp) {
-    $warmUp = @{ GameRoot = $GameRoot; IfNeeded = $true; JsonEvents = $JsonEvents }
-    if ($StateRoot) { $warmUp.StateRoot = $StateRoot }
-    $warmedUp = $false
+# The build is done whatever the shader cache step does: without it the game compiles shaders in play.
+if (-not $SkipShaderCache) {
+    Write-Fm4Event shaders 0 'Building the shader cache from the disc.' -JsonEvents:$JsonEvents
     try {
-        & (Join-Path $PSScriptRoot 'warm-up.ps1') @warmUp | Out-Host
-        $warmedUp = $LASTEXITCODE -eq 0
+        $line = Write-Fm4ShaderCache -ExecutableDirectory (Join-Path $root 'out/build/win-amd64-release') `
+            -GameRoot $GameRoot -StateRoot $StateRoot -LogPath (Join-Path $logs 'shaders.log')
     }
-    catch { [Console]::Out.WriteLine("Shader warm-up: $($_.Exception.Message)") }
-    if (-not $warmedUp) {
-        [Console]::Out.WriteLine('The shader warm-up did not finish; the game will compile shaders while you play.')
+    catch {
+        $line = "$($_.Exception.Message) The game will compile shaders while you play."
     }
+    Write-Fm4Event shaders 100 $line -JsonEvents:$JsonEvents
 }
 exit 0

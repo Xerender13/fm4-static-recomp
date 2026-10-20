@@ -214,4 +214,14 @@ std::optional<std::vector<uint8_t>> UiArchive::Read(std::string_view name) const
   return data;
 }
 
+std::vector<std::string> UiArchive::MemberNames() const {
+  std::vector<std::string> names;
+  names.reserve(members_.size());
+  for (const auto& [name, member] : members_) {
+    names.push_back(name);
+  }
+  std::sort(names.begin(), names.end());
+  return names;
+}
+
 }  // namespace fm4_static_recomp::hostui
