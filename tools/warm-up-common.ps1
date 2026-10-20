@@ -99,6 +99,18 @@ function Stop-Fm4LeftoverGame {
     }
 }
 
+# The run's throwaway state, whose shader folder links to the player's: the link goes first, so
+# that the recursive delete cannot reach the player's cache through it.
+function Remove-Fm4WarmUpWork {
+    param([Parameter(Mandatory)] [string]$Path)
+    $link = Join-Path $Path 'cache\shaders'
+    if ((Test-Path -LiteralPath $link) -and
+        ((Get-Item -LiteralPath $link -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        [IO.Directory]::Delete($link)
+    }
+    if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
+}
+
 function Stop-Fm4Game {
     param([Parameter(Mandatory)] [Diagnostics.Process]$Process)
     if (-not $Process.HasExited) {

@@ -1,6 +1,7 @@
-# Fills the shader cache by playing a scripted route in a game nobody sees: title, menus, the
-# showroom and a Quick Race on five tracks, in a throwaway state with its own profile. Only the
-# shader cache is copied to the player's state, and it is kept when a later step fails.
+# Fills the shader cache by playing a scripted route in a game nobody sees: title, menus and ten
+# Quick Races, each with another car and track, in a throwaway state with its own profile. The
+# throwaway state's shader folder is a link to the player's, so the game writes every shader it
+# compiles straight into the player's cache, and stopping the run at any point keeps them.
 [CmdletBinding()]
 param(
     # The player's state, as run.ps1 takes it.
@@ -13,8 +14,6 @@ param(
     [string]$GameRoot,
     # Only when the cache is missing or this build would discard it (setup's case).
     [switch]$IfNeeded,
-    # After this many minutes the current track ends and the rest are skipped.
-    [int]$TimeLimitMinutes = 25,
     [switch]$JsonEvents
 )
 
@@ -31,23 +30,36 @@ $GameRoot = Resolve-Fm4Path $GameRoot
 $CacheRoot = if ($CacheRoot) { Resolve-Fm4Path $CacheRoot } else { Join-Path $StateRoot 'cache' }
 $ConfigPath = if ($ConfigPath) { Resolve-Fm4Path $ConfigPath } else { Join-Path $StateRoot 'config\graphics.toml' }
 
-# Environment list positions (Free Play, Quick Race), in the order that adds the most new track
-# shaders first, so a time limit drops the least.
-$tracks = @(
-    @{ Name = 'Bernese Alps'; Index = 0 },
-    @{ Name = 'Le Mans Circuit de la Sarthe'; Index = 9 },
-    @{ Name = 'Camino Viejo de Montserrat'; Index = 1 },
-    @{ Name = 'Tsukuba Circuit'; Index = 24 },
-    @{ Name = 'Indianapolis Motor Speedway'; Index = 6 }
+# Disc 1 cars and tracks that together reference the most shaders (the car shaders a car's models
+# name, the shader files in a track's bin.zip). Tracks come in the order that adds the most first,
+# so a stopped run has the most; any car brings most of the car shaders, so cars come in menu order,
+# which keeps the presses between races few. Menu positions as the throwaway state shows them, the
+# same on every install since it has no Disc 2 or DLC: manufacturers alphabetical after View
+# Garage (0); a manufacturer's cars by performance index, Disc 2 cars included (choosing one asks
+# for the disc), unicorns left out; environments alphabetical from 0, where the list starts again
+# after every car change.
+$races = @(
+    @{ Car = 'Aston Martin DBR1'; Make = 5; Model = 2; Track = 'Bernese Alps'; Environment = 0 },
+    @{ Car = 'Cadillac CTS-V'; Make = 12; Model = 1; Track = 'Le Mans Circuit de la Sarthe'; Environment = 9 },
+    @{ Car = 'Chevrolet Corvette Z06'; Make = 13; Model = 18; Track = 'Camino Viejo de Montserrat'; Environment = 1 },
+    @{ Car = 'Ferrari F430'; Make = 21; Model = 14; Track = 'Tsukuba Circuit'; Environment = 24 },
+    @{ Car = 'Ferrari 599 GTB Fiorano'; Make = 21; Model = 17; Track = 'Indianapolis Motor Speedway'; Environment = 6 },
+    @{ Car = 'Ferrari 599 GTO'; Make = 21; Model = 20; Track = 'Rally di Positano'; Environment = 15 },
+    @{ Car = 'Ford Mustang Mach 1'; Make = 23; Model = 7; Track = 'Twin Ring Motegi'; Environment = 25 },
+    @{ Car = 'Lotus Evora Type 124'; Make = 40; Model = 9; Track = 'Sunset Peninsula Raceway'; Environment = 21 },
+    @{ Car = 'Nissan Versa SL'; Make = 50; Model = 4; Track = 'Top Gear Test Track'; Environment = 23 },
+    @{ Car = 'Pontiac GTO'; Make = 57; Model = 7; Track = 'Nurburgring Grand Prix Circuit'; Environment = 13 }
 )
-$driveSeconds = 45
+# Each race camera shows for this long; a new view's shaders come with its first frames.
+$viewSeconds = 4
 
 # Games of a run that ended before its job could stop them.
 $work = Join-Path $root '.local\warm-up'
 Stop-Fm4LeftoverGame -StateRoot $work
 Stop-Fm4LeftoverGame -StateRoot (Join-Path $root '.local\warm-up-probe')
 
-$playerFolder = Join-Path $CacheRoot 'shaders\shareable'
+$playerShaders = Join-Path $CacheRoot 'shaders'
+$playerFolder = Join-Path $playerShaders 'shareable'
 foreach ($file in @(Get-ChildItem -Path (Join-Path $playerFolder '4D530910.*') -ErrorAction SilentlyContinue)) {
     if (Test-Fm4FileLocked $file.FullName) {
         [Console]::Out.WriteLine('FM4 Static Recomp is running on this state. Close it and run the warm-up again.')
@@ -56,39 +68,42 @@ foreach ($file in @(Get-ChildItem -Path (Join-Path $playerFolder '4D530910.*') -
 }
 
 $current = Get-Fm4CurrentCacheHeaders -GameRoot $GameRoot
-$playerCurrent = Test-Fm4ShaderCacheUsable -CacheRoot $CacheRoot -Current $current
-$cacheFiles = $script:Fm4ShaderFile, $current.PipelineFile
-if ($IfNeeded -and $playerCurrent) {
+if ($IfNeeded -and (Test-Fm4ShaderCacheUsable -CacheRoot $CacheRoot -Current $current)) {
     [Console]::Out.WriteLine('Shader cache is current; no warm-up needed.')
     exit 0
 }
 
-if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
+Remove-Fm4WarmUpWork -Path $work
 [void](New-Item -ItemType Directory -Force -Path (Join-Path $work 'user'), (Join-Path $work 'config'),
-    (Join-Path $work 'cache\shaders\shareable'))
+    (Join-Path $work 'cache'), $playerShaders)
+# A cache with another header is rewritten by the game, as at any launch of this build.
+[void](New-Item -ItemType Junction -Path (Join-Path $work 'cache\shaders') -Target $playerShaders)
 Copy-Item -Path (Join-Path $root 'config\warm-up\user\*') -Destination (Join-Path $work 'user') -Recurse -Force
 if (Test-Path -LiteralPath $ConfigPath -PathType Leaf) {
     Copy-Item -LiteralPath $ConfigPath -Destination (Join-Path $work 'config\graphics.toml')
-}
-# A cache with another header would be discarded by the game, new records with it.
-if ($playerCurrent) {
-    foreach ($name in $cacheFiles) {
-        Copy-Item -LiteralPath (Join-Path $playerFolder $name) -Destination (Join-Path $work 'cache\shaders\shareable')
-    }
 }
 $inputScript = Join-Path $work 'live.input'
 Set-Content -LiteralPath $inputScript -Value '# shader warm-up' -Encoding ascii
 
 $game = $null
 $started = Get-Date
-$skipped = @()
 $failure = $null
+$finished = $false
 try {
-    Write-Fm4Event warmup 0 'Warming up the shader cache in the background (about 10 minutes).' -JsonEvents:$JsonEvents
+    Write-Fm4Event warmup 0 ("Warming up the shader cache in the background: $($races.Count) races, about 20 minutes. " +
+        'Press Ctrl+C or close this window to stop at any time; the shaders compiled so far are kept.') -JsonEvents:$JsonEvents
     $game = Start-Fm4HiddenGame -StateRoot $work -GameRoot $GameRoot -InputScript $inputScript
     function Step([string]$Control, [double]$MinSeconds) {
         Send-Fm4Press -Game $game -InputScript $inputScript -Control $Control
         Wait-Fm4Settled -StateRoot $work -MinSeconds $MinSeconds -Game $game
+    }
+    # Presses that move through a list on one screen need no wait for shaders in between.
+    function Move-Selection([int]$From, [int]$To, [string]$Back = 'LEFT', [string]$On = 'RIGHT') {
+        $control = if ($To -lt $From) { $Back } else { $On }
+        for ($i = 0; $i -lt [Math]::Abs($To - $From); $i++) {
+            Send-Fm4Press -Game $game -InputScript $inputScript -Control $control -Wait 0.2
+        }
+        Wait-Fm4Settled -StateRoot $work -MinSeconds 0.4 -Game $game
     }
     # A screen still coming up can ignore a press (pre-race at 3x with MSAA runs at 20 fps), so
     # with $Ack the press repeats every 20 s until the log shows it was taken. A taken START RACE
@@ -124,76 +139,65 @@ try {
     Wait-Fm4Settled -StateRoot $work -MinSeconds 15 -Game $game # main menu
     1..3 | ForEach-Object { Step RIGHT 0.6 }
     Step A 6                                                     # Free Play
-    Step A 8                                                     # Quick Race -> manufacturer select
-    Step A 5.5                                                   # Abarth -> car select
-    Step RIGHT 1.5                                               # the first car needs Disc 2
-    Step A 7                                                     # Abarth 500 -> showroom
-    Step A 3                                                     # assists
-    Step A 3                                                     # environment select, Bernese Alps
-    $position = 0
+    Step A 8                                                     # Quick Race -> manufacturer select, Abarth
+    $make = 1
+    $model = $null
 
-    for ($i = 0; $i -lt $tracks.Count; $i++) {
-        $track = $tracks[$i]
-        if (((Get-Date) - $started).TotalMinutes -ge $TimeLimitMinutes) {
-            $skipped = @($tracks[$i..($tracks.Count - 1)] | ForEach-Object { $_.Name })
-            break
+    for ($i = 0; $i -lt $races.Count; $i++) {
+        $race = $races[$i]
+        Write-Fm4Event warmup ([int](100 * $i / $races.Count)) "Warming up shaders: race $($i + 1) of $($races.Count), $($race.Car) at $($race.Track)." -JsonEvents:$JsonEvents
+        if ($i -gt 0) {
+            Step B 3                                             # environment select
+            Step B 3                                             # car select
         }
-        Write-Fm4Event warmup ([int](100 * $i / $tracks.Count)) "Warming up shaders: $($track.Name) ($($i + 1) of $($tracks.Count))." -JsonEvents:$JsonEvents
-        $steps = $track.Index - $position
-        $direction = if ($steps -lt 0) { 'LEFT' } else { 'RIGHT' }
-        for ($s = 0; $s -lt [Math]::Abs($steps); $s++) { Step $direction 0.4 }
-        $position = $track.Index
+        if ($race.Make -ne $make) {
+            if ($null -ne $model) { Step B 3 }                   # manufacturer select
+            Move-Selection $make $race.Make
+            Step A 5.5                                           # car select, first car
+            $make = $race.Make
+            $model = 0
+        }
+        Move-Selection $model $race.Model
+        $model = $race.Model
+        Step A 7                                                 # showroom
+        Step A 3                                                 # assists
+        Step A 3                                                 # environment select, first environment
+        Move-Selection 0 $race.Environment
         Step A 3                                                 # track select
         Press-Until A 6 'fast vblank off after .* \(first car step\)' 240 'Race load: fast vblank on'  # GO RACE: load, pre-race scene
         Step A 3                                                 # pre-race menu
         Press-Until A 0 'Present interval: 1' 120 'Present interval: 1'  # START RACE
         # BACK cycles the race cameras (chase far and near, cockpit, hood, bumper), each with
         # shaders of its own.
-        Send-Fm4Press -Game $game -InputScript $inputScript -Control 'RT=1' -Hold $driveSeconds -NoWait
-        $view = $driveSeconds / 5
-        Start-Sleep -Milliseconds ([int]($view * 1000))
-        1..4 | ForEach-Object { Send-Fm4Press -Game $game -InputScript $inputScript -Control BACK -Wait ($view - 0.4) }
+        Send-Fm4Press -Game $game -InputScript $inputScript -Control 'RT=1' -Hold (5 * $viewSeconds) -NoWait
+        Start-Sleep -Milliseconds ([int]($viewSeconds * 1000))
+        1..4 | ForEach-Object { Send-Fm4Press -Game $game -InputScript $inputScript -Control BACK -Wait ($viewSeconds - 0.4) }
         Step START 2                                             # pause menu
-        1..6 | ForEach-Object { Step DOWN 0.4 }                  # QUIT RACE
+        Move-Selection 0 6 UP DOWN                               # QUIT RACE
         Step A 2                                                 # confirm
         Step A 8                                                 # post-race menu over a replay
         Press-Until A 3 'fast vblank off after .* \(menu\)' 240  # CONTINUE -> track select
-        Step B 3                                                 # environment select
     }
-    if ($skipped.Count -gt 0) {
-        Write-Fm4Event warmup 100 "Time limit of $TimeLimitMinutes minutes reached; skipped: $($skipped -join ', ')." -JsonEvents:$JsonEvents
-    }
+    $finished = $true
 }
 catch {
     $failure = $_.Exception.Message
 }
 finally {
-    $locked = $false
-    try {
-        if ($game) { Stop-Fm4Game -Process $game }
-        $workCache = Join-Path $work 'cache'
-        $result = Get-Fm4ShaderCacheHeaders -CacheRoot $workCache -PipelineFile $current.PipelineFile
-        $kept = Test-Fm4ShaderCacheUsable -CacheRoot $workCache -Current $current
-        if (-not $kept -and -not $failure) { $failure = 'the game wrote no shader cache this build can load' }
-        # The player may have started the game on this state since the run began.
-        $locked = @($cacheFiles | Where-Object { Test-Fm4FileLocked (Join-Path $playerFolder $_) }).Count -gt 0
-        if ($kept -and -not $locked) {
-            [void](New-Item -ItemType Directory -Force -Path $playerFolder)
-            foreach ($name in $cacheFiles) {
-                Copy-Item -LiteralPath (Join-Path $workCache "shaders\shareable\$name") -Destination $playerFolder -Force
-            }
-        }
+    if ($game) { Stop-Fm4Game -Process $game }
+    Remove-Fm4WarmUpWork -Path $work
+    $result = Get-Fm4ShaderCacheHeaders -CacheRoot $CacheRoot -PipelineFile $current.PipelineFile
+    $kept = Test-Fm4ShaderCacheUsable -CacheRoot $CacheRoot -Current $current
+    $minutes = ((Get-Date) - $started).TotalMinutes
+    # Ctrl+C ends the script after this block, with neither a failure nor a finished route.
+    if (-not $finished -and -not $failure) {
+        [Console]::Out.WriteLine(("Shader warm-up stopped after {0:N1} min; {1} pipelines are in the cache." -f $minutes, $result.PipelineCount))
     }
-    finally { Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
-$minutes = ((Get-Date) - $started).TotalMinutes
-if ($locked) {
-    [Console]::Out.WriteLine('FM4 Static Recomp was started on this state during the warm-up, so its shader cache was left as it was. Run the warm-up again with the game closed.')
-    exit 1
-}
+if (-not $kept -and -not $failure) { $failure = 'the game wrote no shader cache this build can load' }
 if ($failure) {
-    $saved = if ($kept) { "; $($result.PipelineCount) pipelines compiled so far are kept" } else { '' }
+    $saved = if ($kept) { "; $($result.PipelineCount) pipelines are in the cache" } else { '' }
     [Console]::Out.WriteLine(("The shader warm-up stopped after {0:N1} min: {1}{2}" -f $minutes, $failure, $saved))
     exit 1
 }
