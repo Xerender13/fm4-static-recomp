@@ -7,6 +7,7 @@
 
 #include <rex/input/input.h>
 #include <rex/input/input_system.h>
+#include <rex/input/state_merge.h>
 #include <rex/kernel/xam/module.h>
 #include <rex/logging.h>
 #include <rex/rex_app.h>
@@ -16,6 +17,7 @@
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "input/keycap.h"
 #include "ui/hostui/ui_archive.h"
 #include "ui/hostui/xds_texture.h"
 
@@ -173,6 +175,16 @@ bool HostUi::LoadAssets() {
   }
   const uint8_t white[4] = {255, 255, 255, 255};
   white_ = drawer_.CreateTexture(1, 1, ImmediateTextureFilter::kNearest, false, white);
+  const auto keycap = [&](std::string_view key) {
+    constexpr uint32_t kKeycapSize = 64;
+    const std::string labels[] = {input::KeyLabel(key)};
+    const input::Rgba cap =
+        input::RenderKeycap(labels, kKeycapSize, *fonts_[size_t(Face::kMedium)]);
+    return drawer_.CreateTexture(cap.size, cap.size, ImmediateTextureFilter::kLinear, false,
+                                 cap.pixels.data());
+  };
+  key_accept_ = keycap("Return");
+  key_back_ = keycap("Escape");
   if (auto textures = UiArchive::Open(ui_root / "Textures.zip")) {
     button_a_ = LoadTexture(drawer_, *textures, "UI4/A_Button_F3.xds");
     button_b_ = LoadTexture(drawer_, *textures, "UI4/B_Button_F3.xds");
@@ -198,6 +210,8 @@ bool HostUi::Open(std::unique_ptr<MenuScreen> screen) {
   }
   screen_ = std::move(screen);
   opened_at_ = std::chrono::steady_clock::now();
+  const auto device = input_system_ ? input_system_->ActiveDevice(0) : std::nullopt;
+  keyboard_prompts_ = device && device->synthetic;
   REXLOG_INFO("Host UI: opened {}", screen_->title());
   pad_.Reset();
   draining_ = false;
@@ -315,6 +329,9 @@ void HostUi::PollPad() {
                                 .count());
   const bool on_slider = screen_->focus() < screen_->rows().size() &&
                          screen_->rows()[screen_->focus()].slider.has_value();
+  if (!rex::input::IsNeutral(state.gamepad)) {
+    keyboard_prompts_ = false;
+  }
   std::vector<NavCommand> commands =
       pad_.Poll(uint16_t(state.gamepad.buttons), int16_t(state.gamepad.thumb_lx),
                 int16_t(state.gamepad.thumb_ly), now, on_slider);
@@ -842,7 +859,9 @@ void HostUi::DrawMenu(rex::ui::UIDrawContext& context) {
     ImmediateTexture* icon;
     const char* label;
   };
-  const Help help[] = {{button_a_.get(), "CHANGE"}, {button_b_.get(), "BACK"}};
+  const Help help[] = {
+      {keyboard_prompts_ ? key_accept_.get() : button_a_.get(), "CHANGE"},
+      {keyboard_prompts_ ? key_back_.get() : button_b_.get(), "BACK"}};
   float help_x = kHelpRight - 16.0f;
   for (size_t i = std::size(help); i-- > 0;) {
     help_x -= DrawText(Face::kMedium, kHelpSize, help[i].label, help_x, kHelpBaseline, kHelpText,
@@ -930,6 +949,7 @@ void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
     return;
   }
   e.set_handled(true);
+  keyboard_prompts_ = true;
   switch (key) {
     case VirtualKey::kUp:
     case VirtualKey::kNumpad8:
@@ -1000,6 +1020,7 @@ void HostUi::OnMouseDown(rex::ui::MouseEvent& e) {
     return;
   }
   e.set_handled(true);
+  keyboard_prompts_ = true;
   if (e.button() == rex::ui::MouseEvent::Button::kRight) {
     Apply(NavCommand::kBack);
     return;
@@ -1047,6 +1068,7 @@ void HostUi::OnMouseWheel(rex::ui::MouseEvent& e) {
     return;
   }
   e.set_handled(true);
+  keyboard_prompts_ = true;
   if (e.scroll_y() > 0) {
     Apply(NavCommand::kUp);
   } else if (e.scroll_y() < 0) {

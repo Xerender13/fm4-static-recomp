@@ -12,10 +12,12 @@ class Presenter;
 namespace fm4_static_recomp {
 
 // When FM4_STATIC_RECOMP_INPUT_SCRIPT names a script, replaces the input system with
-// one synthetic gamepad that plays it, so a route runs without window focus.
+// a gamepad and a keyboard that play it, so a route runs without window focus.
 // Each line is "<start seconds> <duration seconds> <control>..." from process
 // start; controls are A B X Y START BACK UP DOWN LEFT RIGHT LB RB LS RS and
-// RT= LT= (0..1), LX= LY= RX= RY= (-1..1). '#' starts a comment. The file is
+// RT= LT= (0..1), LX= LY= RX= RY= (-1..1), SET:<option>=<value>, which sets a
+// runtime option once when the step starts, and KEY:<key> (Return, Down, W...),
+// which a scripted keyboard holds instead. '#' starts a comment. The file is
 // re-read when it changes, so steps can be appended while the game runs. A
 // line "@<name>" makes the times of the lines after it count from an input
 // event (MarkInputEvent); a bare "@" goes back to process start.

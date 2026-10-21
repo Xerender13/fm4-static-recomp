@@ -46,7 +46,7 @@
   "sdk": {
     "repository": "https://github.com/i2kiselev/shiftglue-sdk",
     "branch": "fm4-static-recomp",
-    "revision": "9e9af08e950b8a101cde840ec213595be41b81db",
+    "revision": "5377a0d8d03d7d811221537d87f2402ada7807ca",
     "fallback_path": ".local/shiftglue-sdk"
   }
 }

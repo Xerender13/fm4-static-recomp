@@ -13,16 +13,20 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <rex/cvar.h>
 #include <rex/input/device_assignment.h>
 #include <rex/input/input.h>
 #include <rex/input/input_driver.h>
 #include <rex/input/input_system.h>
+#include <rex/input/mnk/mnk_bind.h>
 #include <rex/logging.h>
+#include <rex/ui/keybinds.h>
 #include <rex/ui/presenter.h>
 
 namespace fm4_static_recomp {
@@ -32,6 +36,7 @@ using rex::X_RESULT;
 using rex::X_STATUS;
 
 constexpr rex::input::DeviceId kDevice = static_cast<rex::input::DeviceId>(0x464D3453);  // FM4S
+constexpr rex::input::DeviceId kKeyboard = static_cast<rex::input::DeviceId>(0x464D344B);  // FM4K
 
 struct Step {
   // Times are relative to the anchor-th firing of the event named anchor, or
@@ -47,6 +52,10 @@ struct Step {
   int16_t thumb_ly = 0;
   int16_t thumb_rx = 0;
   int16_t thumb_ry = 0;
+  // SET:<option>=<value> tokens, applied once when the step starts.
+  std::vector<std::string> sets;
+  // KEY:<name> tokens: keys the scripted keyboard holds.
+  std::vector<uint16_t> keys;
 };
 
 std::mutex g_mutex;
@@ -59,6 +68,8 @@ const auto g_start = std::chrono::steady_clock::now();
 // Seconds since process start of each firing of each input event.
 std::unordered_map<std::string, std::vector<double>> g_events;
 bool g_recording = false;
+// The SET tokens already applied, as "<start> <token>", so a reload keeps them done.
+std::unordered_set<std::string> g_sets_applied;
 
 double Now() {
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - g_start).count();
@@ -85,6 +96,18 @@ bool ParseControl(const std::string& token, Step& step) {
       {"X", rex::input::X_INPUT_GAMEPAD_X},
       {"Y", rex::input::X_INPUT_GAMEPAD_Y},
   };
+  if (token.starts_with("KEY:")) {
+    const rex::ui::VirtualKey key = rex::ui::ParseVirtualKey(token.substr(4));
+    if (key == rex::ui::VirtualKey::kNone) {
+      return false;
+    }
+    step.keys.push_back(static_cast<uint16_t>(key));
+    return true;
+  }
+  if (token.starts_with("SET:") && token.find('=') != std::string::npos) {
+    step.sets.push_back(token.substr(4));
+    return true;
+  }
   if (auto button = buttons.find(token); button != buttons.end()) {
     step.buttons |= button->second;
     return true;
@@ -180,7 +203,6 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
     rex::input::DeviceInfo info;
     info.id = kDevice;
     info.name = "FM4 scripted gamepad";
-    info.synthetic = true;
     out.push_back(std::move(info));
   }
   X_RESULT GetDeviceState(rex::input::DeviceId id, rex::input::X_INPUT_STATE* out) override {
@@ -205,6 +227,16 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
           base = fired->second[step.anchor_index];
         }
         if (now < base + step.start || now >= base + step.end) {
+          continue;
+        }
+        for (const std::string& set : step.sets) {
+          if (g_sets_applied.insert(std::format("{} {}", step.start, set)).second) {
+            const size_t equals = set.find('=');
+            rex::cvar::SetFlagByName(set.substr(0, equals), set.substr(equals + 1));
+            REXLOG_INFO("Scripted input: set {}", set);
+          }
+        }
+        if (!step.keys.empty()) {
           continue;
         }
         packet = packet * 31 + uint32_t(i + 1);
@@ -260,9 +292,142 @@ class ScriptedInputDriver final : public rex::input::InputDriver {
   }
 };
 
+// The keys of the script's KEY: steps as the keyboard driver turns them into a
+// pad, through the bindings FM4 hands it (keybind overrides).
+class ScriptedKeyboardDriver final : public rex::input::InputDriver {
+ public:
+  ScriptedKeyboardDriver() : InputDriver(nullptr, 0) {}
+  X_STATUS Setup() override { return X_STATUS_SUCCESS; }
+  bool is_keyboard_and_mouse() const override { return true; }
+  void EnumerateDevices(std::vector<rex::input::DeviceInfo>& out) override {
+    rex::input::DeviceInfo info;
+    info.id = kKeyboard;
+    info.name = "FM4 scripted keyboard";
+    info.synthetic = true;
+    out.push_back(std::move(info));
+  }
+  X_RESULT GetDeviceState(rex::input::DeviceId id, rex::input::X_INPUT_STATE* out) override {
+    if (id != kKeyboard) {
+      return X_ERROR_DEVICE_NOT_CONNECTED;
+    }
+    if (!out) {
+      return X_ERROR_SUCCESS;
+    }
+    *out = {};
+    bool key_down[256] = {};
+    uint32_t packet = 0;
+    {
+      std::lock_guard lock(g_mutex);
+      ReloadIfChanged();
+      const double now = Now();
+      for (size_t i = 0; i < g_steps.size(); ++i) {
+        const Step& step = g_steps[i];
+        double base = 0.0;
+        if (!step.anchor.empty()) {
+          const auto fired = g_events.find(step.anchor);
+          if (fired == g_events.end() || fired->second.size() <= step.anchor_index) {
+            continue;
+          }
+          base = fired->second[step.anchor_index];
+        }
+        if (step.keys.empty() || now < base + step.start || now >= base + step.end) {
+          continue;
+        }
+        packet = packet * 31 + uint32_t(i + 1);
+        for (uint16_t key : step.keys) {
+          key_down[key] = true;
+        }
+      }
+    }
+    const auto binds = rex::input::mnk::KeybindOverrides();
+    if (!binds) {
+      return X_ERROR_SUCCESS;
+    }
+    bool keys[256];
+    held_keys_.Apply(binds, key_down, keys);
+    struct Target {
+      const char* option;
+      uint16_t button;
+      int8_t* axis8;
+      int16_t* axis16;
+      int sign;
+    };
+    int8_t lt = 0, rt = 0;
+    int16_t lx = 0, ly = 0, rx = 0, ry = 0;
+    const Target targets[] = {
+        {"keybind_a", rex::input::X_INPUT_GAMEPAD_A, nullptr, nullptr, 0},
+        {"keybind_b", rex::input::X_INPUT_GAMEPAD_B, nullptr, nullptr, 0},
+        {"keybind_x", rex::input::X_INPUT_GAMEPAD_X, nullptr, nullptr, 0},
+        {"keybind_y", rex::input::X_INPUT_GAMEPAD_Y, nullptr, nullptr, 0},
+        {"keybind_left_shoulder", rex::input::X_INPUT_GAMEPAD_LEFT_SHOULDER, nullptr, nullptr, 0},
+        {"keybind_right_shoulder", rex::input::X_INPUT_GAMEPAD_RIGHT_SHOULDER, nullptr, nullptr, 0},
+        {"keybind_lstick_press", rex::input::X_INPUT_GAMEPAD_LEFT_THUMB, nullptr, nullptr, 0},
+        {"keybind_rstick_press", rex::input::X_INPUT_GAMEPAD_RIGHT_THUMB, nullptr, nullptr, 0},
+        {"keybind_back", rex::input::X_INPUT_GAMEPAD_BACK, nullptr, nullptr, 0},
+        {"keybind_start", rex::input::X_INPUT_GAMEPAD_START, nullptr, nullptr, 0},
+        {"keybind_dpad_up", rex::input::X_INPUT_GAMEPAD_DPAD_UP, nullptr, nullptr, 0},
+        {"keybind_dpad_down", rex::input::X_INPUT_GAMEPAD_DPAD_DOWN, nullptr, nullptr, 0},
+        {"keybind_dpad_left", rex::input::X_INPUT_GAMEPAD_DPAD_LEFT, nullptr, nullptr, 0},
+        {"keybind_dpad_right", rex::input::X_INPUT_GAMEPAD_DPAD_RIGHT, nullptr, nullptr, 0},
+        {"keybind_left_trigger", 0, &lt, nullptr, 1},
+        {"keybind_right_trigger", 0, &rt, nullptr, 1},
+        {"keybind_lstick_left", 0, nullptr, &lx, -1},
+        {"keybind_lstick_right", 0, nullptr, &lx, 1},
+        {"keybind_lstick_up", 0, nullptr, &ly, 1},
+        {"keybind_lstick_down", 0, nullptr, &ly, -1},
+        {"keybind_rstick_left", 0, nullptr, &rx, -1},
+        {"keybind_rstick_right", 0, nullptr, &rx, 1},
+        {"keybind_rstick_up", 0, nullptr, &ry, 1},
+        {"keybind_rstick_down", 0, nullptr, &ry, -1},
+    };
+    uint16_t buttons = 0;
+    for (const Target& target : targets) {
+      const auto bind = binds->find(std::string_view(target.option));
+      if (bind == binds->end() || !rex::input::mnk::BindPressed(keys, bind->second, false)) {
+        continue;
+      }
+      buttons |= target.button;
+      if (target.axis8) *target.axis8 = 1;
+      if (target.axis16) *target.axis16 = int16_t(*target.axis16 + target.sign * 32767);
+    }
+    out->packet_number = packet;
+    out->gamepad.buttons = buttons;
+    out->gamepad.left_trigger = lt ? 255 : 0;
+    out->gamepad.right_trigger = rt ? 255 : 0;
+    out->gamepad.thumb_lx = lx;
+    out->gamepad.thumb_ly = ly;
+    out->gamepad.thumb_rx = rx;
+    out->gamepad.thumb_ry = ry;
+    return X_ERROR_SUCCESS;
+  }
+  X_RESULT GetDeviceCapabilities(rex::input::DeviceId id, uint32_t,
+                                 rex::input::X_INPUT_CAPABILITIES* out) override {
+    if (id != kKeyboard) {
+      return X_ERROR_DEVICE_NOT_CONNECTED;
+    }
+    if (out) {
+      *out = {};
+      out->type = 1;
+      out->sub_type = 1;
+    }
+    return X_ERROR_SUCCESS;
+  }
+  X_RESULT SetDeviceVibration(rex::input::DeviceId id, rex::input::X_INPUT_VIBRATION*) override {
+    return id == kKeyboard ? X_ERROR_SUCCESS : X_ERROR_DEVICE_NOT_CONNECTED;
+  }
+  X_RESULT GetDeviceKeystroke(rex::input::DeviceId id, uint32_t,
+                              rex::input::X_INPUT_KEYSTROKE*) override {
+    return id == kKeyboard ? X_ERROR_EMPTY : X_ERROR_DEVICE_NOT_CONNECTED;
+  }
+
+ private:
+  rex::input::mnk::HeldKeyMask held_keys_;
+};
+
 std::unique_ptr<rex::system::IInputSystem> CreateInputSystem(bool) {
   auto input = std::make_unique<rex::input::InputSystem>(nullptr);
   input->AddDriver(std::make_unique<ScriptedInputDriver>());
+  input->AddDriver(std::make_unique<ScriptedKeyboardDriver>());
   input->SetDeviceAssignment(std::make_unique<rex::input::SlotAssignment>());
   return input;
 }

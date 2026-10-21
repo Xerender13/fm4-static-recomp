@@ -28,6 +28,8 @@
 #include <rex/system/xmemory.h>
 
 #include "game_hooks.h"
+#include "input/input_context.h"
+#include "input/prompt_strings.h"
 #include "scripted_input.h"
 
 REXCVAR_DEFINE_BOOL(fm4_road_detail_blur, true, "Forza Motorsport 4",
@@ -165,6 +167,41 @@ constexpr uint32_t kMenuAddItem = 0x8266FF00;
 
 std::mutex g_graphics_page_mutex;
 std::function<void()> g_graphics_page_opener;
+std::mutex g_input_tick_mutex;
+std::function<void()> g_input_tick;
+
+// The prompt text source and the guest copies of the texts it made, kept for
+// as long as the game may hold them.
+std::mutex g_prompt_text_mutex;
+std::function<std::optional<std::u16string>(uint16_t, std::u16string_view)> g_prompt_text_source;
+std::unordered_map<std::u16string, uint32_t> g_prompt_texts;
+
+constexpr uint32_t kStringLookup = 0x823A4780;
+
+// A NUL-terminated big-endian UTF-16 copy of the text on the system heap.
+uint32_t GuestText(std::u16string_view text) {
+  const uint32_t address =
+      rex::system::kernel_state()->memory()->SystemHeapAlloc(uint32_t(2 * (text.size() + 1)));
+  uint8_t* const host = rex::system::kernel_state()->memory()->virtual_membase() + address;
+  for (size_t i = 0; i <= text.size(); ++i) {
+    const char16_t c = i < text.size() ? text[i] : u' ';
+    host[2 * i] = uint8_t(c >> 8);
+    host[2 * i + 1] = uint8_t(c);
+  }
+  return address;
+}
+
+std::u16string ReadGuestText(const uint8_t* base, uint32_t address) {
+  std::u16string text;
+  for (const uint8_t* at = base + address; text.size() < 4096; at += 2) {
+    const char16_t c = char16_t(at[0] << 8 | at[1]);
+    if (!c) {
+      break;
+    }
+    text.push_back(c);
+  }
+  return text;
+}
 
 // Calls a guest function from a hook on a copy of the live context, below the
 // hooked frame's stack, leaving the hooked code's registers as they were.
@@ -683,6 +720,13 @@ void Fm4ReflectionCubeMemory(PPCRegister& r3, PPCRegister& r26, PPCRegister& r30
 void Fm4MainLoopSession(PPCRegister& r11) {
   const bool race = r11.u32 != 0;
   g_race_session.store(race, std::memory_order_relaxed);
+  fm4_static_recomp::input::GameInputContext().SetRaceSession(race);
+  {
+    const std::lock_guard lock(g_input_tick_mutex);
+    if (g_input_tick) {
+      g_input_tick();
+    }
+  }
   // The menus light their car from captures the CPU reads and keep the result, so a
   // capture read before its asynchronous readback lands tints the car for good.
   static bool held = false;
@@ -693,6 +737,16 @@ void Fm4MainLoopSession(PPCRegister& r11) {
   }
   // Every tick, so the values are in place before a race loads its cars.
   ApplyRenderScenarioSettings();
+}
+
+void Fm4RaceMenuSceneCreated(PPCRegister& r3) {
+  fm4_static_recomp::input::GameInputContext().RaceMenuSceneCreated(r3.u32);
+  REXLOG_INFO("Race menu scene created {:08X}", r3.u32);
+}
+
+void Fm4RaceMenuSceneDestroyed(PPCRegister& r3) {
+  fm4_static_recomp::input::GameInputContext().RaceMenuSceneDestroyed(r3.u32);
+  REXLOG_INFO("Race menu scene destroyed {:08X}", r3.u32);
 }
 
 bool Fm4SkipVblankCallback() {
@@ -742,6 +796,17 @@ void InstallRoadDetailBlurSwitch() {
   });
 }
 
+void SetPromptTextSource(
+    std::function<std::optional<std::u16string>(uint16_t key, std::u16string_view text)> source) {
+  const std::lock_guard lock(g_prompt_text_mutex);
+  g_prompt_text_source = std::move(source);
+}
+
+void SetInputTick(std::function<void()> tick) {
+  const std::lock_guard lock(g_input_tick_mutex);
+  g_input_tick = std::move(tick);
+}
+
 void SetGraphicsPageOpener(std::function<void()> opener) {
   const std::lock_guard lock(g_graphics_page_mutex);
   g_graphics_page_opener = std::move(opener);
@@ -767,24 +832,45 @@ void Fm4AddGraphicsOption(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRe
   }
 }
 
-// The string table lookup (table, key): GRAPHICS for the entry's key.
-bool Fm4GraphicsOptionText(PPCRegister& r3, PPCRegister& r4) {
-  if ((r4.u32 & 0xFFFF) != kGraphicsStringKey) {
+// The string table lookup (table, key): GRAPHICS for the entry's key, and the
+// strings that name pad buttons as the prompt text source rewrites them.
+bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRegister& r3,
+                           PPCRegister& r4) {
+  const uint16_t key = uint16_t(r4.u32 & 0xFFFF);
+  if (key == kGraphicsStringKey) {
+    static const uint32_t text = GuestText(u"GRAPHICS");
+    r3.u64 = text;
+    return true;
+  }
+  // The nested lookup below runs this hook again.
+  thread_local bool nested = false;
+  if (nested || !fm4_static_recomp::input::IsPromptStringKey(key)) {
     return false;
   }
-  static const uint32_t text = [] {
-    constexpr std::u16string_view kText = u"GRAPHICS";
-    const uint32_t address =
-        rex::system::kernel_state()->memory()->SystemHeapAlloc(uint32_t(2 * (kText.size() + 1)));
-    uint8_t* const host = rex::system::kernel_state()->memory()->virtual_membase() + address;
-    for (size_t i = 0; i <= kText.size(); ++i) {
-      const char16_t c = i < kText.size() ? kText[i] : u'\0';
-      host[2 * i] = uint8_t(c >> 8);
-      host[2 * i + 1] = uint8_t(c);
+  std::function<std::optional<std::u16string>(uint16_t, std::u16string_view)> source;
+  {
+    const std::lock_guard lock(g_prompt_text_mutex);
+    source = g_prompt_text_source;
+  }
+  if (!source) {
+    return false;
+  }
+  nested = true;
+  const uint32_t original = CallGuest(ctx, base, r1.u32, kStringLookup, {r3.u32, r4.u32});
+  nested = false;
+  r3.u64 = original;
+  if (!original) {
+    return true;
+  }
+  if (const auto text = source(key, ReadGuestText(base, original))) {
+    const std::lock_guard lock(g_prompt_text_mutex);
+    uint32_t& address = g_prompt_texts[*text];
+    if (!address) {
+      address = GuestText(*text);
+      REXLOG_INFO("Prompt text {:04X}: {}", key, std::string(text->begin(), text->end()));
     }
-    return address;
-  }();
-  r3.u64 = text;
+    r3.u64 = address;
+  }
   return true;
 }
 

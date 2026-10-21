@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -19,6 +21,11 @@
 #include "config/host_config.h"
 #include "disc2_install.h"
 #include "game_hooks.h"
+#include "input/controls.h"
+#include "input/input_context.h"
+#include "input/keyboard_ramp.h"
+#include "input/prompt_strings.h"
+#include "input/prompt_swap.h"
 #include "scripted_input.h"
 #include "tool_mode.h"
 #include "ui/graphics_page.h"
@@ -43,6 +50,8 @@ class Fm4App final : public rex::ReXApp {
                            : std::filesystem::path(configured);
     graphics_config_ =
         std::make_unique<fm4_static_recomp::config::HostConfig>(config_root / "graphics.toml");
+    controls_config_ =
+        std::make_unique<fm4_static_recomp::config::HostConfig>(config_root / "controls.toml");
   }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
@@ -71,6 +80,11 @@ class Fm4App final : public rex::ReXApp {
       REXLOG_ERROR("Graphics settings: cannot read {}", graphics_config_->path().string());
     }
     fm4_static_recomp::InstallRoadDetailBlurSwitch();
+    if (controls_config_->Load()) {
+      controls_ = fm4_static_recomp::input::LoadControls(*controls_config_);
+    } else {
+      REXLOG_ERROR("Controls: cannot read {}", controls_config_->path().string());
+    }
   }
 
   bool WantsPresentation() const override {
@@ -117,6 +131,7 @@ class Fm4App final : public rex::ReXApp {
         window->app_context().CallInUIThreadDeferred([this] { OpenGraphicsPage(); });
       }
     });
+    InstallKeyboard();
     rex::ui::RegisterBind("bind_graphics_page", "F6", "Toggle the GRAPHICS page", [this] {
       if (host_ui_ && host_ui_->is_open()) {
         host_ui_->Close();
@@ -128,6 +143,8 @@ class Fm4App final : public rex::ReXApp {
 
   void OnShutdown() override {
     rex::ui::UnregisterBind("bind_graphics_page");
+    fm4_static_recomp::SetInputTick(nullptr);
+    fm4_static_recomp::SetPromptTextSource(nullptr);
     fm4_static_recomp::SetGraphicsPageOpener(nullptr);
     host_ui_.reset();
   }
@@ -142,6 +159,78 @@ class Fm4App final : public rex::ReXApp {
   }
 
  private:
+  // The keyboard's bindings follow the input context each tick, and its
+  // steering, pedals and look are smoothed while driving.
+  void InstallKeyboard() {
+    namespace input = fm4_static_recomp::input;
+    auto* const input_system = static_cast<rex::input::InputSystem*>(runtime()->input_system());
+    binding_switcher_ = std::make_unique<input::BindingSwitcher>(controls_);
+    // Before the main loop's first tick, so the driver never reads its own keybind_* defaults.
+    binding_switcher_->Update(input::InputContext::kMenu);
+    prompt_swap_ = CreatePromptSwap();
+    fm4_static_recomp::SetInputTick([this, input_system] {
+      const input::InputContext context = input::CurrentInputContext();
+      binding_switcher_->Update(context);
+      if (!input_system) {
+        return;
+      }
+      // The keyboard is a synthetic device; a pad that has not moved never takes over.
+      const auto device = input_system->ActiveDevice(0);
+      const bool keyboard = device && device->synthetic;
+      keyboard_prompts_.store(keyboard, std::memory_order_relaxed);
+      if (prompt_swap_) {
+        prompt_swap_->Update(keyboard, context);
+      }
+    });
+    fm4_static_recomp::SetPromptTextSource(
+        [this](uint16_t key, std::u16string_view text) -> std::optional<std::u16string> {
+          if (!keyboard_prompts_.load(std::memory_order_relaxed)) {
+            return std::nullopt;
+          }
+          return input::KeyboardText(key, text, controls_);
+        });
+    if (!input_system) {
+      return;
+    }
+    input_system->SetKeyboardStateFilter(
+        [ramp = input::KeyboardRamp(controls_.ramp), last = std::chrono::steady_clock::now()](
+            uint32_t user_index, rex::input::X_INPUT_GAMEPAD& pad) mutable {
+          if (user_index != 0) {
+            return;
+          }
+          const auto now = std::chrono::steady_clock::now();
+          const double elapsed = std::chrono::duration<double>(now - last).count();
+          last = now;
+          ramp.Apply(pad, elapsed, input::CurrentInputContext() == input::InputContext::kDriving);
+        });
+  }
+
+  // The keycaps for the game's button icons, from its own icons and font.
+  std::unique_ptr<fm4_static_recomp::input::PromptSwap> CreatePromptSwap() {
+    namespace hostui = fm4_static_recomp::hostui;
+    const auto ui_root = game_data_root() / "Media" / "UI";
+    const auto textures = hostui::UiArchive::Open(ui_root / "Textures.zip");
+    const auto fonts = hostui::UiArchive::Open(ui_root / "Fonts.zip");
+    // The help bar's font (fontmap.xml: B_Swiss_721_Medium).
+    const auto font_data = fonts ? fonts->Read("b_vector_aa.dt") : std::nullopt;
+    const auto font = font_data ? hostui::VectorFont::Parse(*font_data) : std::nullopt;
+    if (!textures || !font) {
+      REXLOG_WARN("Prompt icons: cannot read Textures.zip or Fonts.zip; keeping the pad icons");
+      return nullptr;
+    }
+    const auto started = std::chrono::steady_clock::now();
+    auto icons = fm4_static_recomp::input::LoadPromptTextures(*textures);
+    const size_t count = icons.size();
+    auto swap = std::make_unique<fm4_static_recomp::input::PromptSwap>(std::move(icons), *font,
+                                                                       controls_);
+    REXLOG_INFO("Prompt icons: {} of {} icons, keycaps drawn in {} ms", count,
+                fm4_static_recomp::input::kPromptTextureNames.size(),
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - started)
+                    .count());
+    return swap;
+  }
+
   void OpenGraphicsPage() {
     if (host_ui_ && host_ui_->is_open()) {
       return;
@@ -183,5 +272,10 @@ class Fm4App final : public rex::ReXApp {
   }
 
   std::unique_ptr<fm4_static_recomp::config::HostConfig> graphics_config_;
+  std::unique_ptr<fm4_static_recomp::config::HostConfig> controls_config_;
+  fm4_static_recomp::input::Controls controls_ = fm4_static_recomp::input::DefaultControls();
+  std::unique_ptr<fm4_static_recomp::input::BindingSwitcher> binding_switcher_;
+  std::unique_ptr<fm4_static_recomp::input::PromptSwap> prompt_swap_;
+  std::atomic<bool> keyboard_prompts_{false};
   std::unique_ptr<fm4_static_recomp::hostui::HostUi> host_ui_;
 };

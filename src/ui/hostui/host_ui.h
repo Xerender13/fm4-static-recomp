@@ -155,6 +155,8 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   bool applying_ = false;
   bool close_pending_ = false;
   bool guest_ui_active_ = false;
+  // The last device used: keyboard or mouse, or a pad.
+  bool keyboard_prompts_ = false;
   std::chrono::steady_clock::time_point start_time_ = std::chrono::steady_clock::now();
 
   // Assets, loaded on first open.
@@ -164,6 +166,9 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   std::unique_ptr<rex::ui::ImmediateTexture> white_;
   std::unique_ptr<rex::ui::ImmediateTexture> button_a_;
   std::unique_ptr<rex::ui::ImmediateTexture> button_b_;
+  // Keycaps of the menu's own keys, for the help while the keyboard leads.
+  std::unique_ptr<rex::ui::ImmediateTexture> key_accept_;
+  std::unique_ptr<rex::ui::ImmediateTexture> key_back_;
   std::unique_ptr<rex::ui::ImmediateTexture> spinner_;
   std::unique_ptr<rex::ui::ImmediateTexture> selection_bar_;
   std::unique_ptr<rex::ui::ImmediateTexture> arrow_;

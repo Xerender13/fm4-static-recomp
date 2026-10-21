@@ -21,6 +21,12 @@ add_executable(fm4_static_recomp WIN32
     src/game_hooks.cpp
     src/scripted_input.cpp
     src/config/host_config.cpp
+    src/input/controls.cpp
+    src/input/input_context.cpp
+    src/input/keyboard_ramp.cpp
+    src/input/keycap.cpp
+    src/input/prompt_strings.cpp
+    src/input/prompt_swap.cpp
     src/ui/graphics_page.cpp
     src/ui/hostui/glyph_atlas.cpp
     src/ui/hostui/host_ui.cpp
@@ -32,6 +38,39 @@ add_executable(fm4_static_recomp WIN32
 
 fm4_static_recomp_attach_rexglue(fm4_static_recomp)
 target_link_libraries(fm4_static_recomp PRIVATE d3d12 dxgi rex::gpu-fh1)
+
+option(FM4_BUILD_TESTS "Add the fm4_unit_tests target (built only when asked for)" OFF)
+if(FM4_BUILD_TESTS)
+    if(NOT TARGET Catch2::Catch2WithMain)
+        add_subdirectory("${REXSDK_DIR}/thirdparty/catch2" catch2 EXCLUDE_FROM_ALL)
+    endif()
+    add_executable(fm4_unit_tests EXCLUDE_FROM_ALL
+        tests/controls_test.cpp
+        tests/keyboard_ramp_test.cpp
+        tests/input_context_test.cpp
+        tests/keycap_test.cpp
+        tests/prompt_swap_test.cpp
+        tests/prompt_strings_test.cpp
+        src/config/host_config.cpp
+        src/input/controls.cpp
+        src/input/keyboard_ramp.cpp
+        src/input/input_context.cpp
+        src/input/keycap.cpp
+        src/input/prompt_swap.cpp
+        src/input/prompt_strings.cpp
+        src/ui/hostui/ui_archive.cpp
+        src/ui/hostui/vector_font.cpp
+    )
+    # Away from the game's staged runtime, which is only as new as the last game build;
+    # run with rexglue-artifacts on PATH.
+    set_target_properties(fm4_unit_tests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/fm4-tests")
+    target_include_directories(fm4_unit_tests PRIVATE src)
+    target_compile_definitions(fm4_unit_tests PRIVATE
+        FM4_TEST_GAME_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/../extracted/fm4"
+        FM4_TEST_STRINGS="${CMAKE_CURRENT_SOURCE_DIR}/../frontend-settings/data/raw/strings/EN.tsv")
+    target_link_libraries(fm4_unit_tests PRIVATE Catch2::Catch2WithMain rexruntime)
+endif()
 
 fm4_static_recomp_add_generated_module(
     fm4_static_recomp_SpeechFacade_default speech

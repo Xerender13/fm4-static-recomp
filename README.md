@@ -31,6 +31,7 @@ legally obtained copy of the game, and the executable is built on your computer.
 - [What you need](#what-you-need)
 - [Install](#install)
 - [Graphics settings](#graphics-settings)
+- [Keyboard](#keyboard)
 - [Launch options](#launch-options)
 - [What has been tested](#what-has-been-tested)
 - [What has not been tested](#what-has-not-been-tested)
@@ -102,7 +103,7 @@ hooks and renderer changes):
 | Frame generation tools | - | Not visible to them | Opt-in DXGI presentation for Lossless Scaling and NVIDIA Smooth Motion |
 | Xbox LIVE (online, Storefront, Auction House) | Yes (servers closed) | No | No |
 | Kinect | Yes | No | No |
-| Input | Controller | XInput gamepad | XInput gamepad (no keyboard play yet) |
+| Input | Controller | XInput gamepad | XInput gamepad and keyboard, with the button prompts showing the keys while the keyboard is in use |
 
 ## What you need
 
@@ -316,6 +317,43 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 - **DEPTH OF FIELD**: the focus blur of the showroom, pre-race and replay cameras and photo
   mode.
 
+## Keyboard
+
+The keyboard plays beside a gamepad, after Forza Horizon 6's layout. The game's button
+prompts show light keycaps of the bound keys while the keyboard was the last device you
+used, and the controller buttons again as soon as you touch the pad; prompts written in
+English sentences ("PRESS THE BACK BUTTON...") name the keys too.
+
+| Driving | Keys | | Menus | Keys |
+|---|---|---|---|---|
+| Throttle / brake | W / S | | Move | W A S D, arrow keys |
+| Steer | A / D | | Select (A) | Enter, Space |
+| Handbrake | Space | | Back (B) | Esc, Backspace |
+| Gear up / down | E / Q | | X / Y | X / Y |
+| Clutch | Shift | | LB / RB | Q / E |
+| Camera | Tab | | LT / RT | Z / C |
+| Rewind | R | | Right stick | I J K L |
+| Look around (back: Down) | arrow keys | | BACK / START | Tab / P |
+| Look straight back | C | | | |
+| Telemetry | T, G | | | |
+| Pause | Esc | | | |
+
+"Driving" means the car is on track and the game is not paused; the pre-race screen, the
+pause menu, replays and results use the menu keys. Steering, the pedals and looking around
+ramp up while a key is held and ease back when it is released. The mouse is not used.
+
+To rebind, add lines to `config\controls.toml` in the state folder (the file does not exist
+until you create it): `menu_<button>` and `driving_<button>` with `<button>` one of `a`, `b`,
+`x`, `y`, `left_shoulder`, `right_shoulder`, `left_trigger`, `right_trigger`, `lstick_up`,
+`lstick_down`, `lstick_left`, `lstick_right`, `lstick_press`, the same five for `rstick_`,
+`dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `back`, `start`. A value lists keys
+separated by commas, e.g. `driving_x = "Q,Numpad1"`; key names are `A`..`Z`, `0`..`9`,
+`F1`..`F24`, `Up`, `Down`, `Left`, `Right`, `Space`, `Return`, `Escape`, `Backspace`, `Tab`,
+`Shift`, `Control`, `Alt`, `Numpad0`..`Numpad9` and the like. The ramps are
+`ramp_steer_seconds` (0.20), `ramp_steer_return_seconds` (0.12), `ramp_pedal_seconds` (0.10),
+`ramp_pedal_return_seconds` (0.08) and `ramp_look_seconds` (0.15): seconds from rest to full
+and back. Changes apply at the next launch.
+
 ## Launch options
 
 
@@ -329,7 +367,7 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fh1_async_readbacks=false` | Turn off asynchronous readbacks (see Known issues) |
 | `--vulkan_present_via_dxgi=true` | Present through DXGI, so frame generation tools see the frames |
-| `--fm4_config_root=<folder>` | Where `graphics.toml` lives (default: the state folder's `config`) |
+| `--fm4_config_root=<folder>` | Where `graphics.toml` and `controls.toml` live (default: the state folder's `config`) |
 
 `tools\run.ps1 -Compat` launches with every rendering shortcut of this project turned off
 and the console's graphics settings. If something looks wrong, compare it with a `-Compat`
@@ -452,7 +490,8 @@ video memory from 2x up. Xenia is CPU-bound up to 2x (its GPU use stays under 60
 
 Limitations rather than bugs:
 
-- **Keyboard play** is not supported yet; a gamepad is needed.
+- **Keyboard prompts**: the telemetry pages' D-pad icons stay controller pictures, and
+  prompts written in sentences keep the controller wording in languages other than English.
 - **Only Vulkan.** ShiftGlue's Direct3D 12 renderer does not run FM4.
 - **No launcher yet**, so no profile switching, disc verification or in-app updates.
 - Install folders with non-English letters (for example a Cyrillic Windows user name in
@@ -522,13 +561,12 @@ Never attach game files, disc images or a built executable.
    or Games on Demand copies and checks them, builds the game, keeps separate profiles
    (saves), holds the GRAPHICS settings and updates to new versions while the previous one
    stays playable.
-2. **Keyboard support**, with the game's controller button icons replaced by keyboard keys.
-3. **Project Forza Plus**: explore support for the mod.
-4. **Racing wheels**, starting with MOZA wheels.
-5. **AMD GPU** testing 
-6. **Linux**: a native Linux build of the game and the launcher. Windows is the only
+2. **Project Forza Plus**: explore support for the mod.
+3. **Racing wheels**, starting with MOZA wheels.
+4. **AMD GPU** testing 
+5. **Linux**: a native Linux build of the game and the launcher. Windows is the only
    supported system today.
-7. Test other disc releases for compatibility (e.g. Forza Motorsport 4: Essentials Edition)
+6. Test other disc releases for compatibility (e.g. Forza Motorsport 4: Essentials Edition)
 
 ## Repository layout
 

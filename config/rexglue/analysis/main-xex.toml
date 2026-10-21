@@ -785,11 +785,13 @@ name = "Fm4AddGraphicsOption"
 context = true
 registers = ["r1", "r30", "r31"]
 
-# The string table lookup (table, key) answers the entry's key itself.
+# The string table lookup (table, key) answers the entry's key itself, and
+# rewrites the strings that name pad buttons while the keyboard is in use.
 [[midasm_hook]]
 address = 0x823A4780
 name = "Fm4GraphicsOptionText"
-registers = ["r3", "r4"]
+context = true
+registers = ["r1", "r3", "r4"]
 return_on_true = true
 
 # The Options dispatcher (this, action): action 23 opens the host page. The
@@ -826,3 +828,46 @@ name = "Fm4LoadingScreen"
 address = 0x822A46D0
 name = "Fm4UiSceneStep"
 registers = ["f31"]
+
+# The race's menu scenes (pause, pre-race, post-race, replay) are created by their
+# constructors and destroyed by their deleting destructors (vtable slot 1); while
+# one lives over a race the keys follow the menu bindings (src/input/input_context.*).
+[[midasm_hook]]
+address = 0x8259A1A8
+name = "Fm4RaceMenuSceneCreated"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x825BF750
+name = "Fm4RaceMenuSceneCreated"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x825C10B0
+name = "Fm4RaceMenuSceneCreated"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x825BFA28
+name = "Fm4RaceMenuSceneCreated"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x8259BE00
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x825BF7E0
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x825BF700
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x825BFAC0
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]

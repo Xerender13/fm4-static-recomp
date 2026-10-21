@@ -1,12 +1,26 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
+#include <optional>
+#include <string>
+#include <string_view>
 
 namespace fm4_static_recomp {
 
 // Runs on a guest thread when the player picks GRAPHICS in My Profile ->
 // Options.
 void SetGraphicsPageOpener(std::function<void()> opener);
+
+// Runs on the game's main loop thread once a tick, after the race flag and the
+// input context are current.
+void SetInputTick(std::function<void()> tick);
+
+// Rewrites the game's strings that name pad buttons (input/prompt_strings.h):
+// the source gets the string's key and the game's text, and answers the text to
+// show or nullopt. Runs on guest threads.
+void SetPromptTextSource(
+    std::function<std::optional<std::u16string>(uint16_t key, std::u16string_view text)> source);
 
 // Makes fm4_road_detail_blur drive the GPU settings, now and on each change;
 // call once the GPU plugin has registered them.

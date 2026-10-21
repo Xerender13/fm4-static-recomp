@@ -8,7 +8,8 @@
 #include <rex/logging.h>
 
 REXCVAR_DEFINE_STRING(fm4_config_root, "", "Forza Motorsport 4",
-                      "Folder of graphics.toml; empty means the state root's config folder");
+                      "Folder of graphics.toml and controls.toml; empty means the state root's "
+                      "config folder");
 
 namespace fm4_static_recomp {
 namespace {
@@ -60,6 +61,12 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"xma_lazy_decoder_state", "false"},
     Default{"pad_chord_debug_overlay", ""},
     Default{"pad_chord_game_menu", ""},
+    // The keyboard plays beside the pad, Left Shift as the clutch while driving keys are
+    // held; no mouse input (the game's menus have no pointer).
+    Default{"mnk_mode", "true"},
+    Default{"mnk_exact_modifiers", "false"},
+    Default{"mnk_mouse", "false"},
+    Default{"mnk_mouse_steering", "false"},
 };
 
 template <size_t N>
