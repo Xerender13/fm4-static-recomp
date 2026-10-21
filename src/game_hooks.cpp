@@ -790,6 +790,11 @@ void ApplyRoadDetailBlur(bool blur) {
 }
 
 void InstallRoadDetailBlurSwitch() {
+  // The SDK holds one override: one given at launch is a diagnostic and wins.
+  if (!rex::cvar::GetFlagByName("gpu_pixel_shader_constant_override").empty()) {
+    REXLOG_INFO("fm4_road_detail_blur: inactive, gpu_pixel_shader_constant_override is set");
+    return;
+  }
   ApplyRoadDetailBlur(REXCVAR_GET(fm4_road_detail_blur));
   rex::cvar::RegisterChangeCallback("fm4_road_detail_blur", [](std::string_view, std::string_view) {
     ApplyRoadDetailBlur(REXCVAR_GET(fm4_road_detail_blur));
