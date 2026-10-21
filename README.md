@@ -4,15 +4,14 @@ An unofficial static recompilation of the Xbox 360 release of *Forza Motorsport 
 Windows, built on your own PC from your own disc.
 
 The game's PowerPC code is translated ahead of time into C++ by the
-[ShiftGlue SDK](https://github.com/arcanite24/shiftglue-sdk) and compiled for x86-64. The GPU
-commands the game builds are executed by ShiftGlue's native Vulkan renderer, written for
+[ShiftGlue SDK](https://github.com/arcanite24/shiftglue-sdk) and compiled for x86-64. Its GPU
+commands run on ShiftGlue's native Vulkan renderer, written for
 [Pinyon Shift](https://github.com/arcanite24/pinyon-shift) (*Forza Horizon*) and extended
 here for FM4.
 
-> **Experimental source release.** The offline game modes play without known problems
-> (see [What has been tested](#what-has-been-tested)), so far on one PC. There is no
-> launcher yet: setup is the manual guide below. A launcher that installs both discs and
-> DLC, manages profiles and updates is planned (see [Roadmap](#roadmap)).
+> **Experimental source release.** The offline game modes play without known blocking
+> problems (see [Tested](#tested)). There is no launcher yet: setup is the manual guide
+> below.
 
 This is an unofficial fan project. It is not affiliated with, endorsed, sponsored or
 approved by Microsoft Corporation, Xbox Game Studios, Turn 10 Studios, or any other company
@@ -26,15 +25,14 @@ legally obtained copy of the game, and the executable is built on your computer.
 ## Contents
 
 - [Showcase](#showcase)
-- [Supported game](#supported-game)
 - [Features](#features)
+- [Supported game](#supported-game)
 - [What you need](#what-you-need)
 - [Install](#install)
 - [Graphics settings](#graphics-settings)
 - [Keyboard](#keyboard)
 - [Launch options](#launch-options)
-- [What has been tested](#what-has-been-tested)
-- [What has not been tested](#what-has-not-been-tested)
+- [Tested](#tested)
 - [Benchmarks](#benchmarks)
 - [Known issues](#known-issues)
 - [Reporting issues](#reporting-issues)
@@ -53,101 +51,76 @@ legally obtained copy of the game, and the executable is built on your computer.
 
 YouTube plays video at up to 60 fps; the frame rates are the game's during the recording.
 
+## Features
+
+Compared with the original console, and with the same translation built against the stock
+ShiftGlue SDK (without this project's game hooks and renderer changes):
+
+| | Xbox 360 | Stock ShiftGlue SDK | FM4 Static Recomp |
+|---|---|---|---|
+| Resolution | 1280x720 | 1x to 4x of 720p, but the road and car shadows render wrong | 1x to 4x of 720p (up to 5120x2880), switchable live |
+| Race frame rate | 60 fps | The console's pacing | 60 fps up to the display's refresh rate (at most 240) |
+| Menus and showroom | 60 / 30 fps | The console's pacing | Up to 120 fps; animations and the showroom camera run at real time |
+| Race loading | Console speed | Console speed | Faster |
+| Sun and lights | Correct | Screen-filling glare | Correct |
+| Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Game MSAA on or off, 4x race MSAA, FXAA, FXAA Extreme |
+| Graphics settings | Fixed | Launch options only | In-game GRAPHICS page with presets and per-setting switches, saved between sessions |
+| VRAM at 3x | - | About 8 GB | About 2.5 GB |
+| Input | Controller | XInput gamepad | XInput gamepad and **keyboard**, with keycap button prompts |
+| Disc 2 and DLC | From the disc and Marketplace | Not wired up | Installed at launch from folders you name |
+| Frame generation tools | - | Not visible to them | Opt-in for Lossless Scaling and NVIDIA Smooth Motion |
+| Xbox LIVE, Kinect | Yes (LIVE servers closed) | No | No |
+
 ## Supported game
 
 | | |
 |---|---|
-| Game | Forza Motorsport 4, Xbox 360, retail |
-| Title ID | `4D530910` |
-| Disc 1, 1.0 PAL | Forza Motorsport 4 (Europe, Australia) (Disc 1) (Play Disc), media ID `61D62D9F`; `default.xex` 15,155,200 bytes, SHA-256 `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1` |
-| Disc 1, 1.0 USA | Forza Motorsport 4 (USA) (Disc 1) (Play Disc), media ID `26FF1101`; `default.xex` 15,155,200 bytes, SHA-256 `3618E85AF83E972DDCC1B0D0DD808E78E29AB4AB3890A15B31C210A6A3E93E09` |
-| Disc 2 | The four content packages of the install disc (optional, more cars and tracks) |
-| DLC | Marketplace packages for title `4D530910` (optional) |
+| Game | Forza Motorsport 4, Xbox 360, retail, title ID `4D530910` |
+| Disc 1, 1.0 PAL | Europe, Australia, media ID `61D62D9F` |
+| Disc 1, 1.0 USA | USA, media ID `26FF1101` |
+| Disc 2 | Optional: the install disc's four content packages (more cars and tracks) |
+| DLC | Optional: Marketplace packages for title `4D530910` |
 
-The two Disc 1 releases differ only in their three executables (`default.xex`,
-`XMediaFacade_default.xex`, `SpeechFacade_default.xex`), and those only in their headers
-(region, media ID, signature): the code inside is byte for byte the same, and so is the
-translation. All other files are identical. Other versions of `default.xex` will not work:
-the translation is made for this exact code. `config/supported-discs.json` lists every Disc 1
-file with its size and hash; the `$SystemUpdate` folder is optional, the game never reads it.
-
-The project was developed on a modified copy of the same release with the unicorn cars
-unlocked; only `Media/db/gamedb.slt` differs, and it works the same.
-
-**The 1.1 re-release (Rev 1) of Disc 1 is not supported.** It is a later pressing with a
-newer `default.xex` (media ID `42C67824`, 15,187,968 bytes, SHA-256
-`B34DFB88978819CCCDA6DAFD755E7139970A58FBF6707DFBCBA06846857F52BD`) whose code sits at
-other addresses than the translation expects. Disc 2 of the Rev 1 release works: its four content packages are identical.
-
-Any other discs weren't yet tested and cannot be guaranteed to work.
-
-## Features
-
-Compared with the original game on an Xbox 360, and with what the stock ShiftGlue SDK gives
-FM4 (the same translation built against upstream ShiftGlue, without this project's game
-hooks and renderer changes):
-
-| | Xbox 360 | Stock ShiftGlue SDK | FM4 Static Recomp |
-|---|---|---|---|
-| Resolution | 1280x720 | 1x to 4x of 720p, but the road and FM4's integer-format targets (car shadows) render wrong | 1x to 4x of 720p (up to 5120x2880), switchable live in the game |
-| Race frame rate | 60 fps | The console's pacing | 60 fps up to the display's refresh rate (`--fm4_frame_rate`, the GRAPHICS page) |
-| Menus and showroom | 60 / 30 fps | The console's pacing | At the vblank rate; menu animations and the showroom camera run at real time |
-| Race loading | Console speed | Console speed | Faster (the load runs on a fast guest vblank) |
-| Sun and lights | Correct | Screen-filling glare (occlusion queries miscounted) | Correct |
-| Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Game MSAA on or off, 4x race MSAA, FXAA, FXAA Extreme, resolution scale |
-| Graphics settings | Fixed | Fixed | Level of detail, reflection updates, full-rate mirror and bloom, scenery shadows, soft particles, crowds in every race, motion blur and depth of field switches |
-| Settings menu | - | Launch options only | In-game GRAPHICS page in My Profile → Options (also F6), saved between sessions; see [Graphics settings](#graphics-settings) |
-| VRAM at 3x | - | About 8 GB for the game's share | About 2.5 GB |
-| Renderer threads | - | One thread parses and records | Parsing and Vulkan recording on separate threads (about +10 % frame rate at 2x) |
-| Disc 2 and DLC | Installed from the disc and Marketplace | Not wired up | Installed at launch from folders you name |
-| Frame generation tools | - | Not visible to them | Opt-in DXGI presentation for Lossless Scaling and NVIDIA Smooth Motion |
-| Xbox LIVE (online, Storefront, Auction House) | Yes (servers closed) | No | No |
-| Kinect | Yes | No | No |
-| Input | Controller | XInput gamepad | XInput gamepad and keyboard, with the button prompts showing the keys while the keyboard is in use |
+Both Disc 1 releases carry the same code; only their executables' headers differ. Any other
+version of `default.xex` will not work, because the translation is made for this exact code.
+**The 1.1 re-release (Rev 1) of Disc 1 is not supported** (media ID `42C67824`); its Disc 2
+works. Other releases are untested. `config/supported-discs.json` lists every Disc 1 file
+with its size and hash.
 
 ## What you need
 
-- Windows 10 version 2004 (build 19041) or newer, 64-bit. Linux is not supported yet (see
-  [Roadmap](#roadmap)).
-- A GPU with a current Vulkan driver. The renderer is Vulkan only.
-- An XInput gamepad (an Xbox controller, or another pad through a mapper).
-- Your own Forza Motorsport 4 Disc 1, dumped from the disc or from your console as an ISO
-  or a Games on Demand (GOD) copy. Disc 2 and DLC are optional.
+- Windows 10 version 2004 (build 19041) or newer, 64-bit.
+- A GPU with a current Vulkan driver.
+- An XInput gamepad (an Xbox controller, or another pad through a mapper), or the keyboard.
+- Your own Forza Motorsport 4 Disc 1, as an ISO or a Games on Demand (GOD) copy. Disc 2 and
+  DLC are optional.
 - An internet connection for the first setup, and administrator permission once if the
   Microsoft C++ Build Tools are not installed yet.
-- Disk space, all on one drive or spread out:
-  - the extracted Disc 1: about 7.6 GB;
-  - this repository with the downloaded SDK and the build: about 3.1 GB;
-  - the build tools setup downloads (CMake, LLVM, Git, Python, xz): about 4.1 GB;
-  - Disc 2 and DLC, once installed into your save folder: about 2.8 GB and 2.2 GB.
-- About 40 minutes for the first setup on a fast PC with a fast connection, plus about
-  20 for the shader warm-up; a rebuild after an update takes minutes.
+- About 13 GB of disk space (Disc 1 7.6 GB, the repository with the SDK and build 3.1 GB,
+  build tool downloads 4.1 GB), plus about 5 GB for Disc 2 and DLC.
+- About 40 minutes for the first setup, plus about 20 for the shader warm-up; a rebuild
+  after an update takes minutes.
 
 ## Install
 
-Every command below is for PowerShell (Windows PowerShell 5.1, built into Windows, or
-PowerShell 7). Use folder paths **without non-English letters and without `[` or `]`**;
-paths with spaces work but are untested in every step, so `D:\FM4` style paths are the
-safe choice.
+Every command is for PowerShell. Use folder paths **without non-English letters and without
+`[` or `]`**; `D:\FM4` style paths are the safe choice.
 
 ### 1. Extract Disc 1
 
-Extract the disc's file system (XDVDFS) into an empty folder, for example `D:\FM4\disc1`:
+Extract the disc's file system into an empty folder, for example `D:\FM4\disc1`:
 
-- from an ISO, with an XDVDFS extractor such as
-  [extract-xiso](https://github.com/XboxDev/extract-xiso):
+- from an ISO, with [extract-xiso](https://github.com/XboxDev/extract-xiso):
   `extract-xiso -x -d D:\FM4\disc1 FM4-Disc1.iso` (the options go before the ISO);
-- from a GOD copy, convert it to an ISO first (for example with God2Iso), then extract
-  that.
+- from a GOD copy, convert it to an ISO first (for example with God2Iso), then extract it.
 
-The folder must hold `default.xex` directly (not in a subfolder). Check that it is the
-supported version:
+`default.xex` must sit directly in that folder. Check its hash:
 
 ```powershell
 Get-FileHash D:\FM4\disc1\default.xex -Algorithm SHA256
 ```
 
-The hash must be one of:
+It must be one of:
 
 - `6A7E9AE561CCCA134916F27870A73299408F4AD14F1499063C0F6F6414C2A7E1` (1.0 PAL)
 - `3618E85AF83E972DDCC1B0D0DD808E78E29AB4AB3890A15B31C210A6A3E93E09` (1.0 USA)
@@ -158,8 +131,7 @@ The hash must be one of:
 git clone https://github.com/i2kiselev/fm4-static-recomp D:\FM4\fm4-static-recomp
 ```
 
-Without Git, download the repository as a ZIP from GitHub and extract it to
-`D:\FM4\fm4-static-recomp` instead. No submodules are needed: setup downloads the pinned SDK.
+Or download the repository as a ZIP and extract it there. No submodules are needed.
 
 ### 3. Build
 
@@ -171,28 +143,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:
 Give `-GameRoot` without a trailing backslash. Setup:
 
 1. installs the Microsoft C++ Build Tools if they are missing (Windows asks for
-   administrator permission once; choose Yes). They are about 2 GB, so the installer can take
-   10 minutes or more; keep its windows open until they close by themselves;
-2. downloads pinned, hash-checked copies of CMake, LLVM/clang, MinGit, xz and an embedded
-   Python into `.local\toolchain`;
-3. downloads the pinned ShiftGlue SDK revision into `.local\shiftglue-sdk` and builds its
-   recompiler;
-4. translates `default.xex` into C++ (several minutes);
-5. compiles `out\build\win-amd64-release\fm4_static_recomp.exe`;
-6. warms the shader cache: the game runs hidden in the background (nothing on screen, no
-   sound) through the menus and ten short races, each with another car and track, so
-   that your first races do not stall while shaders compile (about 20 minutes). Press
-   Ctrl+C or close the window to stop it at any time: every shader compiled so far is
-   already in your cache, and the races come in the order that covers the most first.
-   It runs only when the cache is missing or out of date, so a rebuild after an update
-   usually skips it. Add `-SkipWarmUp` to leave it out; the game then compiles shaders
-   while you play, with short stalls the first time each effect appears. Pass the same
-   `-StateRoot` you play with (see below) so the cache lands in that state folder.
+   administrator permission once). The installer can take 10 minutes or more; keep its
+   windows open until they close by themselves;
+2. downloads pinned, hash-checked copies of CMake, LLVM/clang, MinGit, xz, Python and the
+   ShiftGlue SDK into `.local`;
+3. translates `default.xex` into C++ and compiles
+   `out\build\win-amd64-release\fm4_static_recomp.exe`;
+4. warms the shader cache: the game runs hidden through the menus and ten short races so
+   your first races do not stall while shaders compile (about 20 minutes). Ctrl+C stops it
+   at any time and keeps what it has built. It runs only when the cache is missing or out
+   of date; `-SkipWarmUp` leaves it out. After changing the graphics card, GAME MSAA or the
+   resolution scale, or if stalls come back, run it again (add `-StateRoot` if you play
+   with one):
+   `powershell -NoProfile -ExecutionPolicy Bypass -File tools\warm-up.ps1 -GameRoot D:\FM4\disc1`.
 
-Everything stays inside the repository folder; nothing else on the system changes apart
-from the Build Tools. If a step fails, the last lines name it, and
-`.local\logs\setup-error.json` and the logs next to it hold the details. Run the same
-command again after fixing the cause: finished downloads are not repeated.
+Nothing outside the repository folder changes apart from the Build Tools. If a step fails,
+the last lines name it and `.local\logs\setup-error.json` holds the details. Running the
+same command again resumes: finished downloads are not repeated.
 
 ### 4. Play
 
@@ -200,50 +167,51 @@ command again after fixing the cause: finished downloads are not repeated.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\run.ps1 -GameRoot D:\FM4\disc1
 ```
 
-Your save, logs and settings go to `.local\state` inside the repository (`user` is the
-save, `config\graphics.toml` the GRAPHICS page's settings). `-StateRoot <folder>` puts them
-elsewhere; each state folder is a separate save. Back up `.local\state\user` before you
-update or experiment.
+Your save, logs and settings go to `.local\state` in the repository (`user` is the save).
+`-StateRoot <folder>` puts them elsewhere; each state folder is a separate save, and setup
+takes the same `-StateRoot` so the shader cache lands there. Back up `.local\state\user`
+before you update or experiment.
 
 Launch options go after the script's own parameters, for example
 `... tools\run.ps1 -GameRoot D:\FM4\disc1 --resolution_scale=2`.
 
 ### 5. Disc 2 and DLC (optional)
 
-Disc 2 adds cars and tracks; the game asks for it when you pick one of them. Put its four
-content packages in a folder (in a dump they sit in a folder named `00000002`), and your
-DLC packages in another (subfolders are searched), then launch once with:
+Put the four Disc 2 content packages in one folder (in a dump they sit in a folder named
+`00000002`) and your DLC packages in another (subfolders are searched), then launch once
+with:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\run.ps1 -GameRoot D:\FM4\disc1 `
     --fm4_disc2_packages=D:\FM4\disc2 --fm4_dlc_packages=D:\FM4\dlc
 ```
 
-The packages are extracted into your save folder at launch (a few seconds); packages that
-are already installed are skipped, so passing the options every time does no harm. The
-log (`.local\state\logs\runtime.log`) ends the install with a `Content: ...` summary.
+The packages are installed into your save folder in a few seconds; installed ones are
+skipped, so passing the options every time does no harm. `.local\state\logs\runtime.log`
+ends the install with a `Content: ...` summary.
 
 ### Updating
 
-**Close the game first**: Windows locks game files while it runs.
+**Close the game first**, then:
 
 ```powershell
 git pull
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:\FM4\disc1
 ```
 
+Your save, settings, Disc 2 and DLC stay as they are.
 
 ## Graphics settings
 
-In-game **Play Career → My Profile → Options → GRAPHICS**, or **F6** anywhere, opens a settings page drawn in the
-game's own style. Each row describes itself on the page, applies at once or from the next
-race or screen, and is saved to `config\graphics.toml` in the state folder. A launch option
-for one of these settings sets its starting value for that session only; the row says so.
+**Play Career → My Profile → Options → GRAPHICS**, or **F6** anywhere, opens a settings page
+in the game's own style. Each row explains itself, applies at once or from the next race or
+screen, and is saved to `config\graphics.toml` in the state folder. A launch option for one
+of these settings sets its starting value for that session only.
 
 ### Presets
 
-GRAPHICS PRESET sets every row below it at once; changing one of those rows makes the
-preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
+GRAPHICS PRESET sets every row below it; changing one of them makes the preset CUSTOM.
+FRAME RATE and RESOLUTION SCALE are not part of a preset.
 
 | Setting | Console | High | Ultra | Experimental |
 |---|---|---|---|---|
@@ -263,66 +231,31 @@ preset CUSTOM. FRAME RATE and RESOLUTION SCALE are not part of a preset.
 
 ### What each setting does
 
-**Frame rate and resolution**
-
-- **FRAME RATE**: the race frame rate, from the console's 60 fps up to your display's
-  refresh rate (at most 240). Menus run at 120 fps max. Pick a rate your PC holds (see
-  [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick your display's refresh rate
-  or a whole fraction of it (60 on a 120 Hz display): other rates show some frames for one
-  refresh and others for two.
-- **VSYNC**: off by default. Turn it on if you see tearing, which happens on a display
-  without G-Sync or FreeSync. With either, leave it off: on an Nvidia GPU, vsync shows the
-  frames through the desktop, without variable refresh and at a slightly lower frame rate.
-- **RESOLUTION SCALE**: renders the game at 1x to 4x of 1280x720 on each axis, up to
-  5120x2880. Sharper edges and textures, more GPU load.
-
-**Anti-aliasing and filtering**
-
-- **GAME MSAA**: the game's own multisampling of its scenes (2x in races, 4x in the
-  showroom and pre-race screen). Off is faster and leaves edge smoothing to the resolution
-  scale; at 1x the game's MSAA always stays on.
-- **RACE MSAA**: 4x draws races with twice the console's samples, in three tiles instead of
-  two. Heavy on the GPU.
-- **POST AA**: FXAA or FXAA Extreme over the finished picture. Extreme smooths more and
-  softens more.
-- **ANISOTROPIC FILTERING**: keeps textures sharp at grazing angles, such as the road ahead.
-  Game leaves each texture the filtering the game asks for; 2x to 16x force it.
-
-**Cars**
-
-- **LEVEL OF DETAIL**: how far away, and for how many cars, the detailed car models stay in
-  use. Console keeps the console's switch distances and lets only the two nearest other cars
-  use their best model. High moves the switch distances out by about 1.4 times and allows
-  the three nearest cars. Ultra moves them out about twice as far, allows the four nearest
-  cars, and keeps your own car always on its best model with the best wheels, at more guest
-  memory per car. Applies from the next race load.
-- **REFLECTION UPDATES**: how often the reflections in car paint, glass and chrome are
-  redrawn. The console freezes them in 16-car races and split screen; Every race redraws
-  them there too; Double redraws twice as many faces each frame.
-
-**Track and effects**
-
-- **MIRROR**: Full draws the rear-view mirror every frame with up to 16 cars and the cones
-  and barriers, where the console halves its rate and shows 6 cars in 12- and 16-car races.
-- **SCENERY SHADOWS**: shadows of cones and barriers in races, which the game otherwise
-  draws only in replays and photo mode.
-- **SOFT PARTICLES**: smoke and dust fade where they meet the ground and cars instead of
-  cutting into them, as the game does in replays and photo mode.
-- **CROWDS**: Every race adds the crowds the console leaves out of 1- and 16-car races. Uses
-  more guest memory.
-- **BLOOM**: Full rate updates the glow every frame, where the console skips every second
-  one in 16-car races.
-- **MOTION BLUR**: the speed blur on the road surface. Off keeps the asphalt as sharp as
-  when standing still.
-- **DEPTH OF FIELD**: the focus blur of the showroom, pre-race and replay cameras and photo
-  mode.
+| Setting | Effect |
+|---|---|
+| FRAME RATE | Race frame rate, 60 fps up to your display's refresh rate (at most 240); menus run at up to 120. Pick a rate your PC holds (see [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick the refresh rate or a whole fraction of it. |
+| VSYNC | Off by default, which suits G-Sync and FreeSync displays. Turn it on if you see tearing. |
+| RESOLUTION SCALE | 1x to 4x of 1280x720 on each axis, up to 5120x2880. |
+| GAME MSAA | The game's own multisampling (2x in races, 4x in the showroom). Off is faster and leaves edge smoothing to the resolution scale; at 1x it always stays on. |
+| RACE MSAA | 4x doubles the console's race samples. Heavy on the GPU. |
+| POST AA | FXAA or FXAA Extreme over the finished picture; Extreme smooths and softens more. |
+| ANISOTROPIC FILTERING | Keeps textures sharp at grazing angles. Game keeps what the game asks for; 2x to 16x force it. |
+| LEVEL OF DETAIL | How far away, and for how many cars, detailed models stay in use. High moves the switch distances out about 1.4 times, Ultra about twice and keeps your own car on its best model. From the next race load. |
+| REFLECTION UPDATES | How often car paint, glass and chrome reflections are redrawn. The console freezes them in 16-car races and split screen; Every race redraws them there too; Double redraws twice as much each frame. |
+| MIRROR | Full draws the rear-view mirror every frame with up to 16 cars, where the console halves its rate and shows 6 cars in large races. |
+| SCENERY SHADOWS | Shadows of cones and barriers in races, otherwise only in replays and photo mode. |
+| SOFT PARTICLES | Smoke and dust fade into the ground and cars instead of cutting into them. |
+| CROWDS | Every race adds the crowds the console leaves out of 1- and 16-car races. |
+| BLOOM | Full rate updates the glow every frame, where the console skips every second one in 16-car races. |
+| MOTION BLUR | The speed blur on the road surface. |
+| DEPTH OF FIELD | The focus blur of the showroom, pre-race and replay cameras and photo mode. |
 
 ## Keyboard
 
-The keyboard plays beside a gamepad, after Forza Horizon 6's layout. The game's button
-prompts show light keycaps of the bound keys while the keyboard was the last device you
-used, and the controller buttons again as soon as you touch the pad; prompts written in
-English sentences ("PRESS THE BACK BUTTON...") name the keys too.
+The keyboard plays beside a gamepad, with a layout after Forza Horizon 6's. While the
+keyboard is the last device you used, the game's button prompts show keycaps of the bound
+keys, and English prompt sentences ("PRESS THE BACK BUTTON...") name them too; touching the
+pad brings the controller buttons back.
 
 | Driving | Keys | | Menus | Keys |
 |---|---|---|---|---|
@@ -338,24 +271,34 @@ English sentences ("PRESS THE BACK BUTTON...") name the keys too.
 | Telemetry | T, G | | | |
 | Pause | Esc | | | |
 
-"Driving" means the car is on track and the game is not paused; the pre-race screen, the
-pause menu, replays and results use the menu keys. Steering, the pedals and looking around
-ramp up while a key is held and ease back when it is released. The mouse is not used.
+Driving keys apply while the car is on track and the game is not paused; the pre-race
+screen, pause menu, replays and results use the menu keys. Steering, pedals and looking
+around ramp up while a key is held and ease back on release. The mouse is not used.
 
-To rebind, add lines to `config\controls.toml` in the state folder (the file does not exist
-until you create it): `menu_<button>` and `driving_<button>` with `<button>` one of `a`, `b`,
-`x`, `y`, `left_shoulder`, `right_shoulder`, `left_trigger`, `right_trigger`, `lstick_up`,
-`lstick_down`, `lstick_left`, `lstick_right`, `lstick_press`, the same five for `rstick_`,
-`dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `back`, `start`. A value lists keys
-separated by commas, e.g. `driving_x = "Q,Numpad1"`; key names are `A`..`Z`, `0`..`9`,
-`F1`..`F24`, `Up`, `Down`, `Left`, `Right`, `Space`, `Return`, `Escape`, `Backspace`, `Tab`,
-`Shift`, `Control`, `Alt`, `Numpad0`..`Numpad9` and the like. The ramps are
-`ramp_steer_seconds` (0.20), `ramp_steer_return_seconds` (0.12), `ramp_pedal_seconds` (0.10),
-`ramp_pedal_return_seconds` (0.08) and `ramp_look_seconds` (0.15): seconds from rest to full
-and back. Changes apply at the next launch.
+<details>
+<summary>Rebinding keys</summary>
+
+Create `config\controls.toml` in the state folder and add `menu_<button>` or
+`driving_<button>` lines. `<button>` is one of `a`, `b`, `x`, `y`, `left_shoulder`,
+`right_shoulder`, `left_trigger`, `right_trigger`, `lstick_up`, `lstick_down`,
+`lstick_left`, `lstick_right`, `lstick_press`, the same five for `rstick_`, `dpad_up`,
+`dpad_down`, `dpad_left`, `dpad_right`, `back`, `start`. A value lists keys separated by
+commas:
+
+```toml
+driving_x = "Q,Numpad1"
+```
+
+Key names are `A`..`Z`, `0`..`9`, `F1`..`F24`, `Up`, `Down`, `Left`, `Right`, `Space`,
+`Return`, `Escape`, `Backspace`, `Tab`, `Shift`, `Control`, `Alt`, `Numpad0`..`Numpad9` and
+the like. The ramps, in seconds from rest to full and back, are `ramp_steer_seconds` (0.20),
+`ramp_steer_return_seconds` (0.12), `ramp_pedal_seconds` (0.10),
+`ramp_pedal_return_seconds` (0.08) and `ramp_look_seconds` (0.15). Changes apply at the
+next launch.
+
+</details>
 
 ## Launch options
-
 
 | Option | Meaning |
 |---|---|
@@ -365,42 +308,30 @@ and back. Changes apply at the next launch.
 | `--swap_post_effect=none\|fxaa\|fxaa_extreme` | Post-process anti-aliasing |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
-| `--fh1_async_readbacks=false` | Turn off asynchronous readbacks (see Known issues) |
-| `--vulkan_present_via_dxgi=true` | Present through DXGI, so frame generation tools see the frames |
+| `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |
 | `--fm4_config_root=<folder>` | Where `graphics.toml` and `controls.toml` live (default: the state folder's `config`) |
+| `--fh1_async_readbacks=false` | Turn off asynchronous readbacks, if you ever see a corrupted texture |
+| `--vulkan_present_via_dxgi=true` | Present through DXGI, for frame generation tools |
 
-`tools\run.ps1 -Compat` launches with every rendering shortcut of this project turned off
-and the console's graphics settings. If something looks wrong, compare it with a `-Compat`
-launch: if it looks the same there, it is most likely the game's own look; if not, please
-report it.
+**`-Compat`**: `tools\run.ps1 -Compat` turns off every rendering shortcut of this project
+and uses the console's graphics settings. If something looks wrong, compare with a
+`-Compat` launch: if it looks the same there, it is most likely the game's own look.
 
-### Frame generation
+**Frame generation**: Lossless Scaling and NVIDIA Smooth Motion do not see frames presented
+through the Vulkan swapchain. `--vulkan_present_via_dxgi=true` presents through DXGI
+instead, and both tools then work. It is off by default because Smooth Motion's frame
+pacing does not look right with it yet.
 
-Lossless Scaling and NVIDIA Smooth Motion do not see frames presented through Vulkan's
-swapchain here. Launch with `--vulkan_present_via_dxgi=true` to present through DXGI
-instead; both tools then work. It is off by default because Smooth Motion's frame pacing
-does not look right with it yet.
+## Tested
 
-## What has been tested
-
-- Offline game modes: World Tour (the career), Event List, Free Play (Quick
-  Race, Hot Lap), Test Drive and Autovista, plus the garage (upgrades,
-  tuning presets, paint and decals), replays and saving.
-- World Tour played up to the Expert Division.
-- About 30 Event List races completed without an issue.
-- Autovista works as intended.
-- Photo mode works.
-
-## What has not been tested
-
-- Any mode that uses Xbox Live functions
-- Split-screen mode
-- Wheel support
+- Offline modes: World Tour (played up to the Expert Division), Event List (about 30 races
+  without an issue), Free Play (Quick Race, Hot Lap), Test Drive, Autovista and photo mode.
+- The garage (upgrades, tuning presets, paint and decals), replays and saving.
+- Not tested: Xbox LIVE modes, split screen, racing wheels, and most AMD and Intel GPUs.
 
 ## Benchmarks
-**Test bench**:
 
-| | |
+| Test bench | |
 |---|---|
 | CPU | AMD Ryzen 7 5700X3D |
 | RAM | 32 GB DDR4-3600 |
@@ -408,14 +339,13 @@ does not look right with it yet.
 | OS | Windows 10 Pro 22H2 |
 | Display | 170 Hz |
 
-A scripted race at Bernese Alps against 11 AI cars, one run of about 12 seconds per row.
-The race frame rate limit was raised to 240 so that the PC, not the limit, sets the rate;
-every setting outside the preset is at its default. Average fps and the 1 % low (the frame
-rate over the slowest 1 % of frames) come from the renderer's per-frame timestamps.
+A scripted race at Bernese Alps against 11 AI cars, about 12 seconds per row, with the
+frame rate limit raised to 240 so the PC sets the rate. The 1 % low is the frame rate over
+the slowest 1 % of frames.
 
 **Console preset**
 
-| Resolution scale | Render resolution | Average fps | 1 % low | GPU use | VRAM (game) |
+| Scale | Render resolution | Average fps | 1 % low | GPU use | VRAM (game) |
 |---|---|---|---|---|---|
 | 1x | 1280x720 | 207 | 106 | 54 % | 1.2 GB |
 | 2x | 2560x1440 | 194 | 124 | 80 % | 1.6 GB |
@@ -424,91 +354,49 @@ rate over the slowest 1 % of frames) come from the renderer's per-frame timestam
 
 **Ultra preset**
 
-| Resolution scale | Render resolution | Average fps | 1 % low | GPU use | VRAM (game) |
+| Scale | Render resolution | Average fps | 1 % low | GPU use | VRAM (game) |
 |---|---|---|---|---|---|
 | 1x | 1280x720 | 183 | 123 | 54 % | 1.2 GB |
 | 2x | 2560x1440 | 173 | 119 | 81 % | 1.6 GB |
 | 3x | 3840x2160 | 100 | 54 | 99 % | 2.5 GB |
 | 4x | 5120x2880 | 68 | 46 | 99 % | 3.3 GB |
 
-At 1x and 2x the CPU is the limit (one game thread runs a full core); at 3x and 4x the GPU
-is the limit.
+At 1x and 2x the CPU is the limit (one game thread runs a full core); at 3x and 4x, the GPU.
 
 ### Compared with Xenia
 
-The same race on the same PC and disc image in Xenia Canary, build
+The same race on the same PC and disc image in Xenia Canary
 [`dac2794ca`](https://github.com/xenia-canary/xenia-canary/commit/dac2794ca72e20b2cb5e6ca9e765da8811a19d6d)
-(`canary_experimental`, 16 October 2026). Xenia test ran using following settings: Direct3D 12 backend, vsync off, no frame rate limit, `readback_resolve = "fast"`,
-`occlusion_query = "strict"` (without these two the game renders incorrectly);
-only `draw_resolution_scale` changed between rows. Xenia's figures are the median of three
-runs per resolution; this recomp's measurements are of the Console preset rows above.
+(16 October 2026): Direct3D 12, vsync off, no frame rate limit, `readback_resolve = "fast"`
+and `occlusion_query = "strict"` (without these two the game renders incorrectly). Xenia's
+figures are the median of three runs; this recomp's are the Console preset rows above.
 
-**Frame rate**
-
-| Scale | Average fps, Xenia | Average fps, this recomp | 1 % low, Xenia | 1 % low, this recomp |
+| Scale | Average fps, Xenia / recomp | 1 % low, Xenia / recomp | GPU use, Xenia / recomp | VRAM, Xenia / recomp |
 |---|---|---|---|---|
-| 1x | 102 | 207 | 54 | 106 |
-| 2x | 88 | 194 | 55 | 124 |
-| 3x | 68 | 148 | 45 | 76 |
-| 4x | 45 | 92 | 35 | 47 |
+| 1x | 102 / 207 | 54 / 106 | 38 % / 54 % | 1.5 / 1.2 GB |
+| 2x | 88 / 194 | 55 / 124 | 56 % / 80 % | 4.2 / 1.6 GB |
+| 3x | 68 / 148 | 45 / 76 | 81 % / 99 % | 7.8 / 2.3 GB |
+| 4x | 45 / 92 | 35 / 47 | 90 % / 99 % | 13.0 / 3.1 GB |
 
-**GPU use and video memory**
-
-| Scale | GPU use, Xenia | GPU use, this recomp | VRAM (game), Xenia | VRAM (game), this recomp |
-|---|---|---|---|---|
-| 1x | 38 % | 54 % | 1.5 GB | 1.2 GB |
-| 2x | 56 % | 80 % | 4.2 GB | 1.6 GB |
-| 3x | 81 % | 99 % | 7.8 GB | 2.3 GB |
-| 4x | 90 % | 99 % | 13.0 GB | 3.1 GB |
-
-This recomp runs about twice as fast at every scale and needs a quarter to two fifths of Xenia's
-video memory from 2x up. Xenia is CPU-bound up to 2x (its GPU use stays under 60 %).
+This recomp runs about twice as fast at every scale and needs a quarter to two fifths of
+Xenia's video memory from 2x up.
 
 ## Known issues
 
-- **Damage rendering** sometimes causes a texture seam to appear on the hood and front
-  bumper of a car. It comes from the game's own damage model, and it is the one visual
-  problem known today. Under investigation.
-- **Asynchronous readbacks** are on by default and considered stable: no corrupted texture
-  showed in the last 10 hours of play, where earlier versions of this project showed
-  one within minutes. They keep races smooth by not stalling the GPU; but in theory a texture
-  could still be read before its copy lands. Should you ever see a corrupted texture,
-  launch with `--fh1_async_readbacks=false` and please report it.
-- **Shader stutter:** the first time an effect appears on a PC, the game stops for a
-  moment to compile its shaders. Setup's warm-up covers the menus, ten cars and ten
-  tracks; other tracks compile as you meet them, once. After changing the graphics card,
-  GAME MSAA or the resolution scale, or whenever the stalls come back, run the warm-up
-  again (add `-StateRoot` if you play with one):
-  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\warm-up.ps1 -GameRoot D:\FM4\disc1`.
-  A GPU driver update needs nothing: the next launch rebuilds the cache, with one longer
-  loading screen.
-- **Frame pacing:** a rare, minor frame-time hitch in races, usually visible only in
-  monitoring tools and not in play. A frame rate the PC cannot hold is less smooth, so
-  pick one a little below your average.
-- **AMD GPUs** require explicit use of `--vulkan_async_submission=false` launch parameter. If not used GPU driver crashes and requires a reboot.
-  More info in corresponding issue - https://github.com/i2kiselev/fm4-static-recomp/issues/2 
-
-Limitations rather than bugs:
-
-- **Keyboard prompts**: the telemetry pages' D-pad icons stay controller pictures, and
-  prompts written in sentences keep the controller wording in languages other than English.
-- **Only Vulkan.** ShiftGlue's Direct3D 12 renderer does not run FM4.
-- **No launcher yet**, so no profile switching, disc verification or in-app updates.
-- Install folders with non-English letters (for example a Cyrillic Windows user name in
-  the path) or `[`/`]` are untested or known to break the scripts.
-- Only basic tests on AMD GPUs currently 
+Known problems are tracked as
+[open issues](https://github.com/i2kiselev/fm4-static-recomp/issues).
 
 ## Reporting issues
 
 Before you open an issue:
 
-- check [Known issues](#known-issues) and the open issues; add to an existing one rather
-  than opening a duplicate;
+- check the [open issues](https://github.com/i2kiselev/fm4-static-recomp/issues) and add
+  to an existing one rather than opening a duplicate;
 - check that `default.xex` has a supported hash (see [Install](#1-extract-disc-1));
-- update to the latest version (see [Updating](#updating)) and check that the problem is
-  still there;
-- for anything that looks wrong on screen, try a `-Compat` launch too (see
-  [Launch options](#launch-options)) and note whether it looks the same there.
+- update to the latest version (see [Updating](#updating)) and check the problem is still
+  there;
+- for anything that looks wrong on screen, try a `-Compat` launch and note whether it looks
+  the same there.
 
 **Title:** `<Area>: <what happens> (<where>)`, for example
 `Graphics: car shadows flicker at 3x (Bernese Alps, cockpit view)`. Area is one of
@@ -557,27 +445,27 @@ Never attach game files, disc images or a built executable.
 
 ## Roadmap
 
-1. **A launcher for installation and play**: installs Disc 1, Disc 2 and DLC from your ISO
-   or Games on Demand copies and checks them, builds the game, keeps separate profiles
-   (saves), holds the GRAPHICS settings and updates to new versions while the previous one
-   stays playable.
-2. **Project Forza Plus**: explore support for the mod.
+1. **A launcher**: installs and checks Disc 1, Disc 2 and DLC from your ISO or GOD copies,
+   builds the game, keeps separate profiles and updates while the previous version stays
+   playable.
+2. **Project Forza Plus** support.
 3. **Racing wheels**, starting with MOZA wheels.
-4. **AMD GPU** testing 
-5. **Linux**: a native Linux build of the game and the launcher. Windows is the only
-   supported system today.
-6. Test other disc releases for compatibility (e.g. Forza Motorsport 4: Essentials Edition)
+4. **AMD GPU** testing.
+5. **Linux**: a native build of the game and the launcher.
+6. **Other disc releases**, such as the Essentials Edition.
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
-| `src/` | The host app: game hooks, built-in defaults, Disc 2 and DLC install, the GRAPHICS page and its UI |
+| `src/` | The host app: game hooks, built-in defaults, Disc 2 and DLC install, the GRAPHICS page |
+| `src/input/` | Keyboard play: bindings, driving smoothing, keycap prompts |
+| `tests/` | Unit tests of the host app |
 | `config/rexglue/` | The recompiler's input: function analysis, hooks, the manifest |
 | `config/*.json` | The pinned toolchain and SDK, the supported discs' file lists |
 | `tools/setup.ps1`, `build.ps1`, `codegen.ps1`, `run.ps1` | Setup, build and launch |
 | `tools/warm-up.ps1`, `config/warm-up/` | The shader warm-up and the profile it plays with |
-| `tools/` (the rest) | Development tools: scripted races and measurements, dumps, disassembly helpers. Several assume the author's folder layout |
+| `tools/` (the rest) | Development tools; several assume the author's folder layout |
 
 ## AI use
 
