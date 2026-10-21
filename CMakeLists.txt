@@ -20,6 +20,8 @@ add_executable(fm4_static_recomp WIN32
     src/disc2_install.cpp
     src/game_hooks.cpp
     src/scripted_input.cpp
+    src/shader_cache/cache_writer.cpp
+    src/shader_cache/disc_shaders.cpp
     src/config/host_config.cpp
     src/input/controls.cpp
     src/input/input_context.cpp

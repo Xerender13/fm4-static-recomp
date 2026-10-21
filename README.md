@@ -98,8 +98,7 @@ with its size and hash.
   Microsoft C++ Build Tools are not installed yet.
 - About 13 GB of disk space (Disc 1 7.6 GB, the repository with the SDK and build 3.1 GB,
   build tool downloads 4.1 GB), plus about 5 GB for Disc 2 and DLC.
-- About 40 minutes for the first setup, plus about 20 for the shader warm-up; a rebuild
-  after an update takes minutes.
+- About 40 minutes for the first setup; a rebuild after an update takes minutes.
 
 ## Install
 
@@ -149,13 +148,13 @@ Give `-GameRoot` without a trailing backslash. Setup:
    ShiftGlue SDK into `.local`;
 3. translates `default.xex` into C++ and compiles
    `out\build\win-amd64-release\fm4_static_recomp.exe`;
-4. warms the shader cache: the game runs hidden through the menus and ten short races so
-   your first races do not stall while shaders compile (about 20 minutes). Ctrl+C stops it
-   at any time and keeps what it has built. It runs only when the cache is missing or out
-   of date; `-SkipWarmUp` leaves it out. After changing the graphics card, GAME MSAA or the
-   resolution scale, or if stalls come back, run it again (add `-StateRoot` if you play
-   with one):
-   `powershell -NoProfile -ExecutionPolicy Bypass -File tools\warm-up.ps1 -GameRoot D:\FM4\disc1`.
+4. builds the shader cache from your Disc 1 (about a second), so your first races do not
+   stall while shaders compile. It adds the shaders and pipelines listed in
+   `config\shaders` to your cache and never removes anything; the repository ships only
+   that list (hashes, render states, edit positions), no game data. The first launch then
+   compiles the listed pipelines for your GPU before the title screen: about 20 seconds on
+   the test bench below, longer on a processor with fewer threads. `-SkipShaderCache`
+   leaves it out. Pass the same `-StateRoot` you play with so the cache lands there.
 
 Nothing outside the repository folder changes apart from the Build Tools. If a step fails,
 the last lines name it and `.local\logs\setup-error.json` holds the details. Running the
@@ -464,7 +463,8 @@ Never attach game files, disc images or a built executable.
 | `config/rexglue/` | The recompiler's input: function analysis, hooks, the manifest |
 | `config/*.json` | The pinned toolchain and SDK, the supported discs' file lists |
 | `tools/setup.ps1`, `build.ps1`, `codegen.ps1`, `run.ps1` | Setup, build and launch |
-| `tools/warm-up.ps1`, `config/warm-up/` | The shader warm-up and the profile it plays with |
+| `config/shaders/` | The pipeline list and vertex shader table setup builds the shader cache from |
+| `tools/shader_list.py`, `tools/warm-up.ps1`, `config/warm-up/` | Development tools that make that list: a scripted warm-up, its profile, list merging and checks |
 | `tools/` (the rest) | Development tools; several assume the author's folder layout |
 
 ## AI use

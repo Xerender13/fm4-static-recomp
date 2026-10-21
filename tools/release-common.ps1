@@ -667,3 +667,29 @@ function Write-Fm4GraphicsSchema {
             -Step 'schema' -LogPath $LogPath -ExitCode $process.ExitCode)
     }
 }
+
+# Adds the shaders of the shipped list (config\shaders), taken from the player's Disc 1, and its
+# pipelines to the state's shader cache; the next launch compiles them. Returns the result line.
+function Write-Fm4ShaderCache {
+    param(
+        [Parameter(Mandatory)] [string]$ExecutableDirectory,
+        [Parameter(Mandatory)] [string]$GameRoot,
+        [Parameter(Mandatory)] [string]$StateRoot,
+        [Parameter(Mandatory)] [string]$LogPath
+    )
+    if (Test-Path -LiteralPath $LogPath) { Remove-Item -LiteralPath $LogPath -Force }
+    $shareable = Join-Path $StateRoot 'cache\shaders\shareable'
+    $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_static_recomp.exe') -Wait -PassThru `
+        -ArgumentList "`"--game_data_root=$GameRoot`"", "`"--fm4_build_shader_cache=$shareable`"",
+        "`"--fm4_shader_list_dir=$(Join-Path (Get-Fm4RepoRoot) 'config\shaders')`"",
+        "`"--user_data_root=$(Join-Path $StateRoot 'user')`"", "`"--cache_root=$(Join-Path $StateRoot 'cache')`"",
+        "`"--log_file=$LogPath`""
+    $result = @(Read-Fm4LogLines -LogPath $LogPath | Where-Object { $_ -match '\] Shader cache: ' } |
+        ForEach-Object { $_ -replace '^.*?\] (?=Shader cache: )', '' }) | Select-Object -Last 1
+    if ($process.ExitCode -ne 0 -or -not $result) {
+        $message = if ($result) { "$result." } else { 'The shader cache was not written.' }
+        throw (New-Fm4CommandFailure -FailureMessage $message -Step 'shaders' -LogPath $LogPath `
+            -ExitCode $process.ExitCode)
+    }
+    $result
+}
