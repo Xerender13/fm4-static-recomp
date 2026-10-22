@@ -61,6 +61,7 @@ const Setting kAnisotropy = {"anisotropic_override",
 
 const Setting kMotionBlur = {"fm4_road_detail_blur", false, {{"ON", "true"}, {"OFF", "false"}}};
 const Setting kDepthOfField = {"fm4_depth_of_field", false, {{"ON", "true"}, {"OFF", "false"}}};
+const Setting kCarDirt = {"fm4_car_dirt", false, {{"ON", "true"}, {"OFF", "false"}}};
 
 const Setting kRaceMsaa = {"fm4_race_4x_msaa", false, {{"2X", "false"}, {"4X", "true"}}};
 const Setting kSceneryShadows = {"fm4_scenery_shadows", false, {{"OFF", "false"}, {"ON", "true"}}};
@@ -77,13 +78,14 @@ const Setting kCrowds = {
 // Every setting but the frame rate and the resolution scale.
 const Setting* const kPresetSettings[] = {
     &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows, &kReflectionUpdates,
-    &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur, &kDepthOfField};
+    &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur, &kDepthOfField,
+    &kCarDirt};
 constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
     &kFrameRate, &kVsync, &kScale, &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows,
     &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur,
-    &kDepthOfField};
+    &kDepthOfField, &kCarDirt};
 
 struct Preset {
   const char* label;
@@ -94,16 +96,16 @@ struct Preset {
 const Preset kPresets[] = {
     {"CONSOLE",
      {"none", "false", "false", "-1", "false", "console", "console", "false", "false", "false",
-      "false", "true", "true"}},
+      "false", "true", "true", "true"}},
     {"HIGH",
      {"fxaa", "true", "false", "5", "true", "console", "high", "false", "true", "false",
-      "false", "true", "true"}},
+      "false", "true", "true", "true"}},
     {"ULTRA",
      {"fxaa_extreme", "true", "false", "5", "true", "every_race", "ultra", "true", "true",
-      "true", "false", "true", "true"}},
+      "true", "false", "true", "true", "true"}},
     {"EXPERIMENTAL",
      {"fxaa_extreme", "true", "true", "5", "true", "double", "ultra", "true", "true", "true",
-      "true", "true", "true"}},
+      "true", "true", "true", "true"}},
 };
 constexpr int kPresetCount = int(std::size(kPresets));
 
@@ -127,10 +129,10 @@ const RowText kRows[] = {
     {"RESOLUTION SCALE", &kScale,
      "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load."},
     {"GRAPHICS PRESET", nullptr,
-     "Sets every setting below. Console is the game as on the console; High raises most and "
-     "adds FXAA; Ultra also raises the level of detail, the mirror and particles and uses FXAA "
-     "Extreme; Experimental adds 4x MSAA in races, double reflection updates and crowds in "
-     "every race. A change to one setting makes the preset Custom."},
+     "Sets every setting below. Console is the game as on the console; "
+     "High raises most and adds FXAA; Ultra also raises the level of detail, the mirror and "
+     "particles and uses FXAA Extreme; Experimental adds 4x MSAA in races, double reflection "
+     "updates and crowds in every race. A change to one setting makes the preset Custom."},
     {"GAME MSAA", &kGameMsaa,
      "The game's own multisampling of its scenes. Off is faster above 1x and leaves edges to "
      "the resolution scale.",
@@ -171,6 +173,8 @@ const RowText kRows[] = {
     {"DEPTH OF FIELD", &kDepthOfField,
      "Blurs what is out of focus in the showroom, pre-race and replay cameras and photo mode. "
      "Applies from the next screen."},
+    {"CAR DIRT", &kCarDirt,
+     "The dirt cars gather in a race. Off leaves cars clean."},
 };
 
 const RowText& Text(const char* label) {
@@ -593,6 +597,9 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
 
   MenuRow depth_of_field = Row("DEPTH OF FIELD", kDepthOfField, config, services);
   rows.push_back(std::move(depth_of_field));
+
+  MenuRow car_dirt = Row("CAR DIRT", kCarDirt, config, services);
+  rows.push_back(std::move(car_dirt));
 
   auto screen = std::make_unique<MenuScreen>("GRAPHICS", std::move(rows));
   screen->set_update([pending, pending_rate, &config, saved = services.saved](bool closing) {

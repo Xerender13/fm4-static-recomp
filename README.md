@@ -227,6 +227,7 @@ FRAME RATE and RESOLUTION SCALE are not part of a preset.
 | Bloom | Console | Full rate | Full rate | Full rate |
 | Motion blur | On | On | On | On |
 | Depth of field | On | On | On | On |
+| Car dirt | On | On | On | On |
 
 ### What each setting does
 
@@ -248,6 +249,7 @@ FRAME RATE and RESOLUTION SCALE are not part of a preset.
 | BLOOM | Full rate updates the glow every frame, where the console skips every second one in 16-car races. |
 | MOTION BLUR | The speed blur on the road surface. |
 | DEPTH OF FIELD | The focus blur of the showroom, pre-race and replay cameras and photo mode. |
+| CAR DIRT | The dirt cars gather in a race. Off leaves cars clean. |
 
 ## Keyboard
 

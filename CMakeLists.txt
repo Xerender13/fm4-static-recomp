@@ -19,6 +19,7 @@ add_executable(fm4_static_recomp WIN32
     src/tool_mode.cpp
     src/disc2_install.cpp
     src/game_hooks.cpp
+    src/car_dirt.cpp
     src/scripted_input.cpp
     src/shader_cache/cache_writer.cpp
     src/shader_cache/disc_shaders.cpp
@@ -53,6 +54,8 @@ if(FM4_BUILD_TESTS)
         tests/keycap_test.cpp
         tests/prompt_swap_test.cpp
         tests/prompt_strings_test.cpp
+        tests/car_dirt_test.cpp
+        src/car_dirt.cpp
         src/config/host_config.cpp
         src/input/controls.cpp
         src/input/keyboard_ramp.cpp

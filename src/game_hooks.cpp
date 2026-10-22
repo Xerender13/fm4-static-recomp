@@ -27,6 +27,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+#include "car_dirt.h"
 #include "game_hooks.h"
 #include "input/input_context.h"
 #include "input/prompt_strings.h"
@@ -35,6 +36,8 @@
 REXCVAR_DEFINE_BOOL(fm4_road_detail_blur, true, "Forza Motorsport 4",
                     "Blur the road detail texture with camera motion, as the game does; off "
                     "keeps the detail the game renders for a still camera");
+REXCVAR_DEFINE_BOOL(fm4_car_dirt, true, "Forza Motorsport 4",
+                    "The dirt cars gather in races; off leaves cars clean");
 REXCVAR_DEFINE_BOOL(fm4_depth_of_field, true, "Forza Motorsport 4",
                     "Depth of field where the game uses it (showroom, pre-race and replay "
                     "cameras, photo mode); a change applies from the next screen");
@@ -779,26 +782,29 @@ bool Fm4SkipVblankCallback() {
 
 namespace fm4_static_recomp {
 
-// The road detail pass (PS 79B4914F) writes the grain's luminance times c5.w
-// plus the speed streaks times c5.x into the texture the road samples. A still
-// camera gives c5 = (0, 0, 0, 1). The track's DetailBlur switch is no way to
-// turn the blur off: without it the road samples the raw grain texture, about
-// three times the contrast.
-void ApplyRoadDetailBlur(bool blur) {
+void ApplyPixelShaderConstantOverride() {
   rex::cvar::SetFlagByName("gpu_pixel_shader_constant_override",
-                           blur ? "" : "79B4914F27ECEC73:c5=0,0,0,1");
+                           ComposePixelShaderConstantOverride(
+                               REXCVAR_GET(fm4_road_detail_blur), REXCVAR_GET(fm4_car_dirt)));
 }
 
-void InstallRoadDetailBlurSwitch() {
-  // The SDK holds one override: one given at launch is a diagnostic and wins.
-  if (!rex::cvar::GetFlagByName("gpu_pixel_shader_constant_override").empty()) {
-    REXLOG_INFO("fm4_road_detail_blur: inactive, gpu_pixel_shader_constant_override is set");
-    return;
+void InstallPixelShaderSwitches() {
+  rex::cvar::SetFlagByName("gpu_wrap_seam_vertex_shaders", DirtVertexShaderList());
+  rex::cvar::SetFlagByName("gpu_wrap_seam_pixel_shaders", DirtPixelShaderList());
+  rex::cvar::SetFlagByName("gpu_wrap_seam_fix", "true");
+  // An override given at launch is a diagnostic and wins over MOTION BLUR and CAR DIRT's OFF.
+  const bool own_override =
+      SwitchesOwnOverride(rex::cvar::GetFlagByName("gpu_pixel_shader_constant_override"));
+  if (own_override) {
+    ApplyPixelShaderConstantOverride();
+    for (const char* name : {"fm4_road_detail_blur", "fm4_car_dirt"}) {
+      rex::cvar::RegisterChangeCallback(name, [](std::string_view, std::string_view) {
+        ApplyPixelShaderConstantOverride();
+      });
+    }
+  } else {
+    REXLOG_INFO("fm4 switches: inactive, gpu_pixel_shader_constant_override is set");
   }
-  ApplyRoadDetailBlur(REXCVAR_GET(fm4_road_detail_blur));
-  rex::cvar::RegisterChangeCallback("fm4_road_detail_blur", [](std::string_view, std::string_view) {
-    ApplyRoadDetailBlur(REXCVAR_GET(fm4_road_detail_blur));
-  });
 }
 
 void SetPromptTextSource(

@@ -89,7 +89,7 @@ class Fm4App final : public rex::ReXApp {
     } else {
       REXLOG_ERROR("Graphics settings: cannot read {}", graphics_config_->path().string());
     }
-    fm4_static_recomp::InstallRoadDetailBlurSwitch();
+    fm4_static_recomp::InstallPixelShaderSwitches();
     if (controls_config_->Load()) {
       controls_ = fm4_static_recomp::input::LoadControls(*controls_config_);
     } else {

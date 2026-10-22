@@ -22,8 +22,8 @@ void SetInputTick(std::function<void()> tick);
 void SetPromptTextSource(
     std::function<std::optional<std::u16string>(uint16_t key, std::u16string_view text)> source);
 
-// Makes fm4_road_detail_blur drive the GPU settings, now and on each change;
-// call once the GPU plugin has registered them.
-void InstallRoadDetailBlurSwitch();
+// Makes fm4_road_detail_blur and fm4_car_dirt drive the GPU settings, now and on
+// each change; call once the GPU plugin has registered them.
+void InstallPixelShaderSwitches();
 
 }  // namespace fm4_static_recomp
