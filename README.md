@@ -292,8 +292,8 @@ driving_x = "Q,Numpad1"
 
 Key names are `A`..`Z`, `0`..`9`, `F1`..`F24`, `Up`, `Down`, `Left`, `Right`, `Space`,
 `Return`, `Escape`, `Backspace`, `Tab`, `Shift`, `Control`, `Alt`, `Numpad0`..`Numpad9` and
-the like. The ramps, in seconds from rest to full and back, are `ramp_steer_seconds` (0.20),
-`ramp_steer_return_seconds` (0.12), `ramp_pedal_seconds` (0.10),
+the like. The ramps, in seconds from rest to full and back, are `ramp_steer_seconds` (0.17),
+`ramp_steer_return_seconds` (0.10), `ramp_pedal_seconds` (0.10),
 `ramp_pedal_return_seconds` (0.08) and `ramp_look_seconds` (0.15). Changes apply at the
 next launch.
 

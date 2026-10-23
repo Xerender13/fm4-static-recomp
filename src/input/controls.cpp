@@ -160,7 +160,7 @@ Controls DefaultControls() {
   driving.keys[size_t(PadControl::kBack)] = "Tab";
   driving.keys[size_t(PadControl::kStart)] = "Escape";
 
-  controls.ramp = {0.20, 0.12, 0.10, 0.08, 0.15};
+  controls.ramp = {0.17, 0.10, 0.10, 0.08, 0.15};
   return controls;
 }
 
