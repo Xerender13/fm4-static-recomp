@@ -65,7 +65,6 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   void OnKeyChar(rex::ui::KeyEvent& e) override;
   void OnMouseDown(rex::ui::MouseEvent& e) override;
   void OnMouseMove(rex::ui::MouseEvent& e) override;
-  void OnMouseUp(rex::ui::MouseEvent& e) override;
   void OnMouseWheel(rex::ui::MouseEvent& e) override;
 
  private:

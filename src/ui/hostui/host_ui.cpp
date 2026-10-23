@@ -966,6 +966,11 @@ void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
     case VirtualKey::kRight:
     case VirtualKey::kNumpad6:
       Apply(NavCommand::kRight);
+    // The repeats of a held closing key, latched by the driver, would press
+    // its button in the game once the page lets go.
+    if (draining_) {
+      e.set_handled(true);
+    }
       break;
     case VirtualKey::kSpace:
     case VirtualKey::kReturn:
@@ -987,9 +992,8 @@ void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
 void HostUi::OnKeyUp(rex::ui::KeyEvent& e) {
   held_keys_.erase(std::remove(held_keys_.begin(), held_keys_.end(), int(e.virtual_key())),
                    held_keys_.end());
-  if (is_open() && !(e.virtual_key() >= VirtualKey::kF1 && e.virtual_key() <= VirtualKey::kF24)) {
-    e.set_handled(true);
-  }
+  // Releases go on to the keyboard driver: the key that opened the page would
+  // otherwise stay held there and press its button when the page closes.
 }
 
 void HostUi::OnKeyChar(rex::ui::KeyEvent& e) {
@@ -1055,12 +1059,6 @@ void HostUi::OnMouseDown(rex::ui::MouseEvent& e) {
   const float arrow_split = canvas_.x + (kRowsRight - kArrowBoxWidth * 0.5f) * canvas_.scale;
   const bool back = float(e.x()) >= arrow_x0 && float(e.x()) < arrow_split;
   Apply(back ? NavCommand::kLeft : NavCommand::kRight);
-}
-
-void HostUi::OnMouseUp(rex::ui::MouseEvent& e) {
-  if (is_open()) {
-    e.set_handled(true);
-  }
 }
 
 void HostUi::OnMouseWheel(rex::ui::MouseEvent& e) {
