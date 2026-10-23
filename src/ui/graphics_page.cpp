@@ -120,8 +120,9 @@ struct RowText {
 // behaviour of their own in CreateGraphicsPage.
 const RowText kRows[] = {
     {"FRAME RATE", &kFrameRate,
-     "Frames per second in races, from the console's 60 up to your display's refresh rate. A "
-     "rate the GPU cannot hold stutters: lower it or the resolution scale."},
+     "Frames per second in races, menus and the showroom, from the console's 60 up to your "
+     "display's refresh rate. A rate the GPU cannot hold stutters: lower it or the resolution "
+     "scale."},
     {"VSYNC", &kVsync,
      "On stops tearing on a display without G-Sync or FreeSync. With either, leave it off: "
      "on, an Nvidia GPU shows frames through the desktop, without variable refresh and at a "

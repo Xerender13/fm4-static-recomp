@@ -60,7 +60,7 @@ ShiftGlue SDK (without this project's game hooks and renderer changes):
 |---|---|---|---|
 | Resolution | 1280x720 | 1x to 4x of 720p, but the road and car shadows render wrong | 1x to 4x of 720p (up to 5120x2880), switchable live |
 | Race frame rate | 60 fps | The console's pacing | 60 fps up to the display's refresh rate (at most 240) |
-| Menus and showroom | 60 / 30 fps | The console's pacing | Up to 120 fps; animations and the showroom camera run at real time |
+| Menus and showroom | 60 / 30 fps | The console's pacing | The race frame rate; animations and the showroom camera run at real time |
 | Race loading | Console speed | Console speed | Faster |
 | Sun and lights | Correct | Screen-filling glare | Correct |
 | Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Game MSAA on or off, 4x race MSAA, FXAA, FXAA Extreme |
@@ -233,7 +233,7 @@ FRAME RATE and RESOLUTION SCALE are not part of a preset.
 
 | Setting | Effect |
 |---|---|
-| FRAME RATE | Race frame rate, 60 fps up to your display's refresh rate (at most 240); menus run at up to 120. Pick a rate your PC holds (see [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick the refresh rate or a whole fraction of it. |
+| FRAME RATE | Frame rate of races, menus and the showroom, 60 fps up to your display's refresh rate (at most 240). Pick a rate your PC holds (see [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick the refresh rate or a whole fraction of it. |
 | VSYNC | Off by default, which suits G-Sync and FreeSync displays. Turn it on if you see tearing. |
 | RESOLUTION SCALE | 1x to 4x of 1280x720 on each axis, up to 5120x2880. |
 | GAME MSAA | The game's own multisampling (2x in races, 4x in the showroom). Off is faster and leaves edge smoothing to the resolution scale; at 1x it always stays on. |
@@ -304,7 +304,7 @@ next launch.
 | Option | Meaning |
 |---|---|
 | `--resolution_scale=1..4` | Internal resolution, a multiple of 1280x720 |
-| `--fm4_frame_rate=60..240` | Race frame rate |
+| `--fm4_frame_rate=60..240` | Frame rate of races, menus and the showroom |
 | `--vulkan_present_mode=immediate\|fifo` | VSYNC off or on |
 | `--swap_post_effect=none\|fxaa\|fxaa_extreme` | Post-process anti-aliasing |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |

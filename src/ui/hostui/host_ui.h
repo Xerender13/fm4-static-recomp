@@ -101,6 +101,7 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   // last poll.
   int StickSlideSteps(int16_t thumb_lx, uint64_t now_ms);
   void RequestPaint();
+  void PacePaint();
   void SetGuestUiActive(bool active);
   void FinishClose();
   bool InputReleased();
@@ -149,6 +150,7 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   bool draining_ = false;
   std::chrono::steady_clock::time_point drain_started_;
   std::vector<int> held_keys_;
+  std::chrono::steady_clock::time_point next_paint_;
   // Expires with this object, for deferred work queued from Draw.
   std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
   bool applying_ = false;

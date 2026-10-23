@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <numbers>
+#include <thread>
 #include <utility>
 
+#include <rex/cvar.h>
 #include <rex/input/input.h>
 #include <rex/input/input_system.h>
 #include <rex/input/state_merge.h>
@@ -296,6 +299,22 @@ void HostUi::NotifySaved() {
 }
 
 void HostUi::RequestPaint() { presenter_.RequestUIPaintFromUIThread(); }
+
+// While a drawer is registered the presenter paints on every display refresh
+// and on every title frame; waiting here holds the page to the title's rate.
+void HostUi::PacePaint() {
+  const double hz = std::atof(rex::cvar::GetFlagByName("fh1_guest_vblank_hz").c_str());
+  if (hz <= 0.0) {
+    return;
+  }
+  const auto period = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+      std::chrono::duration<double>(1.0 / hz));
+  const auto now = std::chrono::steady_clock::now();
+  if (now < next_paint_) {
+    std::this_thread::sleep_until(next_paint_);
+  }
+  next_paint_ = std::max(next_paint_ + period, now);
+}
 
 void HostUi::Apply(NavCommand command) {
   if (!is_open()) {
@@ -663,6 +682,7 @@ void HostUi::Flush() {
 }
 
 void HostUi::Draw(rex::ui::UIDrawContext& context) {
+  PacePaint();
   if (draining_) {
     // A second is plenty for a press to end; never hold the guest longer.
     constexpr auto kMaximumDrain = std::chrono::seconds(1);
@@ -946,6 +966,11 @@ void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
     held_keys_.push_back(int(key));
   }
   if (!is_open()) {
+    // The repeats of a held closing key, latched by the driver, would press
+    // its button in the game once the page lets go.
+    if (draining_) {
+      e.set_handled(true);
+    }
     return;
   }
   e.set_handled(true);
@@ -966,11 +991,6 @@ void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
     case VirtualKey::kRight:
     case VirtualKey::kNumpad6:
       Apply(NavCommand::kRight);
-    // The repeats of a held closing key, latched by the driver, would press
-    // its button in the game once the page lets go.
-    if (draining_) {
-      e.set_handled(true);
-    }
       break;
     case VirtualKey::kSpace:
     case VirtualKey::kReturn:

@@ -42,12 +42,12 @@ REXCVAR_DEFINE_BOOL(fm4_depth_of_field, true, "Forza Motorsport 4",
                     "Depth of field where the game uses it (showroom, pre-race and replay "
                     "cameras, photo mode); a change applies from the next screen");
 REXCVAR_DEFINE_INT32(fm4_frame_rate, 120, "Forza Motorsport 4",
-                     "Frame rate of races, 60 (the console's) to 240: the guest vblank rate "
-                     "while a race session runs (fh1_guest_vblank_hz; 120 Hz outside races)")
+                     "Frame rate, 60 (the console's races) to 240: the guest vblank rate "
+                     "(fh1_guest_vblank_hz) in races, menus and the showroom")
     .range(60, 240);
-REXCVAR_DEFINE_INT32(fm4_menu_vblank_hz, 120, "Forza Motorsport 4",
-                     "Vblanks per second the game's main loop sees outside races: the nearest "
-                     "whole fraction of the 120 Hz guest vblank there (0 = every vblank)");
+REXCVAR_DEFINE_INT32(fm4_menu_vblank_hz, 0, "Forza Motorsport 4",
+                     "Diagnostics: vblanks per second the game's main loop sees outside races, "
+                     "the nearest whole fraction of the guest vblank (0 = every vblank)");
 
 REXCVAR_DEFINE_BOOL(fm4_console_rate, false, "Forza Motorsport 4",
                     "Diagnostics: the console's pacing, a 60 Hz guest vblank everywhere (races "
@@ -126,10 +126,10 @@ std::atomic<uint32_t> g_showroom_pending_ms{0};
 std::atomic<uint32_t> g_ui_pending_ms{0};
 
 // The guest vblank paces the main loop, which waits for one each tick, and D3D
-// flips each swap on one. A race wakes on every vblank, so its frame rate is the
-// vblank rate; menus see a fraction of 120 Hz (fm4_menu_vblank_hz).
+// flips each swap on one. Races and menus wake on every vblank, so the frame rate
+// is the vblank rate; a fixed menu rate above the display's refresh fills a FIFO
+// swapchain's queue (about 100 ms of lag at 60 Hz).
 constexpr char kVblankHzOption[] = "fh1_guest_vblank_hz";
-constexpr double kMenuVblankHz = 120.0;
 constexpr double kConsoleVblankHz = 60.0;
 // A race load advances partly once per main loop tick, so the load runs on a
 // fast vblank from the loading screen until the cars step (5.8 s at 120 Hz,
@@ -762,8 +762,7 @@ bool Fm4SkipVblankCallback() {
   const bool console = REXCVAR_GET(fm4_console_rate);
   const double vblank_hz = fast_load ? kLoadVblankHz
                            : console ? kConsoleVblankHz
-                           : race    ? double(REXCVAR_GET(fm4_frame_rate))
-                                     : kMenuVblankHz;
+                                     : double(REXCVAR_GET(fm4_frame_rate));
   static double applied_hz = 0.0;
   if (vblank_hz != applied_hz) {
     applied_hz = vblank_hz;
@@ -776,7 +775,7 @@ bool Fm4SkipVblankCallback() {
   // Counting vblanks cannot lose one to timer jitter the way a time schedule
   // does when the two rates are equal.
   static uint32_t vblank_index = 0;
-  const uint32_t divisor = std::max(1u, uint32_t(std::lround(kMenuVblankHz / rate)));
+  const uint32_t divisor = std::max(1u, uint32_t(std::lround(vblank_hz / rate)));
   return ++vblank_index % divisor != 0;
 }
 
