@@ -14,7 +14,7 @@ namespace fm4_static_recomp::shader_cache {
 // The SDK's pipeline storage version the shipped list was made with:
 // max(PipelineDescription::kVersion, SpirvShaderTranslator::Modification::kVersion).
 // tools/shader_list.py check-sdk compares the three after a re-pin.
-constexpr uint32_t kPipelineStorageVersion = 0x20260228;
+constexpr uint32_t kPipelineStorageVersion = 0x20261018;
 
 struct CacheWriteResult {
   size_t shaders_needed = 0;

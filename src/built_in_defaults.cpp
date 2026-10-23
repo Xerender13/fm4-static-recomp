@@ -46,6 +46,7 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"texture_cache_memory_budget_limits", "false"},
     Default{"vulkan_texture_load_compute_copy", "false"},
     Default{"vulkan_small_texture_copy_views", "false"},
+    Default{"fh1_readback_small_float_resolves", "false"},
     // With vsync on the SDK presents mailbox or FIFO, which Nvidia composes through the
     // desktop: no independent flip, so no variable refresh rate, and mailbox dropped from
     // 80 to 50 fps after an alt-tab.
