@@ -32,6 +32,7 @@
 #include "input/input_context.h"
 #include "input/prompt_strings.h"
 #include "scripted_input.h"
+#include "string_log.h"
 
 REXCVAR_DEFINE_BOOL(fm4_road_detail_blur, true, "Forza Motorsport 4",
                     "Blur the road detail texture with camera motion, as the game does; off "
@@ -178,6 +179,9 @@ std::function<void()> g_input_tick;
 std::mutex g_prompt_text_mutex;
 std::function<std::optional<std::u16string>(uint16_t, std::u16string_view)> g_prompt_text_source;
 std::unordered_map<std::u16string, uint32_t> g_prompt_texts;
+
+std::mutex g_string_log_mutex;
+fm4_static_recomp::StringShownLog g_string_log;
 
 constexpr uint32_t kStringLookup = 0x823A4780;
 
@@ -854,15 +858,16 @@ bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCR
   }
   // The nested lookup below runs this hook again.
   thread_local bool nested = false;
-  if (nested || !fm4_static_recomp::input::IsPromptStringKey(key)) {
+  if (nested) {
     return false;
   }
+  const bool log = fm4_static_recomp::StringLogEnabled();
   std::function<std::optional<std::u16string>(uint16_t, std::u16string_view)> source;
-  {
+  if (fm4_static_recomp::input::IsPromptStringKey(key)) {
     const std::lock_guard lock(g_prompt_text_mutex);
     source = g_prompt_text_source;
   }
-  if (!source) {
+  if (!source && !log) {
     return false;
   }
   nested = true;
@@ -872,7 +877,20 @@ bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCR
   if (!original) {
     return true;
   }
-  if (const auto text = source(key, ReadGuestText(base, original))) {
+  const std::u16string found = ReadGuestText(base, original);
+  if (log) {
+    const double now = std::chrono::duration<double>(
+                           std::chrono::steady_clock::now().time_since_epoch())
+                           .count();
+    const std::lock_guard lock(g_string_log_mutex);
+    if (g_string_log.Shown(found, now)) {
+      REXLOG_INFO("{}", fm4_static_recomp::StringLogLine(found));
+    }
+  }
+  if (!source) {
+    return true;
+  }
+  if (const auto text = source(key, found)) {
     const std::lock_guard lock(g_prompt_text_mutex);
     uint32_t& address = g_prompt_texts[*text];
     if (!address) {

@@ -24,6 +24,7 @@
 #include "built_in_defaults.h"
 #include "config/host_config.h"
 #include "disc2_install.h"
+#include "file_open_log.h"
 #include "game_hooks.h"
 #include "input/controls.h"
 #include "input/input_context.h"
@@ -90,6 +91,7 @@ class Fm4App final : public rex::ReXApp {
       REXLOG_ERROR("Graphics settings: cannot read {}", graphics_config_->path().string());
     }
     fm4_static_recomp::InstallPixelShaderSwitches();
+    fm4_static_recomp::InstallFileOpenLog();
     if (controls_config_->Load()) {
       controls_ = fm4_static_recomp::input::LoadControls(*controls_config_);
     } else {
