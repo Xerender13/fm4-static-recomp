@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Adapted from Pinyon Shift's launcher (launcher/PinyonShift.Launcher.Desktop, BSD-3-Clause; see THIRD_PARTY_NOTICES.md). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>FM4StaticRecompLauncher</AssemblyName>
+    <RootNamespace>Fm4StaticRecomp.Launcher</RootNamespace>
+    <Version>0.2.0</Version>
+    <Product>FM4 Static Recomp Launcher</Product>
+    <Description>Builds FM4 Static Recomp locally from the player's own verified game discs.</Description>
+    <Authors>FM4 Static Recomp contributors</Authors>
+    <Copyright>Copyright © 2026 FM4 Static Recomp contributors</Copyright>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The game's icon with a play badge (tools/make-icon.ps1 -Launcher). -->
+    <ApplicationIcon>Assets\launcher.ico</ApplicationIcon>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Fm4StaticRecomp.Launcher.Core\Fm4StaticRecomp.Launcher.Core.csproj" />
+  </ItemGroup>
+</Project>

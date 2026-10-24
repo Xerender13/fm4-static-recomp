@@ -79,6 +79,12 @@ function Repair-MaterializedLinks {
     }
 }
 
+# Written once the checkout is complete. Without it the checkout is a download cut short (a
+# closed launcher ends git mid-clone, leaving submodules half checked out), not local changes.
+$prepared = Join-Path $sdkRoot '.git/fm4-prepared'
+if ((Test-Path -LiteralPath $sdkRoot) -and -not (Test-Path -LiteralPath $prepared)) {
+    Remove-Item -LiteralPath $sdkRoot -Recurse -Force
+}
 if (Test-Path -LiteralPath $sdkRoot) {
     if (Test-Fm4GitDirty -Git $git -Repository $sdkRoot) {
         throw "The managed SDK checkout has local changes: $sdkRoot"
@@ -113,4 +119,5 @@ if ((Get-Fm4GitHead -Git $git -Repository $sdkRoot) -ne $config.sdk.revision) {
     throw 'The prepared SDK is not at the pinned revision.'
 }
 Repair-MaterializedLinks -RepositoryRoot $sdkRoot
+[IO.File]::WriteAllText($prepared, $config.sdk.revision)
 Write-Fm4Event sdk 44 'The SDK source is ready.' -JsonEvents:$JsonEvents

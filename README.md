@@ -9,9 +9,9 @@ commands run on ShiftGlue's native Vulkan renderer, written for
 [Pinyon Shift](https://github.com/arcanite24/pinyon-shift) (*Forza Horizon*) and extended
 here for FM4.
 
-> **Experimental source release.** The offline game modes play without known blocking
-> problems (see [Tested](#tested)). There is no launcher yet: setup is the manual guide
-> below.
+> **Experimental release.** The offline game modes play without known blocking problems
+> (see [Tested](#tested)). The [launcher](#launcher) sets everything up from your discs; the
+> [manual guide](#install) does the same from the command line.
 
 This is an unofficial fan project. It is not affiliated with, endorsed, sponsored or
 approved by Microsoft Corporation, Xbox Game Studios, Turn 10 Studios, or any other company
@@ -28,6 +28,7 @@ legally obtained copy of the game, and the executable is built on your computer.
 - [Features](#features)
 - [Supported game](#supported-game)
 - [What you need](#what-you-need)
+- [Launcher](#launcher)
 - [Install](#install)
 - [Graphics settings](#graphics-settings)
 - [Keyboard](#keyboard)
@@ -102,10 +103,47 @@ with its size and hash.
   Disc 2 and DLC.
 - About 40 minutes for the first setup; a rebuild after an update takes minutes.
 
+## Launcher
+
+1. Download `FM4StaticRecomp-Launcher.zip` from the
+   [releases](https://github.com/i2kiselev/fm4-static-recomp/releases) and extract it into a
+   short folder you own, for example `D:\FM4`. Not into `Program Files`, and not by starting
+   the launcher from inside the zip's window: Windows runs it from a temporary folder then.
+2. Start `FM4StaticRecompLauncher.exe`. Its first screen has five steps:
+   - **Disc 1**: drop or choose your ISO, GOD folder or extracted folder. It is verified and
+     extracted.
+   - **Disc 2** (optional): an ISO, a GOD folder or the folder with its four packages, or
+     **Later** (CONTENT installs it any time). It is verified now and installed after the
+     build, so keep it where it is until then.
+   - **Microsoft licence**: the build downloads Microsoft's C++ runtime and Windows SDK files
+     from Microsoft. Read and accept their licences, or decline and use Microsoft's installer
+     instead, which asks for administrator permission once.
+   - **Build**: the launcher downloads its build tools, translates and compiles the game.
+   - **Your profile**: a name; the gamertag starts as it.
+3. **PLAY**. PROFILE beside it adds, renames, imports and deletes profiles (separate saves);
+   CONTENT installs Disc 2 and DLC; SETTINGS has the GRAPHICS page's settings, launch options
+   and advanced options.
+
+Everything lives in `data\` beside the launcher: the extracted disc, the build tools, the
+builds, your saves and settings. Move or back up the folder as a whole. A first setup with
+Disc 2 took 19 GB there (Disc 1 7.6 GB, Disc 2 2.8 GB, the build tools, and the game's source and
+build), and setup asks for a 2 GB margin on top while it works. An update builds the new
+version beside the old one, about 3 GB more until the older one is removed.
+
+The folder's limits come from the build tools: the path of `data\` may be at most 54
+characters, may not hold `[` or `]`, and may not hold parentheses together with non-English
+letters. The launcher checks this at start and names the folder if it cannot use it.
+
+**Updates**: the launcher checks GitHub when it starts (and from CHECK FOR UPDATES).
+UPDATE TO downloads the new release and restarts; the new version then builds beside the
+current one, which you can keep playing, and GO BACK TO switches back. Saves, content and
+settings are kept; each profile's save is zipped to `data\backups\` before a new version first
+runs it.
+
 ## Install
 
-Every command is for PowerShell. Folder paths may hold non-English letters and spaces, but
-**no `[` or `]`**, and no parentheses when the path has non-English letters: CMake, which the
+The manual guide, for the command line. Every command is for PowerShell. Folder paths may hold
+non-English letters and spaces, but **no `[` or `]`**, and no parentheses when the path has non-English letters: CMake, which the
 build uses, cannot run from such folders, and setup stops and says so.
 
 ### 1. Extract Disc 1
@@ -458,14 +496,11 @@ Never attach game files, disc images or a built executable.
 
 ## Roadmap
 
-1. **A launcher**: installs and checks Disc 1, Disc 2 and DLC from your ISO or GOD copies,
-   builds the game, keeps separate profiles and updates while the previous version stays
-   playable.
-2. **Project Forza Plus** support.
-3. **Racing wheels**, starting with MOZA wheels.
-4. **AMD GPU** testing.
-5. **Linux**: a native build of the game and the launcher.
-6. **Other disc releases**, such as the Essentials Edition.
+1. **Project Forza Plus** support.
+2. **Racing wheels**, starting with MOZA wheels.
+3. **AMD GPU** testing.
+4. **Linux**: a native build of the game and the launcher.
+5. **Other disc releases**, such as the Essentials Edition.
 
 ## Repository layout
 
@@ -477,6 +512,8 @@ Never attach game files, disc images or a built executable.
 | `config/rexglue/` | The recompiler's input: function analysis, hooks, the manifest |
 | `config/*.json` | The pinned toolchain and SDK, the supported discs' file lists |
 | `tools/setup.ps1`, `build.ps1`, `codegen.ps1`, `run.ps1` | Setup, build and launch |
+| `launcher/` | The launcher (Avalonia, .NET 8): its core library with tests, and the app |
+| `tools/package-release.ps1` | Builds the release assets and the players' zip |
 | `config/shaders/` | The pipeline list and vertex shader table setup builds the shader cache from |
 | `tools/shader_list.py`, `tools/warm-up.ps1`, `config/warm-up/` | Development tools that make that list: a scripted warm-up, its profile, list merging and checks |
 | `tools/` (the rest) | Development tools; several assume the author's folder layout |

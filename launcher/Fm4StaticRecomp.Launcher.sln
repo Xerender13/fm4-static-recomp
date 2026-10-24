@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fm4StaticRecomp.Launcher.Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fm4StaticRecomp.Launcher.Tests", "Fm4StaticRecomp.Launcher.Tests\Fm4StaticRecomp.Launcher.Tests.csproj", "{4D1A03E5-CA04-41E3-A3BF-A7227A072A8F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fm4StaticRecomp.Launcher", "Fm4StaticRecomp.Launcher\Fm4StaticRecomp.Launcher.csproj", "{E0A6D18A-C314-4AC6-832A-8EF654F197BA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{4D1A03E5-CA04-41E3-A3BF-A7227A072A8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4D1A03E5-CA04-41E3-A3BF-A7227A072A8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4D1A03E5-CA04-41E3-A3BF-A7227A072A8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E0A6D18A-C314-4AC6-832A-8EF654F197BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E0A6D18A-C314-4AC6-832A-8EF654F197BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E0A6D18A-C314-4AC6-832A-8EF654F197BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E0A6D18A-C314-4AC6-832A-8EF654F197BA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

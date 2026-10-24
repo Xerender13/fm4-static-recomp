@@ -1,0 +1,2 @@
+// The game executable's icon (tools\make-icon.ps1).
+1 ICON "fm4_static_recomp.ico"
