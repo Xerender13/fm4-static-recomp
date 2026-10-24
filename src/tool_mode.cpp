@@ -15,12 +15,17 @@ REXCVAR_DEFINE_STRING(fm4_build_shader_cache, "", "Forza Motorsport 4",
                       "shareable shader cache folder, then quit");
 REXCVAR_DEFINE_STRING(fm4_shader_list_dir, "", "Forza Motorsport 4",
                       "Folder of the shipped shader list for --fm4_build_shader_cache");
+REXCVAR_DEFINE_STRING(fm4_export_ui_fonts, "", "Forza Motorsport 4",
+                      "Write the disc's UI fonts, decompressed, to this folder, then quit");
 
 namespace fm4_static_recomp {
 
 ToolMode CurrentToolMode() {
   if (!std::string(REXCVAR_GET(fm4_write_graphics_schema)).empty()) {
     return ToolMode::kSchema;
+  }
+  if (!std::string(REXCVAR_GET(fm4_export_ui_fonts)).empty()) {
+    return ToolMode::kUiFonts;
   }
   if (!std::string(REXCVAR_GET(fm4_dump_disc_shaders)).empty() ||
       !std::string(REXCVAR_GET(fm4_build_shader_cache)).empty()) {

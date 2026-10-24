@@ -37,6 +37,7 @@ add_executable(fm4_static_recomp WIN32
     src/ui/hostui/host_ui.cpp
     src/ui/hostui/menu.cpp
     src/ui/hostui/ui_archive.cpp
+    src/ui/hostui/ui_fonts.cpp
     src/ui/hostui/vector_font.cpp
     src/ui/hostui/xds_texture.cpp
 )
@@ -59,6 +60,7 @@ if(FM4_BUILD_TESTS)
         tests/car_dirt_test.cpp
         tests/file_open_log_test.cpp
         tests/string_log_test.cpp
+        tests/ui_fonts_test.cpp
         src/car_dirt.cpp
         src/file_open_log.cpp
         src/string_log.cpp
@@ -70,6 +72,7 @@ if(FM4_BUILD_TESTS)
         src/input/prompt_swap.cpp
         src/input/prompt_strings.cpp
         src/ui/hostui/ui_archive.cpp
+        src/ui/hostui/ui_fonts.cpp
         src/ui/hostui/vector_font.cpp
     )
     # Away from the game's staged runtime, which is only as new as the last game build;

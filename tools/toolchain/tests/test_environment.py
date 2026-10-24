@@ -1,3 +1,4 @@
+import ctypes
 import json
 import os
 import shutil
@@ -22,7 +23,31 @@ def ps(expression, script=TOOLS / "release-common.ps1", env=None):
     return json.loads(out.stdout)
 
 
+def command_line_to_argv(arguments):
+    """How Windows splits a command line into the game's argv (without the program name)."""
+    shell32, kernel32 = ctypes.windll.shell32, ctypes.windll.kernel32
+    shell32.CommandLineToArgvW.restype = ctypes.POINTER(ctypes.c_wchar_p)
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    count = ctypes.c_int()
+    parsed = shell32.CommandLineToArgvW("game.exe " + arguments, ctypes.byref(count))
+    try:
+        return [parsed[n] for n in range(1, count.value)]
+    finally:
+        kernel32.LocalFree(parsed)
+
+
 class EnvironmentTest(unittest.TestCase):
+    def test_a_game_argument_ending_in_a_backslash_reaches_the_game_whole(self):
+        values = ["--cache_root=C:\\Тест 1\\cache\\", "--cache_root=D:\\", "--log_file=C:\\a b\\x.log"]
+        quoted = ps("@(" + ", ".join(f"'{v}'" for v in values) + ") | ForEach-Object { ConvertTo-Fm4QuotedArgument $_ }")
+        self.assertEqual(command_line_to_argv(" ".join(quoted)), values)
+
+    def test_scripts_quote_game_arguments_through_the_helper(self):
+        found = [f"{script.name}:{number}" for script in sorted(TOOLS.glob("*.ps1"))
+                 for number, line in enumerate(script.read_text(encoding="utf-8-sig").splitlines(), 1)
+                 if '"`"--' in line]
+        self.assertEqual(found, [])
+
     def test_build_variables_replace_a_developer_prompts_values(self):
         env = ps("$env:INCLUDE='C:\\stale\\inc'; $env:LIB='C:\\stale\\lib'; $env:EXTERNAL_INCLUDE='C:\\stale\\ext'; "
                  "Get-Fm4BuildVariables -Toolset ([pscustomobject]@{MsvcInclude='M\\inc'; MsvcLib='M\\lib';"

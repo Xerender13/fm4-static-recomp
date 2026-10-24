@@ -5,6 +5,9 @@ param(
     [Parameter(Mandatory)] [string]$GameRoot,
     # The player's state whose shader cache setup fills, as run.ps1 takes it.
     [string]$StateRoot,
+    # The launcher's per-version cache folder instead: the shader cache, the UI fonts and the
+    # tool runs' scratch user folder go there, and -StateRoot is not used.
+    [string]$CacheRoot,
     [switch]$SkipShaderCache,
     # Parallel compile jobs; 0 picks them from the processor count and memory.
     [ValidateRange(0, 32)] [int]$Parallel = 0,
@@ -25,6 +28,14 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
 $root = Get-Fm4RepoRoot
 if (-not $StateRoot) { $StateRoot = Join-Path $root '.local/state' }
 $StateRoot = [IO.Path]::GetFullPath($StateRoot)
+if ($CacheRoot) {
+    $CacheRoot = [IO.Path]::GetFullPath($CacheRoot)
+    $toolUserRoot = Join-Path $CacheRoot 'tool-user'
+}
+else {
+    $CacheRoot = Join-Path $StateRoot 'cache'
+    $toolUserRoot = Join-Path $StateRoot 'user'
+}
 $logs = Resolve-Fm4LocalPath -RelativePath '.local/logs'
 [void](New-Item -ItemType Directory -Force -Path $logs)
 $errorPath = Join-Path $logs 'setup-error.json'
@@ -79,12 +90,23 @@ catch {
     exit 1
 }
 
-# The build is done whatever the shader cache step does: without it the game compiles shaders in play.
+# The build is done whatever the fonts and shader cache steps do: without the fonts the launcher
+# keeps its own, without the cache the game compiles shaders in play.
+$executableDirectory = Join-Path $root 'out/build/win-amd64-release'
+try {
+    $line = Write-Fm4UiFonts -ExecutableDirectory $executableDirectory -GameRoot $GameRoot `
+        -OutDirectory (Join-Path $CacheRoot 'ui-fonts') -LogPath (Join-Path $logs 'fonts.log')
+}
+catch {
+    $line = "$($_.Exception.Message) The launcher uses its own font."
+}
+Write-Fm4Event fonts 100 $line -JsonEvents:$JsonEvents
+
 if (-not $SkipShaderCache) {
     Write-Fm4Event shaders 0 'Building the shader cache from the disc.' -JsonEvents:$JsonEvents
     try {
-        $line = Write-Fm4ShaderCache -ExecutableDirectory (Join-Path $root 'out/build/win-amd64-release') `
-            -GameRoot $GameRoot -StateRoot $StateRoot -LogPath (Join-Path $logs 'shaders.log')
+        $line = Write-Fm4ShaderCache -ExecutableDirectory $executableDirectory -GameRoot $GameRoot `
+            -CacheRoot $CacheRoot -UserRoot $toolUserRoot -LogPath (Join-Path $logs 'shaders.log')
     }
     catch {
         $line = "$($_.Exception.Message) The game will compile shaders while you play."

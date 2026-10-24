@@ -388,6 +388,13 @@ function Get-Fm4CMake {
     $candidate
 }
 
+# One argument in double quotes for a Windows command line: backslashes before the closing quote
+# are doubled, or a folder ending in `\` would escape it and swallow the next argument.
+function ConvertTo-Fm4QuotedArgument {
+    param([Parameter(Mandatory)] [string]$Value)
+    '"' + ($Value -replace '(\\+)$', '$1$1') + '"'
+}
+
 function Format-Fm4CommandLine {
     param(
         [Parameter(Mandatory)] [string]$FilePath,
@@ -812,8 +819,8 @@ function Write-Fm4GraphicsSchema {
     # A previous build's file (a rerun, an update's seeded folder) must not pass for this one's.
     if (Test-Path -LiteralPath $schema) { Remove-Item -LiteralPath $schema -Force }
     $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_static_recomp.exe') -Wait -PassThru `
-        -ArgumentList "`"--game_data_root=$GameRoot`"", "`"--fm4_write_graphics_schema=$schema`"",
-        "`"--log_file=$LogPath`""
+        -ArgumentList (@("--game_data_root=$GameRoot", "--fm4_write_graphics_schema=$schema",
+            "--log_file=$LogPath") | ForEach-Object { ConvertTo-Fm4QuotedArgument $_ })
     if (-not (Test-Path -LiteralPath $schema -PathType Leaf)) {
         throw (New-Fm4CommandFailure -FailureMessage 'The graphics settings file was not written.' `
             -Step 'schema' -LogPath $LogPath -ExitCode $process.ExitCode)
@@ -821,26 +828,51 @@ function Write-Fm4GraphicsSchema {
 }
 
 # Adds the shaders of the shipped list (config\shaders), taken from the player's Disc 1, and its
-# pipelines to the state's shader cache; the next launch compiles them. Returns the result line.
+# pipelines to the shader cache under the cache root; the next launch compiles them. Returns the
+# result line.
 function Write-Fm4ShaderCache {
     param(
         [Parameter(Mandatory)] [string]$ExecutableDirectory,
         [Parameter(Mandatory)] [string]$GameRoot,
-        [Parameter(Mandatory)] [string]$StateRoot,
+        [Parameter(Mandatory)] [string]$CacheRoot,
+        [Parameter(Mandatory)] [string]$UserRoot,
         [Parameter(Mandatory)] [string]$LogPath
     )
     if (Test-Path -LiteralPath $LogPath) { Remove-Item -LiteralPath $LogPath -Force }
-    $shareable = Join-Path $StateRoot 'cache\shaders\shareable'
+    $shareable = Join-Path $CacheRoot 'shaders\shareable'
     $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_static_recomp.exe') -Wait -PassThru `
-        -ArgumentList "`"--game_data_root=$GameRoot`"", "`"--fm4_build_shader_cache=$shareable`"",
-        "`"--fm4_shader_list_dir=$(Join-Path (Get-Fm4RepoRoot) 'config\shaders')`"",
-        "`"--user_data_root=$(Join-Path $StateRoot 'user')`"", "`"--cache_root=$(Join-Path $StateRoot 'cache')`"",
-        "`"--log_file=$LogPath`""
+        -ArgumentList (@("--game_data_root=$GameRoot", "--fm4_build_shader_cache=$shareable",
+            "--fm4_shader_list_dir=$(Join-Path (Get-Fm4RepoRoot) 'config\shaders')",
+            "--user_data_root=$UserRoot", "--cache_root=$CacheRoot",
+            "--log_file=$LogPath") | ForEach-Object { ConvertTo-Fm4QuotedArgument $_ })
     $result = @(Read-Fm4LogLines -LogPath $LogPath | Where-Object { $_ -match '\] Shader cache: ' } |
         ForEach-Object { $_ -replace '^.*?\] (?=Shader cache: )', '' }) | Select-Object -Last 1
     if ($process.ExitCode -ne 0 -or -not $result) {
         $message = if ($result) { "$result." } else { 'The shader cache was not written.' }
         throw (New-Fm4CommandFailure -FailureMessage $message -Step 'shaders' -LogPath $LogPath `
+            -ExitCode $process.ExitCode)
+    }
+    $result
+}
+
+# The disc's UI fonts, decompressed, for the launcher's headings (it cannot decode XMem LZX).
+# Returns the result line.
+function Write-Fm4UiFonts {
+    param(
+        [Parameter(Mandatory)] [string]$ExecutableDirectory,
+        [Parameter(Mandatory)] [string]$GameRoot,
+        [Parameter(Mandatory)] [string]$OutDirectory,
+        [Parameter(Mandatory)] [string]$LogPath
+    )
+    if (Test-Path -LiteralPath $LogPath) { Remove-Item -LiteralPath $LogPath -Force }
+    $process = Start-Process -FilePath (Join-Path $ExecutableDirectory 'fm4_static_recomp.exe') -Wait -PassThru `
+        -ArgumentList (@("--game_data_root=$GameRoot", "--fm4_export_ui_fonts=$OutDirectory",
+            "--log_file=$LogPath") | ForEach-Object { ConvertTo-Fm4QuotedArgument $_ })
+    $result = @(Read-Fm4LogLines -LogPath $LogPath | Where-Object { $_ -match '\] UI fonts: ' } |
+        ForEach-Object { $_ -replace '^.*?\] (?=UI fonts: )', '' }) | Select-Object -Last 1
+    if ($process.ExitCode -ne 0 -or -not $result -or $result -notmatch '^UI fonts: exported ') {
+        $message = if ($result) { "$result." } else { 'The UI fonts were not exported.' }
+        throw (New-Fm4CommandFailure -FailureMessage $message -Step 'fonts' -LogPath $LogPath `
             -ExitCode $process.ExitCode)
     }
     $result

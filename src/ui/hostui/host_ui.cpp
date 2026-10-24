@@ -22,6 +22,7 @@
 
 #include "input/keycap.h"
 #include "ui/hostui/ui_archive.h"
+#include "ui/hostui/ui_fonts.h"
 #include "ui/hostui/xds_texture.h"
 
 namespace fm4_static_recomp::hostui {
@@ -120,10 +121,6 @@ uint32_t Mix(uint32_t from, uint32_t to, float t) {
   return out;
 }
 
-// Fonts.zip members (fontmap.xml: A_Swiss_721_Bold_Condensed -> A,
-// B_Swiss_721_Medium -> B).
-constexpr const char* kFontMembers[] = {"a_vector_aa.dt", "b_vector_aa.dt"};
-
 std::unique_ptr<ImmediateTexture> LoadTexture(rex::ui::ImmediateDrawer& drawer,
                                               const UiArchive& archive, const char* name) {
   auto data = archive.Read(name);
@@ -167,11 +164,11 @@ bool HostUi::LoadAssets() {
     return false;
   }
   for (size_t face = 0; face < size_t(Face::kCount); ++face) {
-    if (auto data = fonts->Read(kFontMembers[face])) {
+    if (auto data = fonts->Read(kUiFontMembers[face])) {
       fonts_[face] = VectorFont::Parse(*data);
     }
     if (!fonts_[face]) {
-      REXLOG_ERROR("Host UI: cannot load vector font {}", kFontMembers[face]);
+      REXLOG_ERROR("Host UI: cannot load vector font {}", kUiFontMembers[face]);
       assets_failed_ = true;
       return false;
     }
@@ -202,7 +199,7 @@ bool HostUi::LoadAssets() {
               std::chrono::duration_cast<std::chrono::milliseconds>(
                   std::chrono::steady_clock::now() - started)
                   .count(),
-              kFontMembers[0], fonts_[0]->glyph_count(), kFontMembers[1],
+              kUiFontMembers[0], fonts_[0]->glyph_count(), kUiFontMembers[1],
               fonts_[1]->glyph_count());
   return true;
 }

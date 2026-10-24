@@ -37,12 +37,14 @@
 #include "tool_mode.h"
 #include "ui/graphics_page.h"
 #include "ui/hostui/host_ui.h"
+#include "ui/hostui/ui_fonts.h"
 
 REXCVAR_DECLARE(std::string, fm4_config_root);
 REXCVAR_DECLARE(std::string, fm4_write_graphics_schema);
 REXCVAR_DECLARE(std::string, fm4_dump_disc_shaders);
 REXCVAR_DECLARE(std::string, fm4_build_shader_cache);
 REXCVAR_DECLARE(std::string, fm4_shader_list_dir);
+REXCVAR_DECLARE(std::string, fm4_export_ui_fonts);
 
 class Fm4App final : public rex::ReXApp {
  public:
@@ -67,7 +69,8 @@ class Fm4App final : public rex::ReXApp {
   void OnPreSetup(rex::RuntimeConfig& config) override {
     const fm4_static_recomp::ToolMode mode = fm4_static_recomp::CurrentToolMode();
     if (mode == fm4_static_recomp::ToolMode::kInstall ||
-        mode == fm4_static_recomp::ToolMode::kShaderCache) {
+        mode == fm4_static_recomp::ToolMode::kShaderCache ||
+        mode == fm4_static_recomp::ToolMode::kUiFonts) {
       config.gpu_plugin.clear();
       config.audio_factory = nullptr;
       config.tool_mode = true;
@@ -110,6 +113,18 @@ class Fm4App final : public rex::ReXApp {
         REXLOG_INFO("Graphics schema written to {}", path.string());
       } else {
         REXLOG_ERROR("Graphics schema: cannot write {}", path.string());
+      }
+      return true;
+    }
+    if (fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kUiFonts) {
+      const std::filesystem::path out_dir = std::string(REXCVAR_GET(fm4_export_ui_fonts));
+      std::string error;
+      if (fm4_static_recomp::hostui::ExportUiFonts(
+              paths.game_data_root / "Media" / "UI" / "Fonts.zip", out_dir, &error)) {
+        REXLOG_INFO("UI fonts: exported {} to {}",
+                    std::size(fm4_static_recomp::hostui::kUiFontMembers), out_dir.string());
+      } else {
+        REXLOG_ERROR("UI fonts: {}", error);
       }
       return true;
     }
