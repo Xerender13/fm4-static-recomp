@@ -49,19 +49,19 @@ function Get-Fm4Python {
     $pythonExe
 }
 
-function Get-Fm4ToolchainRoot {
-    if ($env:FM4_TOOLCHAIN_ROOT) { return [IO.Path]::GetFullPath($env:FM4_TOOLCHAIN_ROOT) }
-    $root = Get-Fm4RepoRoot
-    $own = Join-Path $root '.local/toolchain'
-    # A development checkout beside pinyon-shift reuses its toolchain instead of a second 1 GB copy.
-    $sibling = [IO.Path]::GetFullPath((Join-Path $root '../pinyon-shift/.local/toolchain'))
-    if (-not (Test-Path -LiteralPath $own) -and (Test-Path -LiteralPath $sibling)) { return $sibling }
-    $own
-}
-
+# FM4_TOOLCHAIN_ROOT (the launcher's data\toolchain) holds every tool. A development checkout
+# beside pinyon-shift reuses an item Pinyon already has (LLVM is 4 GB) and keeps its own copy of
+# the rest, item by item, so the Microsoft files and Ninja never land in Pinyon's folder.
 function Resolve-Fm4ToolchainPath {
     param([Parameter(Mandatory)] [string]$RelativePath)
-    [IO.Path]::GetFullPath((Join-Path (Get-Fm4ToolchainRoot) $RelativePath))
+    if ($env:FM4_TOOLCHAIN_ROOT) {
+        return [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetFullPath($env:FM4_TOOLCHAIN_ROOT)) $RelativePath))
+    }
+    $root = Get-Fm4RepoRoot
+    $own = [IO.Path]::GetFullPath((Join-Path $root ".local/toolchain/$RelativePath"))
+    $sibling = [IO.Path]::GetFullPath((Join-Path $root "../pinyon-shift/.local/toolchain/$RelativePath"))
+    if (-not (Test-Path -LiteralPath $own) -and (Test-Path -LiteralPath $sibling)) { return $sibling }
+    $own
 }
 
 function Get-Fm4SiblingSdkRoot {
@@ -117,6 +117,34 @@ function Invoke-Fm4Download {
     }
 }
 
+# Expand-Archive checks an existing destination with wildcards, so a folder named with brackets
+# breaks it in both PowerShell editions. Existing files are replaced.
+function Expand-Fm4Zip {
+    param(
+        [Parameter(Mandatory)] [string]$Archive,
+        [Parameter(Mandatory)] [string]$Destination
+    )
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $destination = [IO.Path]::GetFullPath($Destination)
+    $prefix = $destination.TrimEnd('\') + '\'
+    $zip = [IO.Compression.ZipFile]::OpenRead([IO.Path]::GetFullPath($Archive))
+    try {
+        foreach ($entry in $zip.Entries) {
+            $target = [IO.Path]::GetFullPath((Join-Path $destination $entry.FullName))
+            if (-not $target.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "The archive member $($entry.FullName) leaves $destination."
+            }
+            if ($entry.FullName.EndsWith('/')) {
+                [void][IO.Directory]::CreateDirectory($target)
+                continue
+            }
+            [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $true)
+        }
+    }
+    finally { $zip.Dispose() }
+}
+
 function Expand-Fm4TarXz {
     param(
         [Parameter(Mandatory)] [string]$Archive,
@@ -157,48 +185,205 @@ function Expand-Fm4TarXz {
 }
 
 function Get-Fm4VisualStudioRoot {
-    param([switch]$AllowMissing)
-    $config = Get-Fm4ReleaseToolchain
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-    $root = $null
-    if (Test-Path -LiteralPath $vswhere -PathType Leaf) {
-        $root = & $vswhere -latest -products * -requires $config.visual_studio.required_component `
-            -property installationPath | Select-Object -First 1
-    }
-    if ([string]::IsNullOrWhiteSpace($root) -and -not $AllowMissing) {
-        throw 'Microsoft C++ Build Tools were not found.'
-    }
-    $root
+    if (-not (Test-Path -LiteralPath $vswhere -PathType Leaf)) { return @() }
+    @(& $vswhere -products * -property installationPath | Where-Object { $_ })
 }
 
-function ConvertTo-Fm4CommandPath {
-    param([AllowEmptyString()] [string]$PathValue)
+function Get-Fm4NewestFolder {
+    param([Parameter(Mandatory)] [string]$Parent, [Parameter(Mandatory)] [string]$Filter, [string]$Contains)
+    @(Get-ChildItem -LiteralPath $Parent -Directory -Filter $Filter -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^[\d.]+$' -and
+            (-not $Contains -or (Test-Path -LiteralPath (Join-Path $_.FullName $Contains))) } |
+        Sort-Object { [version]$_.Name } -Descending) | Select-Object -First 1
+}
 
-    $entries = @($PathValue -split ';' | ForEach-Object {
-        $entry = $_.Trim()
-        if ($entry.Length -ge 2 -and $entry.StartsWith('"') -and $entry.EndsWith('"')) {
-            $entry = $entry.Substring(1, $entry.Length - 2).Trim()
+# The fallback: the pinned toolset line where Microsoft's installer put it (an installed Visual
+# Studio or Build Tools, side by side or as its default toolset) and the Windows SDK at the pinned
+# folder version. Found by folder, not by component, so either way of installing counts.
+function Get-Fm4VisualStudioToolset {
+    $config = Get-Fm4ReleaseToolchain
+    $kits = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots' -Name KitsRoot10 `
+        -ErrorAction SilentlyContinue
+    if ($null -eq $kits) { return $null }
+    $sdkVersion = $config.windows_sdk.sdk_folder_version
+    $sdkBin = Join-Path $kits.KitsRoot10 "bin\$sdkVersion\x64"
+    $sdkInclude = @('ucrt', 'um', 'shared', 'winrt', 'cppwinrt') |
+        ForEach-Object { Join-Path $kits.KitsRoot10 "Include\$sdkVersion\$_" }
+    $sdkLib = @('ucrt', 'um') | ForEach-Object { Join-Path $kits.KitsRoot10 "Lib\$sdkVersion\$_\x64" }
+    foreach ($required in @((Join-Path $sdkBin 'rc.exe'), (Join-Path $sdkBin 'mt.exe'), $sdkInclude[0], $sdkLib[1])) {
+        if (-not (Test-Path -LiteralPath $required)) { return $null }
+    }
+    $line = $config.msvc.toolset_line
+    foreach ($vsRoot in Get-Fm4VisualStudioRoot) {
+        $tools = Get-Fm4NewestFolder -Parent (Join-Path $vsRoot 'VC\Tools\MSVC') -Filter "$line.*" `
+            -Contains 'lib\x64\msvcprt.lib'
+        $redistParent = Join-Path $vsRoot 'VC\Redist\MSVC'
+        # A newer redistributable runs an older toolset's build; the line's own is preferred.
+        $redist = Get-Fm4NewestFolder -Parent $redistParent -Filter "$line.*" -Contains 'x64\Microsoft.VC143.CRT'
+        if ($null -eq $redist) {
+            $redist = Get-Fm4NewestFolder -Parent $redistParent -Filter '14.*' -Contains 'x64\Microsoft.VC143.CRT'
         }
-        if (-not [string]::IsNullOrWhiteSpace($entry)) { $entry }
+        if ($null -eq $tools -or $null -eq $redist) { continue }
+        return [pscustomobject]@{
+            Source = 'visual-studio'
+            ToolsetVersion = $tools.Name
+            MsvcInclude = Join-Path $tools.FullName 'include'
+            MsvcLib = Join-Path $tools.FullName 'lib\x64'
+            Redist = Join-Path $redist.FullName 'x64\Microsoft.VC143.CRT'
+            SdkInclude = [string[]]$sdkInclude
+            SdkLib = [string[]]$sdkLib
+            Rc = Join-Path $sdkBin 'rc.exe'
+            Mt = Join-Path $sdkBin 'mt.exe'
+        }
+    }
+    $null
+}
+
+# Runs tools\toolchain.py. Its ::fm4:: progress lines go to the host as they come (as events, or
+# as plain lines without -JsonEvents); its last stdout line is the JSON result.
+function Invoke-Fm4ToolchainPython {
+    param([Parameter(Mandatory)] [string[]]$Arguments, [switch]$JsonEvents)
+    $ErrorActionPreference = 'Continue'
+    $python = Get-Fm4Python
+    $previousEncoding = $env:PYTHONIOENCODING
+    $env:PYTHONIOENCODING = 'utf-8'
+    # PowerShell decodes a native command's output with the console's code page (OEM 866 on a
+    # Russian Windows); Python writes UTF-8, so a Cyrillic folder would come back mangled.
+    $previousConsole = [Console]::OutputEncoding
+    [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+    $last = $null
+    try {
+        & $python -I (Join-Path $PSScriptRoot 'toolchain.py') @Arguments 2>&1 | ForEach-Object {
+            $line = "$_"
+            if ($_ -is [Management.Automation.ErrorRecord]) { Write-Host $line }
+            elseif ($line.StartsWith('::fm4::')) {
+                if ($JsonEvents) { Write-Host $line }
+                else {
+                    $event = $line.Substring(7) | ConvertFrom-Json
+                    Write-Host "[$($event.stage.ToUpperInvariant())] $($event.message)"
+                }
+            }
+            elseif ($line) { $last = $line }
+        }
+        $code = $LASTEXITCODE
+    }
+    finally {
+        $env:PYTHONIOENCODING = $previousEncoding
+        [Console]::OutputEncoding = $previousConsole
+    }
+    $result = if ($last) { $last | ConvertFrom-Json } else { $null }
+    [pscustomobject]@{ ExitCode = $code; Result = $result }
+}
+
+# A failed run's reason: its JSON message, or its exit code when it left none (a crash, a kill).
+function Get-Fm4ToolchainRunMessage {
+    param([Parameter(Mandatory)] $Run)
+    if ($null -ne $Run.Result -and $Run.Result.PSObject.Properties['message']) { return $Run.Result.message }
+    "exit code $($Run.ExitCode)"
+}
+
+# The Build Tools licence from Microsoft's channel, read without the toolchain's Python: the
+# launcher shows it before setup has provisioned anything.
+function Get-Fm4BuildToolsLicence {
+    param([Parameter(Mandatory)] [string]$ChannelUrl)
+    $response = Invoke-WebRequest -Uri $ChannelUrl -UseBasicParsing -UserAgent 'fm4-static-recomp-setup'
+    $bytes = $response.RawContentStream.ToArray()
+    $channel = [Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
+    $product = @($channel.channelItems | Where-Object { $_.id -eq 'Microsoft.VisualStudio.Product.BuildTools' })
+    $resources = @(if ($product.Count -gt 0 -and $product[0].PSObject.Properties['localizedResources']) {
+        $product[0].localizedResources
     })
-    $entries -join ';'
+    $licence = @($resources | Where-Object { $_.language -eq 'en-us' -and $_.license }) +
+        @($resources | Where-Object { $_.license }) | Select-Object -First 1
+    if ($null -eq $licence) { throw "Microsoft's channel names no Build Tools licence: $ChannelUrl" }
+    $licence.license
+}
+
+function Get-Fm4MicrosoftToolchainPaths {
+    $config = Get-Fm4ReleaseToolchain
+    # Resolved by the SDK's own folder: the toolchain root itself ('.') would find the sibling's.
+    $sdkFolder = Resolve-Fm4ToolchainPath -RelativePath "windows-sdk-$($config.windows_sdk.version)"
+    [pscustomobject]@{
+        Line = $config.msvc.toolset_line
+        MsvcRoot = Resolve-Fm4ToolchainPath -RelativePath $config.msvc.install_path
+        SdkVersion = $config.windows_sdk.version
+        SdkRoot = Split-Path $sdkFolder -Parent
+    }
+}
+
+# The private copy (toolchain.py find) first, else the fallback; $null when neither is there.
+function Get-Fm4BuildToolset {
+    $paths = Get-Fm4MicrosoftToolchainPaths
+    $found = Invoke-Fm4ToolchainPython -Arguments @('find', '--line', $paths.Line, '--msvc-root', $paths.MsvcRoot,
+        '--sdk-version', $paths.SdkVersion, '--sdk-root', $paths.SdkRoot)
+    if ($found.ExitCode -ne 0) { return Get-Fm4VisualStudioToolset }
+    $msvc = $found.Result.msvc
+    $sdk = $found.Result.windows_sdk
+    [pscustomobject]@{
+        Source = 'feed'
+        ToolsetVersion = $msvc.toolset_version
+        MsvcInclude = $msvc.include
+        MsvcLib = $msvc.lib
+        Redist = $msvc.redist
+        SdkInclude = [string[]]$sdk.include
+        SdkLib = [string[]]$sdk.lib
+        Rc = $sdk.rc
+        Mt = $sdk.mt
+    }
+}
+
+# Replaces, never extends, what a Visual Studio developer prompt may have set: its INCLUDE, LIB
+# and EXTERNAL_INCLUDE would mix another toolset's files into the build. VCToolsInstallDir keeps
+# clang from looking for an installed Visual Studio at all.
+function Get-Fm4BuildVariables {
+    param(
+        [Parameter(Mandatory)] $Toolset,
+        [Parameter(Mandatory)] [string]$LlvmBin,
+        [Parameter(Mandatory)] [string]$NinjaDir,
+        [Parameter(Mandatory)] [string]$CMakeBin,
+        [AllowEmptyString()] [string]$InheritedPath = ''
+    )
+    $ours = @($LlvmBin, $NinjaDir, $CMakeBin, (Split-Path $Toolset.Rc -Parent))
+    $inherited = @($InheritedPath -split ';' | Where-Object { $_ -and $_ -notin $ours })
+    [ordered]@{
+        INCLUDE = (@($Toolset.MsvcInclude) + @($Toolset.SdkInclude)) -join ';'
+        LIB = (@($Toolset.MsvcLib) + @($Toolset.SdkLib)) -join ';'
+        PATH = ($ours + $inherited) -join ';'
+        EXTERNAL_INCLUDE = ''
+        VCToolsInstallDir = (Split-Path $Toolset.MsvcInclude -Parent) + '\'
+    }
+}
+
+# clang takes the MSVC version (_MSC_VER) from the target triple; without one it would ask a
+# cl.exe, which the private copy does not have, and fall back to 19.33.
+function Get-Fm4CMakeToolArguments {
+    param([Parameter(Mandatory)] $Environment)
+    $target = 'x86_64-pc-windows-msvc' + ($Environment.Toolset.ToolsetVersion -replace '^14\.', '19.')
+    @(
+        "-DCMAKE_MAKE_PROGRAM=$($Environment.Ninja.Replace('\', '/'))",
+        '-DCMAKE_LINKER_TYPE=LLD',
+        "-DCMAKE_RC_COMPILER=$($Environment.Toolset.Rc.Replace('\', '/'))",
+        "-DCMAKE_MT=$($Environment.Toolset.Mt.Replace('\', '/'))",
+        "-DCMAKE_C_COMPILER_TARGET=$target",
+        "-DCMAKE_CXX_COMPILER_TARGET=$target"
+    )
+}
+
+function Get-Fm4Ninja {
+    $config = Get-Fm4ReleaseToolchain
+    $ninja = Join-Path (Resolve-Fm4ToolchainPath -RelativePath $config.ninja.install_path) $config.ninja.executable
+    if (-not (Test-Path -LiteralPath $ninja -PathType Leaf)) {
+        throw 'Ninja is missing. Run tools/provision-toolchain.ps1 first.'
+    }
+    $ninja
 }
 
 function Get-Fm4CMake {
-    param([Parameter(Mandatory)] [string]$VisualStudioRoot)
     $config = Get-Fm4ReleaseToolchain
     $candidate = Join-Path (Resolve-Fm4ToolchainPath -RelativePath $config.cmake.install_path) $config.cmake.executable
     if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
-        $candidate = Join-Path $VisualStudioRoot 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe'
-    }
-    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
         throw 'CMake is missing. Run tools/provision-toolchain.ps1 first.'
-    }
-    $versionLines = @(& $candidate --version)
-    if ($LASTEXITCODE -ne 0 -or $versionLines.Count -eq 0 -or
-        $versionLines[0] -notmatch '^cmake version (\d+\.\d+\.\d+)' -or
-        [version]$Matches[1] -lt [version]'3.25.0') {
-        throw 'CMake 3.25 or newer is required. Run tools/provision-toolchain.ps1 to install the supported version.'
     }
     $candidate
 }
@@ -546,56 +731,23 @@ function Format-Fm4FailureRecord {
 
 function Enter-Fm4BuildEnvironment {
     $config = Get-Fm4ReleaseToolchain
-    $vsRoot = Get-Fm4VisualStudioRoot
-    $devCmd = Join-Path $vsRoot 'Common7/Tools/VsDevCmd.bat'
-    $inheritedPath = $env:PATH
-    try {
-        # Quoted PATH entries containing parentheses break VsDevCmd's batch parser.
-        $env:PATH = ConvertTo-Fm4CommandPath -PathValue $inheritedPath
-        $marker = '::fm4-environment::'
-        # Merged stderr arrives as ErrorRecords; under 'Stop' the first one
-        # would end the function before the exit code is known.
-        $previousPreference = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $output = @(& $env:ComSpec /d /s /c "`"$devCmd`" -arch=x64 -host_arch=x64 && echo $marker&& set" 2>&1 |
-            ForEach-Object { $_.ToString() })
-        $devCmdExit = $LASTEXITCODE
-        $ErrorActionPreference = $previousPreference
-    }
-    finally {
-        $env:PATH = $inheritedPath
-    }
-    $markerIndex = -1
-    for ($i = 0; $i -lt $output.Count; $i++) {
-        if ($output[$i].Trim() -eq $marker) { $markerIndex = $i; break }
-    }
-    if ($devCmdExit -ne 0 -or $markerIndex -lt 0) {
-        # VsDevCmd prints its own [ERROR:...] lines; keep them in the report.
-        $devCmdOutput = @($output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Last 20)
-        $failure = [Exception]::new('Unable to initialize the Microsoft x64 build environment. Restart Windows after installing the Microsoft C++ Build Tools, then run setup again. ' +
-            "VsDevCmd: $devCmd")
-        $failure.Data['step'] = 'Initialize the Microsoft x64 build environment'
-        $failure.Data['exit_code'] = $devCmdExit
-        $failure.Data['command'] = "`"$devCmd`" -arch=x64 -host_arch=x64"
-        $failure.Data['error_excerpt'] = [string[]]$devCmdOutput
+    $toolset = Get-Fm4BuildToolset
+    if ($null -eq $toolset) {
+        $failure = [Exception]::new('The Microsoft C++ runtime and Windows SDK files are missing. Run setup ' +
+            'with -AcceptMicrosoftLicense, or with -ToolchainSource VisualStudio to use Microsoft''s ' +
+            'installer (asks for administrator permission once).')
+        $failure.Data['step'] = 'msvc'
         throw $failure
     }
-    $lines = if ($markerIndex + 1 -lt $output.Count) { $output[($markerIndex + 1)..($output.Count - 1)] } else { @() }
-    foreach ($line in $lines) {
-        $separator = $line.IndexOf('=')
-        if ($separator -gt 0) {
-            [Environment]::SetEnvironmentVariable($line.Substring(0, $separator),
-                $line.Substring($separator + 1), 'Process')
-        }
-    }
     $llvm = Resolve-Fm4ToolchainPath -RelativePath $config.llvm.install_path
-    $env:PATH = "$(Join-Path $llvm 'bin');$env:PATH"
-    [pscustomobject]@{
-        VisualStudioRoot = $vsRoot
-        CMake = Get-Fm4CMake -VisualStudioRoot $vsRoot
-        Ninja = Join-Path $vsRoot 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe'
-        LlvmRoot = $llvm
+    $cmake = Get-Fm4CMake
+    $ninja = Get-Fm4Ninja
+    $variables = Get-Fm4BuildVariables -Toolset $toolset -LlvmBin (Join-Path $llvm 'bin') `
+        -NinjaDir (Split-Path $ninja -Parent) -CMakeBin (Split-Path $cmake -Parent) -InheritedPath $env:PATH
+    foreach ($name in $variables.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $variables[$name], 'Process')
     }
+    [pscustomobject]@{ CMake = $cmake; Ninja = $ninja; LlvmRoot = $llvm; Toolset = $toolset }
 }
 
 # A CMake build tree records its absolute location, and CMake refuses to configure one

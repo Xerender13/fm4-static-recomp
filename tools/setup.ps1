@@ -8,6 +8,11 @@ param(
     [switch]$SkipShaderCache,
     # Parallel compile jobs; 0 picks them from the processor count and memory.
     [ValidateRange(0, 32)] [int]$Parallel = 0,
+    # The player accepted the licences of the Microsoft files the build downloads
+    # (tools\microsoft-licences.ps1 names them).
+    [switch]$AcceptMicrosoftLicense,
+    # VisualStudio: Microsoft's installer instead (asks for administrator permission once).
+    [ValidateSet('Feed', 'VisualStudio')] [string]$ToolchainSource = 'Feed',
     [switch]$JsonEvents
 )
 
@@ -37,7 +42,8 @@ try {
     if ($locking.Count -gt 0) {
         throw 'Close FM4 Static Recomp before building this version. Windows locks its files while it runs.'
     }
-    & (Join-Path $PSScriptRoot 'provision-toolchain.ps1') -JsonEvents:$JsonEvents | Out-Host
+    & (Join-Path $PSScriptRoot 'provision-toolchain.ps1') -AcceptMicrosoftLicense:$AcceptMicrosoftLicense `
+        -ToolchainSource $ToolchainSource -JsonEvents:$JsonEvents | Out-Host
     Write-Fm4Event sdk 35 'Preparing the ShiftGlue SDK.' -JsonEvents:$JsonEvents
     & (Join-Path $PSScriptRoot 'prepare-sdk.ps1') -JsonEvents:$JsonEvents | Out-Host
     Write-Fm4Event codegen 45 'Translating the game code. This takes several minutes.' -JsonEvents:$JsonEvents
@@ -46,8 +52,7 @@ try {
         throw (New-Fm4CommandFailure -FailureMessage 'Translating the game code failed.' -Step 'codegen' `
             -LogPath (Join-Path $logs 'codegen.log') -ExitCode $LASTEXITCODE)
     }
-    Write-Fm4Event build 70 'Compiling FM4 Static Recomp.' -JsonEvents:$JsonEvents
-    & (Join-Path $PSScriptRoot 'build.ps1') -Parallel $Parallel | Out-Host
+    & (Join-Path $PSScriptRoot 'build.ps1') -Parallel $Parallel -JsonEvents:$JsonEvents | Out-Host
     Write-Fm4Event schema 97 'Reading the graphics settings.' -JsonEvents:$JsonEvents
     Write-Fm4GraphicsSchema -ExecutableDirectory (Join-Path $root 'out/build/win-amd64-release') `
         -GameRoot $GameRoot -LogPath (Join-Path $logs 'schema.log')

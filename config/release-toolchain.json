@@ -6,7 +6,10 @@
     "bootstrap_url": "https://aka.ms/vs/17/release/vs_BuildTools.exe",
     "bootstrap_signer": "Microsoft Corporation",
     "workload": "Microsoft.VisualStudio.Workload.VCTools",
-    "required_component": "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+    "components": [
+      "Microsoft.VisualStudio.Component.VC.14.44.17.14.x86.x64",
+      "Microsoft.VisualStudio.Component.Windows11SDK.26100"
+    ]
   },
   "cmake": {
     "version": "3.31.10",
@@ -14,6 +17,13 @@
     "sha256": "13D1A463D7130DF5339BAEDD63D8AE990AAF385062B2F42F372796143AE94086",
     "install_path": "cmake-3.31.10-windows-x86_64",
     "executable": "bin/cmake.exe"
+  },
+  "ninja": {
+    "version": "1.13.2",
+    "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip",
+    "sha256": "07FC8261B42B20E71D1720B39068C2E14FFCEE6396B76FB7A795FB460B78DC65",
+    "install_path": "ninja-1.13.2",
+    "executable": "ninja.exe"
   },
   "git": {
     "version": "2.55.0.5",
@@ -42,6 +52,26 @@
     "sha256": "D1F04D990AEE1253D8569E8E5104E30FA9F5FA830899F14843448872D936A2CF",
     "install_path": "python-3.13.15",
     "executable": "python.exe"
+  },
+  "msvc": {
+    "channel_url": "https://aka.ms/vs/17/release/channel",
+    "toolset_line": "14.44",
+    "install_path": "msvc-14.44"
+  },
+  "windows_sdk": {
+    "version": "10.0.26100.9169",
+    "sdk_folder_version": "10.0.26100.0",
+    "license_url": "https://aka.ms/WinSDKLicenseURL",
+    "packages": [
+      {
+        "id": "Microsoft.Windows.SDK.CPP",
+        "sha256": "475269434DCD808A67853773272F972C3229C0E10C3DDC821290E70CC0F6904D"
+      },
+      {
+        "id": "Microsoft.Windows.SDK.CPP.x64",
+        "sha256": "DF6226A051E320942ABFBD57848B43D18772996ECD66BEADAD240F2A56ED2F7B"
+      }
+    ]
   },
   "sdk": {
     "repository": "https://github.com/i2kiselev/shiftglue-sdk",

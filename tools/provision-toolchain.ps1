@@ -1,6 +1,14 @@
 # Adapted from Pinyon Shift's tools/provision-toolchain.ps1 (BSD-3, see THIRD_PARTY_NOTICES.md).
 [CmdletBinding()]
-param([switch]$JsonEvents)
+param(
+    # The player accepted the licences of Microsoft's C++ runtime and Windows SDK files, which the
+    # default route downloads from Microsoft into the toolchain folder.
+    [switch]$AcceptMicrosoftLicense,
+    # VisualStudio: take those files from an installed Visual Studio, or install the Build Tools
+    # (asks for administrator permission once).
+    [ValidateSet('Feed', 'VisualStudio')] [string]$ToolchainSource = 'Feed',
+    [switch]$JsonEvents
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -13,10 +21,8 @@ $config = Get-Fm4ReleaseToolchain
 $downloads = Resolve-Fm4ToolchainPath -RelativePath 'downloads'
 [void](New-Item -ItemType Directory -Force -Path $downloads)
 
-Write-Fm4Event tools 18 'Checking the Windows build environment.' -JsonEvents:$JsonEvents
-$vsRoot = Get-Fm4VisualStudioRoot -AllowMissing
-if ([string]::IsNullOrWhiteSpace($vsRoot)) {
-    Write-Fm4Event tools 20 'Microsoft C++ Build Tools are required. Windows may ask for administrator permission.' -JsonEvents:$JsonEvents
+function Install-Fm4BuildTools {
+    Write-Fm4Event tools 26 'Installing the Microsoft C++ Build Tools. Windows may ask for administrator permission.' -JsonEvents:$JsonEvents
     $bootstrap = Join-Path $downloads 'vs_BuildTools.exe'
     if (-not (Test-Path -LiteralPath $bootstrap -PathType Leaf)) {
         $partial = "$bootstrap.partial"
@@ -53,20 +59,26 @@ if ([string]::IsNullOrWhiteSpace($vsRoot)) {
     if ($elevated.ExitCode -notin @(0, 3010)) {
         throw "Microsoft C++ Build Tools installation stopped with exit code $($elevated.ExitCode)."
     }
-    $vsRoot = Get-Fm4VisualStudioRoot
 }
 
-Write-Fm4Event tools 23 'Preparing Git.' -JsonEvents:$JsonEvents
+function New-Fm4ToolchainFailure {
+    param([Parameter(Mandatory)] [string]$Step, [Parameter(Mandatory)] [string]$Message)
+    $failure = [Exception]::new($Message)
+    $failure.Data['step'] = $Step
+    $failure
+}
+
+Write-Fm4Event tools 18 'Preparing Git.' -JsonEvents:$JsonEvents
 $gitRoot = Resolve-Fm4ToolchainPath -RelativePath $config.git.install_path
 $gitExe = Join-Path $gitRoot $config.git.executable
 if (-not (Test-Path -LiteralPath $gitExe -PathType Leaf)) {
     $archive = Join-Path $downloads "mingit-$($config.git.version).zip"
     Invoke-Fm4Download -Uri $config.git.url -Destination $archive -Sha256 $config.git.sha256
     [void](New-Item -ItemType Directory -Force -Path $gitRoot)
-    Expand-Archive -LiteralPath $archive -DestinationPath $gitRoot -Force
+    Expand-Fm4Zip -Archive $archive -Destination $gitRoot
 }
 
-Write-Fm4Event tools 26 'Preparing the pinned LLVM compiler.' -JsonEvents:$JsonEvents
+Write-Fm4Event tools 20 'Preparing the pinned LLVM compiler.' -JsonEvents:$JsonEvents
 $xzRoot = Resolve-Fm4ToolchainPath -RelativePath $config.xz.install_path
 $xzExe = Join-Path $xzRoot $config.xz.executable
 if (-not (Test-Path -LiteralPath $xzExe -PathType Leaf)) {
@@ -74,7 +86,7 @@ if (-not (Test-Path -LiteralPath $xzExe -PathType Leaf)) {
     Invoke-Fm4Download -Uri $config.xz.url -Destination $archive -Sha256 $config.xz.sha256
     if (Test-Path -LiteralPath $xzRoot) { Remove-Item -LiteralPath $xzRoot -Recurse -Force }
     [void](New-Item -ItemType Directory -Force -Path $xzRoot)
-    Expand-Archive -LiteralPath $archive -DestinationPath $xzRoot -Force
+    Expand-Fm4Zip -Archive $archive -Destination $xzRoot
 }
 
 $llvmRoot = Resolve-Fm4ToolchainPath -RelativePath $config.llvm.install_path
@@ -93,7 +105,7 @@ if (-not (Test-Path -LiteralPath $llvmExe -PathType Leaf)) {
     Remove-Item -LiteralPath $staging -Recurse -Force
 }
 
-Write-Fm4Event tools 30 'Preparing the local shader tooling runtime.' -JsonEvents:$JsonEvents
+Write-Fm4Event tools 23 'Preparing the local shader tooling runtime.' -JsonEvents:$JsonEvents
 $pythonRoot = Resolve-Fm4ToolchainPath -RelativePath $config.python.install_path
 $pythonExe = Join-Path $pythonRoot $config.python.executable
 $pythonCheck = "import hashlib, json, struct, subprocess, tomllib, zipfile; assert hasattr(hashlib, 'file_digest')"
@@ -106,18 +118,71 @@ if (-not $pythonReady) {
     $archive = Join-Path $downloads "python-$($config.python.version)-embed-amd64.zip"
     Invoke-Fm4Download -Uri $config.python.url -Destination $archive -Sha256 $config.python.sha256
     [void](New-Item -ItemType Directory -Force -Path $pythonRoot)
-    Expand-Archive -LiteralPath $archive -DestinationPath $pythonRoot -Force
+    Expand-Fm4Zip -Archive $archive -Destination $pythonRoot
 }
 & $pythonExe -I -c $pythonCheck
 if ($LASTEXITCODE -ne 0) { throw 'The local Python runtime failed its shader tooling check.' }
 
-Write-Fm4Event tools 31 'Preparing CMake with support for the build presets.' -JsonEvents:$JsonEvents
+Write-Fm4Event tools 24 'Preparing CMake with support for the build presets.' -JsonEvents:$JsonEvents
 $cmakeRoot = Resolve-Fm4ToolchainPath -RelativePath $config.cmake.install_path
 if (-not (Test-Path -LiteralPath (Join-Path $cmakeRoot $config.cmake.executable) -PathType Leaf)) {
     $archive = Join-Path $downloads "cmake-$($config.cmake.version).zip"
     Invoke-Fm4Download -Uri $config.cmake.url -Destination $archive -Sha256 $config.cmake.sha256
-    Expand-Archive -LiteralPath $archive -DestinationPath (Split-Path $cmakeRoot -Parent) -Force
+    Expand-Fm4Zip -Archive $archive -Destination (Split-Path $cmakeRoot -Parent)
 }
+
+Write-Fm4Event tools 25 'Preparing Ninja.' -JsonEvents:$JsonEvents
+$ninjaRoot = Resolve-Fm4ToolchainPath -RelativePath $config.ninja.install_path
+if (-not (Test-Path -LiteralPath (Join-Path $ninjaRoot $config.ninja.executable) -PathType Leaf)) {
+    $archive = Join-Path $downloads "ninja-$($config.ninja.version)-win.zip"
+    Invoke-Fm4Download -Uri $config.ninja.url -Destination $archive -Sha256 $config.ninja.sha256
+    [void](New-Item -ItemType Directory -Force -Path $ninjaRoot)
+    Expand-Fm4Zip -Archive $archive -Destination $ninjaRoot
+}
+
+if ($ToolchainSource -eq 'VisualStudio') {
+    if ($null -eq (Get-Fm4VisualStudioToolset)) { Install-Fm4BuildTools }
+    if ($null -eq (Get-Fm4VisualStudioToolset)) {
+        throw (New-Fm4ToolchainFailure -Step 'msvc' -Message ("The Microsoft C++ Build Tools hold no " +
+            "$($config.msvc.toolset_line) toolset with the Windows SDK $($config.windows_sdk.sdk_folder_version)."))
+    }
+}
+elseif ($null -eq (Get-Fm4BuildToolset | Where-Object Source -eq 'feed')) {
+    $failure = $null
+    if ($AcceptMicrosoftLicense) {
+        $paths = Get-Fm4MicrosoftToolchainPaths
+        $microsoftDownloads = Join-Path (Split-Path $paths.MsvcRoot -Parent) 'downloads'
+        $sdkArguments = @('windows-sdk', '--version', $paths.SdkVersion, '--root', $paths.SdkRoot,
+            '--downloads', $microsoftDownloads, '--accept-license', '--json-events')
+        foreach ($package in $config.windows_sdk.packages) {
+            $sdkArguments += @('--package', "$($package.id)=$($package.sha256)")
+        }
+        foreach ($command in @(
+            @{ Step = 'windows-sdk'; What = 'Windows SDK'; Arguments = $sdkArguments },
+            @{ Step = 'msvc'; What = 'C++ runtime'; Arguments = @('msvc', '--channel', $config.msvc.channel_url, '--line', $paths.Line,
+                '--root', $paths.MsvcRoot, '--downloads', $microsoftDownloads, '--accept-license', '--json-events') }
+        )) {
+            $run = Invoke-Fm4ToolchainPython -Arguments $command.Arguments -JsonEvents:$JsonEvents
+            if ($run.ExitCode -ne 0) {
+                $failure = New-Fm4ToolchainFailure -Step $command.Step `
+                    -Message "Downloading Microsoft's $($command.What) failed: $(Get-Fm4ToolchainRunMessage -Run $run)"
+                break
+            }
+        }
+    }
+    if ($null -ne $failure -or -not $AcceptMicrosoftLicense) {
+        if ($null -ne (Get-Fm4VisualStudioToolset)) {
+            Write-Fm4Event tools 31 'Using the Microsoft C++ files of the installed Visual Studio.' -JsonEvents:$JsonEvents
+        }
+        elseif ($null -ne $failure) { throw $failure }
+        else {
+            throw (New-Fm4ToolchainFailure -Step 'licence' -Message ("The build needs Microsoft's C++ runtime and " +
+                'Windows SDK files, downloaded from Microsoft. Accept their licences (setup -AcceptMicrosoftLicense; ' +
+                'tools\microsoft-licences.ps1 names them), or run setup with -ToolchainSource VisualStudio.'))
+        }
+    }
+}
+
 $environment = Enter-Fm4BuildEnvironment
 $git = Get-Fm4Git
 foreach ($required in @(
@@ -126,7 +191,8 @@ foreach ($required in @(
     @{ Name = 'CMake'; Path = $environment.CMake },
     @{ Name = 'Ninja'; Path = $environment.Ninja },
     @{ Name = 'LLVM'; Path = $llvmExe },
-    @{ Name = 'Python'; Path = $pythonExe }
+    @{ Name = 'Python'; Path = $pythonExe },
+    @{ Name = 'rc.exe'; Path = $environment.Toolset.Rc }
 )) {
     if (-not (Test-Path -LiteralPath $required.Path -PathType Leaf)) {
         throw "$($required.Name) was not provisioned correctly: $($required.Path)"
@@ -141,4 +207,5 @@ Write-Fm4Event tools 32 'Windows build tools are ready.' -JsonEvents:$JsonEvents
     ninja = $environment.Ninja
     llvm = $llvmExe
     python = $pythonExe
+    msvc = "$($environment.Toolset.Source) $($environment.Toolset.ToolsetVersion)"
 }

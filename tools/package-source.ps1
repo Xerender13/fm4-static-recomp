@@ -59,7 +59,8 @@ $include = @(
     'config/supported-discs.json', 'config/shaders', 'config/warm-up',
     'tools/release-common.ps1', 'tools/provision-toolchain.ps1', 'tools/install-build-tools.ps1',
     'tools/prepare-sdk.ps1', 'tools/codegen.ps1', 'tools/build.ps1', 'tools/setup.ps1',
-    'tools/run.ps1', 'tools/warm-up.ps1', 'tools/warm-up-common.ps1'
+    'tools/run.ps1', 'tools/warm-up.ps1', 'tools/warm-up-common.ps1',
+    'tools/toolchain.py', 'tools/toolchain', 'tools/microsoft-licences.ps1'
 )
 foreach ($relative in $include) {
     $source = Join-Path $root $relative
@@ -74,6 +75,10 @@ foreach ($relative in $include) {
         Copy-Item -LiteralPath $source -Destination $destination -Force
     }
 }
+$toolchainTests = Join-Path $payloadRoot 'tools/toolchain/tests'
+if (Test-Path -LiteralPath $toolchainTests) { Remove-Item -LiteralPath $toolchainTests -Recurse -Force }
+Get-ChildItem -LiteralPath $payloadRoot -Recurse -Directory -Filter '__pycache__' |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
 $localManifest = Join-Path $payloadRoot 'config/rexglue/fm4_manifest.local.toml'
 if (Test-Path -LiteralPath $localManifest) { Remove-Item -LiteralPath $localManifest -Force }
 

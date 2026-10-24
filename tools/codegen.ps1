@@ -38,8 +38,9 @@ $manifest = Join-Path $root 'config/rexglue/fm4_manifest.local.toml'
 if (-not $SkipSdkBuild) {
     Push-Location $sdkRoot
     try {
-        Invoke-Fm4BuildCommand $environment.CMake @('--preset', 'win-amd64',
-            '-DREXGLUE_ENABLE_TRACY=OFF', '-DSDL_HIDAPI_LIBUSB=OFF') `
+        Invoke-Fm4BuildCommand $environment.CMake (@('--preset', 'win-amd64',
+            '-DREXGLUE_ENABLE_TRACY=OFF', '-DSDL_HIDAPI_LIBUSB=OFF') +
+            (Get-Fm4CMakeToolArguments -Environment $environment)) `
             (Join-Path $logs 'rexglue-configure.log') 'ReXGlue configuration failed.'
         Invoke-Fm4BuildCommand $environment.CMake @('--build', '--preset', 'win-amd64-release',
             '--target', 'rexglue', '--parallel', "$Parallel") `

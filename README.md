@@ -94,10 +94,12 @@ with its size and hash.
 - An XInput gamepad (an Xbox controller, or another pad through a mapper), or the keyboard.
 - Your own Forza Motorsport 4 Disc 1, as an ISO or a Games on Demand (GOD) copy. Disc 2 and
   DLC are optional.
-- An internet connection for the first setup, and administrator permission once if the
-  Microsoft C++ Build Tools are not installed yet.
-- About 13 GB of disk space (Disc 1 7.6 GB, the repository with the SDK and build 3.1 GB,
-  build tool downloads 4.1 GB), plus about 5 GB for Disc 2 and DLC.
+- An internet connection for the first setup. No administrator permission and no Visual
+  Studio: setup downloads the parts of Microsoft's C++ runtime and Windows SDK the build
+  needs (about 300 MB) once you accept their licences.
+- About 17 GB of disk space (Disc 1 7.6 GB, the repository with the SDK and build 3.3 GB,
+  the build tools with Microsoft's files and their downloads 6.3 GB), plus about 5 GB for
+  Disc 2 and DLC.
 - About 40 minutes for the first setup; a rebuild after an update takes minutes.
 
 ## Install
@@ -136,16 +138,25 @@ Or download the repository as a ZIP and extract it there. No submodules are need
 
 ```powershell
 cd D:\FM4\fm4-static-recomp
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:\FM4\disc1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup.ps1 -GameRoot D:\FM4\disc1 -AcceptMicrosoftLicense
 ```
+
+`-AcceptMicrosoftLicense` accepts the licences of the Microsoft files setup downloads: the
+[Visual Studio Build Tools licence](https://go.microsoft.com/fwlink/?LinkId=2179911) (MSVC's C
+and C++ runtime headers and libraries) and the
+[Windows SDK licence](https://aka.ms/WinSDKLicenseURL). They come straight from Microsoft and
+stay on your PC; `tools\microsoft-licences.ps1` prints the current links. Without the switch,
+setup uses an installed Visual Studio or Build Tools that holds the 14.44 toolset, or stops and
+says so. `-ToolchainSource VisualStudio` uses Microsoft's installer instead (it asks for
+administrator permission once and can take 10 minutes or more).
 
 Give `-GameRoot` without a trailing backslash. Setup:
 
-1. installs the Microsoft C++ Build Tools if they are missing (Windows asks for
-   administrator permission once). The installer can take 10 minutes or more; keep its
-   windows open until they close by themselves;
-2. downloads pinned, hash-checked copies of CMake, LLVM/clang, MinGit, xz, Python and the
-   ShiftGlue SDK into `.local`;
+1. downloads pinned, hash-checked copies of CMake, Ninja, LLVM/clang, MinGit, xz, Python and
+   the ShiftGlue SDK into `.local`;
+2. downloads Microsoft's C++ runtime (the MSVC 14.44 headers and libraries, from Microsoft's
+   Visual Studio channel) and the Windows SDK (from Microsoft's NuGet packages) into
+   `.local\toolchain`, each checked against Microsoft's published hash;
 3. translates `default.xex` into C++ and compiles
    `out\build\win-amd64-release\fm4_static_recomp.exe`;
 4. builds the shader cache from your Disc 1 (about a second), so your first races do not
@@ -156,7 +167,7 @@ Give `-GameRoot` without a trailing backslash. Setup:
    the test bench below, longer on a processor with fewer threads. `-SkipShaderCache`
    leaves it out. Pass the same `-StateRoot` you play with so the cache lands there.
 
-Nothing outside the repository folder changes apart from the Build Tools. If a step fails,
+Nothing outside the repository folder changes. If a step fails,
 the last lines name it and `.local\logs\setup-error.json` holds the details. Running the
 same command again resumes: finished downloads are not repeated.
 
