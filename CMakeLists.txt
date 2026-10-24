@@ -40,6 +40,8 @@ add_executable(fm4_static_recomp WIN32
     src/ui/hostui/ui_fonts.cpp
     src/ui/hostui/vector_font.cpp
     src/ui/hostui/xds_texture.cpp
+    # Merged into the linker's manifest: the UTF-8 code page.
+    src/fm4_static_recomp.manifest
 )
 
 fm4_static_recomp_attach_rexglue(fm4_static_recomp)

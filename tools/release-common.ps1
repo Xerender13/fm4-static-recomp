@@ -2,7 +2,7 @@
 Set-StrictMode -Version Latest
 
 function Get-Fm4RepoRoot {
-    (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 }
 
 function Get-Fm4ReleaseToolchain {
@@ -62,6 +62,30 @@ function Resolve-Fm4ToolchainPath {
     $sibling = [IO.Path]::GetFullPath((Join-Path $root "../pinyon-shift/.local/toolchain/$RelativePath"))
     if (-not (Test-Path -LiteralPath $own) -and (Test-Path -LiteralPath $sibling)) { return $sibling }
     $own
+}
+
+# Two CMake limits, both still in CMake 4.1: its compiler detection globs its own install folder
+# unescaped (CMakeCompilerIdDetection.cmake), so below a folder holding [ or ] it finds no
+# compiler; and it writes a tool path with non-English letters in its 8.3 short form, unquoted,
+# into cmd /C link commands, where parentheses that the short form keeps break the command.
+# Cyrillic letters, spaces, and parentheses in an English-only path work.
+function Assert-Fm4ToolchainPathSupported {
+    $cmakeRoot = Resolve-Fm4ToolchainPath -RelativePath (Get-Fm4ReleaseToolchain).cmake.install_path
+    $toolchain = Split-Path $cmakeRoot -Parent
+    $reason = $null
+    if ($toolchain.IndexOfAny([char[]]'[]') -ge 0) {
+        $reason = 'CMake, which the build needs, finds no compiler when its folder path holds [ or ]. Move the ' +
+            'installation to a folder whose path has no square brackets.'
+    }
+    elseif ($toolchain -match '[^\x00-\x7F]' -and $toolchain.IndexOfAny([char[]]'()') -ge 0) {
+        $reason = 'CMake, which the build needs, cannot run its link commands from a path that holds both ' +
+            'non-English letters and parentheses. Move the installation to a folder whose path has no parentheses.'
+    }
+    if ($reason) {
+        $failure = [Exception]::new("The build tools cannot run from $toolchain`: $reason")
+        $failure.Data['step'] = 'tools'
+        throw $failure
+    }
 }
 
 function Get-Fm4SiblingSdkRoot {
@@ -586,7 +610,8 @@ function Get-Fm4CommandFailureDetail {
 function Read-Fm4LogLines {
     param([Parameter(Mandatory)] [string]$LogPath)
     if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) { return [string[]]@() }
-    try { [string[]]@(Get-Content -LiteralPath $LogPath -ErrorAction Stop) }
+    # The game's and the build's logs are UTF-8; Windows PowerShell would read them as ANSI.
+    try { [string[]]@(Get-Content -LiteralPath $LogPath -Encoding UTF8 -ErrorAction Stop) }
     catch { [string[]]@() }
 }
 

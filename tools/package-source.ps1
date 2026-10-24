@@ -5,7 +5,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $artifacts = Join-Path $root '.artifacts'
 $payloadRoot = Join-Path $artifacts 'payload'
 $payloadZip = Join-Path $artifacts 'fm4-static-recomp-source.zip'

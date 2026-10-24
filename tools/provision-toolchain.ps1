@@ -18,6 +18,7 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
 
 . (Join-Path $PSScriptRoot 'release-common.ps1')
 $config = Get-Fm4ReleaseToolchain
+Assert-Fm4ToolchainPathSupported
 $downloads = Resolve-Fm4ToolchainPath -RelativePath 'downloads'
 [void](New-Item -ItemType Directory -Force -Path $downloads)
 

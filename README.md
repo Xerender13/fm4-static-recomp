@@ -104,8 +104,9 @@ with its size and hash.
 
 ## Install
 
-Every command is for PowerShell. Use folder paths **without non-English letters and without
-`[` or `]`**; `D:\FM4` style paths are the safe choice.
+Every command is for PowerShell. Folder paths may hold non-English letters and spaces, but
+**no `[` or `]`**, and no parentheses when the path has non-English letters: CMake, which the
+build uses, cannot run from such folders, and setup stops and says so.
 
 ### 1. Extract Disc 1
 

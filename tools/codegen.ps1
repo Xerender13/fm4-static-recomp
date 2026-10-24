@@ -36,7 +36,7 @@ $manifest = Join-Path $root 'config/rexglue/fm4_manifest.local.toml'
     [Text.UTF8Encoding]::new($false))
 
 if (-not $SkipSdkBuild) {
-    Push-Location $sdkRoot
+    Push-Location -LiteralPath $sdkRoot
     try {
         Invoke-Fm4BuildCommand $environment.CMake (@('--preset', 'win-amd64',
             '-DREXGLUE_ENABLE_TRACY=OFF', '-DSDL_HIDAPI_LIBUSB=OFF') +

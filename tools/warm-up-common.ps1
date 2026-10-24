@@ -228,7 +228,7 @@ function Get-Fm4CurrentCacheHeaders {
         try {
             $deadline = (Get-Date).AddSeconds(120)
             while ($true) {
-                $pipelines = Get-ChildItem -Path (Join-Path $folder $script:Fm4PipelinePattern) -ErrorAction SilentlyContinue |
+                $pipelines = Get-ChildItem -LiteralPath $folder -Filter $script:Fm4PipelinePattern -File -ErrorAction SilentlyContinue |
                     Select-Object -First 1
                 if ((Get-Fm4FileLength (Join-Path $folder $script:Fm4ShaderFile)) -ge 20 -and $pipelines -and
                     $pipelines.Length -ge (12 + $script:Fm4StoredPipelineBytes)) { break }

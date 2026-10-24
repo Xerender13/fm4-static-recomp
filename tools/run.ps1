@@ -60,12 +60,17 @@ if ($Dumps) {
     $arguments += '--fh1_native_gpu_profile=true', "--fh1_resolve_dump_dir=$dumpRoot", '--fh1_resolve_dump_frame=-1',
         "--dump_shaders=$(Join-Path $dumpRoot 'shaders')"
 }
-# Start-Process joins its arguments with spaces and quotes none of them. Backslashes before the
-# closing quote are doubled, or the last one would escape it.
+# The arguments are joined with spaces and quoted only where they hold one. Backslashes before
+# the closing quote are doubled, or the last one would escape it.
 $arguments = @($arguments | ForEach-Object { if ($_ -match '\s' -and $_ -notmatch '^".*"$') { "`"$($_ -replace '(\\+)$', '$1$1')`"" } else { $_ } })
 $env:FM4_STATIC_RECOMP_INPUT_RECORD = if ($RecordInput) { [IO.Path]::GetFullPath($RecordInput, $root) } else { '' }
-$process = Start-Process -FilePath $executable -ArgumentList $arguments `
-    -WorkingDirectory (Split-Path $executable -Parent) -PassThru
+# Not Start-Process: its -WorkingDirectory does not find a folder whose name holds brackets.
+# Shell execute as Start-Process does: the game must not inherit this process's output pipes,
+# or a caller reading them (the render tests) waits until the game exits.
+$startInfo = [Diagnostics.ProcessStartInfo]::new($executable, ($arguments -join ' '))
+$startInfo.WorkingDirectory = Split-Path $executable -Parent
+$startInfo.UseShellExecute = $true
+$process = [Diagnostics.Process]::Start($startInfo)
 $env:FM4_STATIC_RECOMP_INPUT_RECORD = ''
 if ($TimeoutSeconds -gt 0) {
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {

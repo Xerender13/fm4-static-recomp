@@ -27,7 +27,7 @@ $virtualKeys = @{ Return = 0x0D; Space = 0x20; Backspace = 0x08; Escape = 0x1B
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $shots = Join-Path $root ".local/state/shots/$Name"
 if (Test-Path -LiteralPath $shots) { Remove-Item -LiteralPath $shots -Recurse -Force }
-$env:FM4_STATIC_RECOMP_INPUT_SCRIPT = if ($InputScript) { (Resolve-Path -LiteralPath $InputScript).Path } else { '' }
+$env:FM4_STATIC_RECOMP_INPUT_SCRIPT = if ($InputScript) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InputScript) } else { '' }
 & (Join-Path $PSScriptRoot 'run.ps1') -GameArguments (@('--mnk_mode=true', '--audio_mute=true') + $GameArguments) | Out-Null
 $env:FM4_STATIC_RECOMP_INPUT_SCRIPT = ''
 $process = Get-Process fm4_static_recomp | Sort-Object StartTime | Select-Object -Last 1

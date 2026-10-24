@@ -20,11 +20,11 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $session = Join-Path $root 'tools\session.ps1'
 $live = Join-Path $root '.local\state-test\live.input'
 $film = Join-Path $root ".local\perf\av-$Tag.gray"
-if (Test-Path $film) { Remove-Item $film }
+if (Test-Path -LiteralPath $film) { Remove-Item -LiteralPath $film }
 
 $lines = @("@$Anchor")
 $anchored = $false
-foreach ($line in Get-Content (Join-Path $root $Recording)) {
+foreach ($line in Get-Content -LiteralPath (Join-Path $root $Recording)) {
     if ($line.StartsWith('@')) { $anchored = $line -eq "@$Anchor"; continue }
     if (-not $anchored -or $line -notmatch '^(\S+)\s') { continue }
     $start = [double]$Matches[1]
@@ -34,7 +34,7 @@ foreach ($line in Get-Content (Join-Path $root $Recording)) {
 $lines += '@'
 
 & $session start -GameArguments (@('--audio_mute=true') + $GameArguments) | Out-Null
-Add-Content $live ($lines -join "`n")
+Add-Content -LiteralPath $live -Value ($lines -join "`n")
 Start-Sleep 85
 & $session press START -Hold 0.1 -Wait 12 | Out-Null
 & $session press A -Hold 0.1 -Wait 30 | Out-Null
@@ -44,6 +44,6 @@ Set-Content -LiteralPath "$live.film" -Value "$FilmSeconds $film" -Encoding asci
 & $session press A -Hold 0.1 | Out-Null
 Start-Sleep ($FilmSeconds + 5)
 $log = Join-Path $root '.local\state-test\logs\runtime.log'
-Select-String -Path $log -Pattern 'Input event|Film:' | ForEach-Object { $_.Line }
-Copy-Item $log (Join-Path $root ".local\perf\av-$Tag.log")
+Select-String -LiteralPath $log -Pattern 'Input event|Film:' | ForEach-Object { $_.Line }
+Copy-Item -LiteralPath $log -Destination (Join-Path $root ".local\perf\av-$Tag.log")
 & $session stop | Out-Null

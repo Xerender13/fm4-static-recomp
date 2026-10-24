@@ -5,8 +5,10 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
+from toolchain import windows_sdk
 from toolchain.tests import packages, server
 
 TOOLS = Path(__file__).resolve().parents[2]
@@ -78,6 +80,64 @@ class EnvironmentTest(unittest.TestCase):
             pinned = ps("Resolve-Fm4ToolchainPath -RelativePath 'cmake'", script,
                         env={"FM4_TOOLCHAIN_ROOT": str(temp / "data" / "toolchain")})
             self.assertEqual(Path(pinned).resolve(), temp / "data" / "toolchain" / "cmake")
+
+    def test_toolchain_python_results_keep_non_ascii_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve() / "Тест [1]"
+            msvc = root / "msvc-14.44" / "14.44.1"
+            msvc.mkdir(parents=True)
+            (msvc / "toolset.json").write_text(json.dumps(
+                {"line": "14.44", "toolset_version": "14.44.1", "redist_version": "14.44.1", "packages": []}),
+                encoding="utf-8")
+            sdk = root / "windows-sdk-1.0"
+            sdk.mkdir()
+            (sdk / "windows-sdk.json").write_text(json.dumps({"sdk_version": "10.0.1", "tools": list(windows_sdk.TOOLS)}),
+                                                  encoding="utf-8")
+            expected = msvc / "VC" / "Tools" / "MSVC" / "14.44.1" / "include"
+            same = ps(f"(Invoke-Fm4ToolchainPython -Arguments @('find', '--line', '14.44', '--msvc-root', "
+                      f"'{root / 'msvc-14.44'}', '--sdk-version', '1.0', '--sdk-root', '{root}')).Result.msvc.include "
+                      f"-eq '{expected}'")
+            self.assertTrue(same)
+
+    def test_zips_expand_into_an_existing_bracketed_folder(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve() / "Тест [1]"
+            (root / "dir").mkdir(parents=True)
+            (root / "dir" / "a.txt").write_text("old", encoding="utf-8")
+            archive = Path(temp).resolve() / "tool.zip"
+            with zipfile.ZipFile(archive, "w") as zip_file:
+                zip_file.writestr("a.txt", "new")
+                zip_file.writestr("bin/tool.exe", "exe")
+            same = ps(f"Expand-Fm4Zip -Archive '{archive}' -Destination '{root / 'dir'}'; "
+                      f"(Get-Content -LiteralPath '{root / 'dir' / 'a.txt'}' -Raw) -eq 'new' -and "
+                      f"(Test-Path -LiteralPath '{root / 'dir' / 'bin' / 'tool.exe'}')")
+            self.assertTrue(same)
+
+    def test_a_toolchain_folder_with_brackets_is_refused_with_the_reason(self):
+        refused = ps("$(try { Assert-Fm4ToolchainPathSupported; 'accepted' } "
+                     "catch { $_.Exception.Data['step'] + ': ' + $_.Exception.Message })",
+                     env={"FM4_TOOLCHAIN_ROOT": "C:\\Games\\FM4 [v2]\\data\\toolchain"})
+        self.assertTrue(refused.startswith("tools: "), refused)
+        self.assertIn("C:\\Games\\FM4 [v2]\\data\\toolchain", refused)
+        self.assertIn("CMake", refused)
+        for root in ("C:\\Users\\Иван\\Downloads\\FM4 1\\data\\toolchain", "C:\\Games (2026)\\FM4\\data\\toolchain"):
+            accepted = ps("$(try { Assert-Fm4ToolchainPathSupported; 'accepted' } catch { $_.Exception.Message })",
+                          env={"FM4_TOOLCHAIN_ROOT": root})
+            self.assertEqual(accepted, "accepted", root)
+
+    def test_parentheses_with_non_ascii_letters_are_refused_with_the_reason(self):
+        refused = ps("$(try { Assert-Fm4ToolchainPathSupported; 'accepted' } "
+                     "catch { $_.Exception.Data['step'] + ': ' + $_.Exception.Message })",
+                     env={"FM4_TOOLCHAIN_ROOT": "C:\\Игры (1)\\FM4\\data\\toolchain"})
+        self.assertTrue(refused.startswith("tools: "), refused)
+        self.assertIn("parentheses", refused)
+
+    def test_log_lines_are_read_as_utf8(self):
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp).resolve() / "fonts.log"
+            log.write_bytes("[info] UI fonts: exported 2 to C:\\Тест 1\\ui-fonts\n".encode("utf-8"))
+            same = ps(f"@(Read-Fm4LogLines -LogPath '{log}')[0] -eq '[info] UI fonts: exported 2 to C:\\Тест 1\\ui-fonts'")
+            self.assertTrue(same)
 
     def test_the_build_tools_licence_is_read_without_python(self):
         # The launcher shows the licence before setup has provisioned anything.

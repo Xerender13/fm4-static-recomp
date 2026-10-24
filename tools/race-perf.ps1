@@ -44,8 +44,8 @@ $rows = foreach ($id in $after.Keys) {
 }
 $threads = Join-Path $perf "$Tag-threads.txt"
 $rows | Sort-Object Percent -Descending | Select-Object -First 14 |
-    ForEach-Object { '{0,6} {1,6}' -f $_.Thread, $_.Percent } | Set-Content $threads
-Add-Content $threads ('window {0} to {1}' -f $start.ToString('HH:mm:ss.fff'), (Get-Date).ToString('HH:mm:ss.fff'))
+    ForEach-Object { '{0,6} {1,6}' -f $_.Thread, $_.Percent } | Set-Content -LiteralPath $threads
+Add-Content -LiteralPath $threads -Value ('window {0} to {1}' -f $start.ToString('HH:mm:ss.fff'), (Get-Date).ToString('HH:mm:ss.fff'))
 Save-RaceCapture (Join-Path $perf "$Tag-race.png") 640
 # The 600-frame stats window that covers the sample is logged a few seconds later.
 Start-Sleep -Seconds 6

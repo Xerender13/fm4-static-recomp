@@ -60,7 +60,7 @@ Stop-Fm4LeftoverGame -StateRoot (Join-Path $root '.local\warm-up-probe')
 
 $playerShaders = Join-Path $CacheRoot 'shaders'
 $playerFolder = Join-Path $playerShaders 'shareable'
-foreach ($file in @(Get-ChildItem -Path (Join-Path $playerFolder '4D530910.*') -ErrorAction SilentlyContinue)) {
+foreach ($file in @(Get-ChildItem -LiteralPath $playerFolder -Filter '4D530910.*' -ErrorAction SilentlyContinue)) {
     if (Test-Fm4FileLocked $file.FullName) {
         [Console]::Out.WriteLine('FM4 Static Recomp is running on this state. Close it and run the warm-up again.')
         exit 1
@@ -78,7 +78,8 @@ Remove-Fm4WarmUpWork -Path $work
     (Join-Path $work 'cache'), $playerShaders)
 # A cache with another header is rewritten by the game, as at any launch of this build.
 [void](New-Item -ItemType Junction -Path (Join-Path $work 'cache\shaders') -Target $playerShaders)
-Copy-Item -Path (Join-Path $root 'config\warm-up\user\*') -Destination (Join-Path $work 'user') -Recurse -Force
+Get-ChildItem -LiteralPath (Join-Path $root 'config\warm-up\user') -Force |
+    Copy-Item -Destination (Join-Path $work 'user') -Recurse -Force
 if (Test-Path -LiteralPath $ConfigPath -PathType Leaf) {
     Copy-Item -LiteralPath $ConfigPath -Destination (Join-Path $work 'config\graphics.toml')
 }
