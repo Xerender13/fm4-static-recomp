@@ -1,0 +1,9 @@
+{"schema_version":1,"blocks":[{"rows":[
+ {"label":"FRAME RATE","key":"fm4_frame_rate","string":false,"kind":"range","low":60,"high":240,"default":"120","description":"d"},
+ {"label":"RESOLUTION SCALE","key":"resolution_scale","string":false,"kind":"choice","choices":[{"label":"1X","value":"1"},{"label":"2X","value":"2"}],"default":"1","description":"d"},
+ {"label":"GRAPHICS PRESET","kind":"preset","description":"d"}]},
+ {"rows":[
+ {"label":"GAME MSAA","key":"fh1_scaled_msaa_single_sample","string":false,"kind":"choice","choices":[{"label":"ON","value":"false"},{"label":"OFF","value":"true"}],"default":"true","description":"d"},
+ {"label":"POST AA","key":"swap_post_effect","string":true,"kind":"choice","choices":[{"label":"OFF","value":"none"},{"label":"FXAA","value":"fxaa"}],"default":"none","description":"d"}]}],
+ "presets":[{"label":"CONSOLE","values":{"fh1_scaled_msaa_single_sample":"false","swap_post_effect":"none"}},
+            {"label":"HIGH","values":{"fh1_scaled_msaa_single_sample":"true","swap_post_effect":"fxaa"}}]}
