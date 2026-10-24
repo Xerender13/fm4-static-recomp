@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -43,6 +44,39 @@ class EnvironmentTest(unittest.TestCase):
         values = ["--cache_root=C:\\Тест 1\\cache\\", "--cache_root=D:\\", "--log_file=C:\\a b\\x.log"]
         quoted = ps("@(" + ", ".join(f"'{v}'" for v in values) + ") | ForEach-Object { ConvertTo-Fm4QuotedArgument $_ }")
         self.assertEqual(command_line_to_argv(" ".join(quoted)), values)
+
+    def test_an_unpacked_zip_is_deleted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp).resolve()
+            with zipfile.ZipFile(temp / "tool.zip", "w") as archive:
+                archive.writestr("bin/tool.exe", b"MZ")
+            ps(f"Expand-Fm4Zip -Archive '{temp / 'tool.zip'}' -Destination '{temp / 'tool'}'; 'done'")
+            self.assertTrue((temp / "tool" / "bin" / "tool.exe").is_file())
+            self.assertFalse((temp / "tool.zip").exists())
+
+    def test_a_zip_that_fails_to_unpack_is_kept(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp).resolve()
+            with zipfile.ZipFile(temp / "tool.zip", "w") as archive:
+                archive.writestr("../outside.exe", b"MZ")
+            with self.assertRaises(AssertionError):
+                ps(f"Expand-Fm4Zip -Archive '{temp / 'tool.zip'}' -Destination '{temp / 'tool'}'; 'done'")
+            self.assertTrue((temp / "tool.zip").is_file())
+
+    def test_an_unpacked_tar_xz_is_deleted(self):
+        xz = shutil.which("xz")
+        if xz is None:
+            self.skipTest("no xz on PATH")
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp).resolve()
+            (temp / "src" / "llvm").mkdir(parents=True)
+            (temp / "src" / "llvm" / "clang.exe").write_bytes(b"MZ")
+            with tarfile.open(temp / "llvm.tar.xz", "w:xz") as archive:
+                archive.add(temp / "src" / "llvm", arcname="llvm")
+            (temp / "out").mkdir()
+            ps(f"Expand-Fm4TarXz -Archive '{temp / 'llvm.tar.xz'}' -Destination '{temp / 'out'}' -XzPath '{xz}'; 'done'")
+            self.assertTrue((temp / "out" / "llvm" / "clang.exe").is_file())
+            self.assertFalse((temp / "llvm.tar.xz").exists())
 
     def test_scripts_quote_game_arguments_through_the_helper(self):
         found = [f"{script.name}:{number}" for script in sorted(TOOLS.glob("*.ps1"))

@@ -142,7 +142,8 @@ function Invoke-Fm4Download {
 }
 
 # Expand-Archive checks an existing destination with wildcards, so a folder named with brackets
-# breaks it in both PowerShell editions. Existing files are replaced.
+# breaks it in both PowerShell editions. Existing files are replaced. The archive is deleted once
+# unpacked: provisioning reads it only while its tool is missing, and a new pin has a new name.
 function Expand-Fm4Zip {
     param(
         [Parameter(Mandatory)] [string]$Archive,
@@ -167,7 +168,10 @@ function Expand-Fm4Zip {
         }
     }
     finally { $zip.Dispose() }
+    Remove-Item -LiteralPath $Archive -Force
 }
+
+# Deletes the archive once unpacked, as Expand-Fm4Zip does.
 
 function Expand-Fm4TarXz {
     param(
@@ -206,6 +210,7 @@ function Expand-Fm4TarXz {
             Remove-Item -LiteralPath $tarArchive -Force
         }
     }
+    Remove-Item -LiteralPath $archive -Force
 }
 
 function Get-Fm4VisualStudioRoot {
