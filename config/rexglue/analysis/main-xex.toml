@@ -739,6 +739,23 @@ address = 0x828D1718
 name = "Fm4ReflectionCubeMemory"
 registers = ["r3", "r26", "r30", "r31"]
 
+# The render scenario loader (once, at renderer init) has read one
+# RenderScenarios\*.xml into its settings object r31; the file's name is the
+# string at r1 + 96. SHOWROOM MSAA and RACE MSAA rewrite the files' tiling.
+[[midasm_hook]]
+address = 0x828E8194
+name = "Fm4ScenarioFileLoaded"
+registers = ["r1", "r31"]
+
+# The game side's scenario push (this, ref to settings object): it pushes the
+# file, then applies the file's UI tiling to the device, while the renderer
+# reads TilingScenario every frame. A file's tiling therefore changes only here,
+# before its push; a change inside a running scene draws it in stripes.
+[[midasm_hook]]
+address = 0x82450DE0
+name = "Fm4ScenarioPush"
+registers = ["r4"]
+
 # The main loop ticks once per guest vblank (every second one in menus). The
 # loop has just loaded its race session pointer (lwz r11, 4(r31)), null in the
 # showroom and non-null on the pre-race screen...

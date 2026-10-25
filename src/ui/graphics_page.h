@@ -17,9 +17,8 @@ namespace fm4_static_recomp::ui {
 // anisotropic filtering and more. Each change sets its setting and saves
 // `<state>/config/graphics.toml`, which holds only these settings.
 
-// Sets GAME MSAA's default (OFF), then applies the file's values, skipping
-// settings given on the command line and values the page does not offer.
-// Before the GPU is created.
+// Applies the file's values, skipping settings given on the command line and
+// values the page does not offer. Before the GPU is created.
 void ApplySavedGraphicsSettings(const config::HostConfig& config);
 
 // The rows, choices, defaults and presets as JSON for the launcher (schema

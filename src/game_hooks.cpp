@@ -18,6 +18,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -104,8 +105,14 @@ REXCVAR_DEFINE_STRING(fm4_reflection_updates, "console", "Forza Motorsport 4",
                       "16-car races and split screen), every_race (the console's rate there too) "
                       "or double")
     .allowed({"console", "every_race", "double"});
-REXCVAR_DEFINE_BOOL(fm4_race_4x_msaa, false, "Forza Motorsport 4",
-                    "4x MSAA in races (three tiles) instead of the game's 2x (two)");
+REXCVAR_DEFINE_STRING(fm4_showroom_msaa, "4x", "Forza Motorsport 4",
+                      "MSAA of the showroom, menus, pre-race, replays and photo mode: 4x (the "
+                      "game's, three tiles), 2x (two) or off (one)")
+    .allowed({"4x", "2x", "off"});
+REXCVAR_DEFINE_STRING(fm4_race_msaa, "2x", "Forza Motorsport 4",
+                      "MSAA of races, the countdown and the results: 2x (the game's, two "
+                      "tiles; 4x in races alone on track), 4x (three) or off (one)")
+    .allowed({"4x", "2x", "off"});
 REXCVAR_DEFINE_BOOL(fm4_crowds_every_race, false, "Forza Motorsport 4",
                     "Crowds in every race, where the game leaves them out (1- and 16-car races)");
 REXCVAR_DEFINE_STRING(fm4_render_scenario_omit, "", "Forza Motorsport 4",
@@ -263,6 +270,7 @@ constexpr ScenarioValue Float(uint32_t id, float value) {
 
 enum : uint32_t {
   kTilingScenario = 1,
+  kUITilingScenario = 2,
   kCarLODThresholds = 7,
   kCarFocusLODMinMax = 8,
   kCarNonFocusLODMinMax = 9,
@@ -308,7 +316,6 @@ constexpr ScenarioValue kSoftParticlesOn[] = {Byte(kSoftParticles, 1)};
 constexpr ScenarioValue kSceneryShadowsOn[] = {Byte(kCollidableShadows, 1)};
 constexpr ScenarioValue kReflectionsEveryRace[] = {Float(kEnvMapFrequencyScale, 1.0f)};
 constexpr ScenarioValue kReflectionsDouble[] = {Float(kEnvMapFrequencyScale, 2.0f)};
-constexpr ScenarioValue kRace4xMsaa[] = {Words(kTilingScenario, 0)};
 constexpr ScenarioValue kCrowdsEveryRace[] = {Byte(kCrowdLoad, 1)};
 
 constexpr std::pair<std::string_view, uint32_t> kScenarioValueNames[] = {
@@ -380,7 +387,7 @@ constexpr uint64_t ValueMask(std::span<const ScenarioValue> values) {
 constexpr uint64_t kSettingsOwnedMask =
     ValueMask(kHighDetail) | ValueMask(kUltraDetail) | ValueMask(kFullRateMirror) |
     ValueMask(kFullRateBloom) | ValueMask(kSoftParticlesOn) | ValueMask(kSceneryShadowsOn) |
-    ValueMask(kReflectionsEveryRace) | ValueMask(kRace4xMsaa) | ValueMask(kCrowdsEveryRace);
+    ValueMask(kReflectionsEveryRace) | ValueMask(kCrowdsEveryRace);
 
 constexpr uint32_t kScenarioManagerPointer = 0x82DC3750;
 constexpr uint32_t kControlOffsetTable = 0x82D59FF0;
@@ -435,6 +442,69 @@ class SessionBuffer {
   uint32_t size_ = 0;
 };
 
+// The override layer holds one value for every scenario, but the pre-race and
+// race phases need different MSAA, so SHOWROOM MSAA and RACE MSAA rewrite the
+// tiling in the scenario files themselves, each file as it is pushed (the
+// Fm4ScenarioPush hook says why). A setting at the game's own choice writes the
+// file's value back: 1-car races are 4x on the console, unlike the rest. The
+// splitscreen files keep their 1280x360 tiling.
+enum class TilingGroup { kShowroom, kRace };
+
+struct ScenarioFile {
+  uint32_t address;
+  TilingGroup group;
+  // Indexed by control id; only the ids the file sets.
+  std::array<std::optional<uint32_t>, 3> tiling;
+};
+
+std::mutex g_scenario_files_mutex;
+std::vector<ScenarioFile> g_scenario_files;
+
+constexpr uint32_t kScenarioFileMaskOffset = 0x24;
+constexpr uint32_t kTilingIds[] = {kTilingScenario, kUITilingScenario};
+
+std::optional<TilingGroup> GroupOf(std::string_view name) {
+  if (name.starts_with("Splitscreen")) {
+    return std::nullopt;
+  }
+  if (name.ends_with("_Race") || name.ends_with("_321_and_PostRace")) {
+    return TilingGroup::kRace;
+  }
+  if (name.ends_with("_PreRace") || name.ends_with("_Replay") || name == "PhotoMode" ||
+      name.starts_with("UI_")) {
+    return TilingGroup::kShowroom;
+  }
+  return std::nullopt;
+}
+
+uint8_t* ScenarioControlValue(uint8_t* membase, uint32_t file, uint32_t id) {
+  return membase + file + LoadGuestWord(membase + kControlOffsetTable + 4 * id) + 4;
+}
+
+// The TilingScenario ids of the game's table: 4x MSAA in three tiles, 2x in two,
+// none in one.
+std::optional<uint32_t> TilingChoice(TilingGroup group) {
+  const std::string& choice =
+      group == TilingGroup::kRace ? REXCVAR_GET(fm4_race_msaa) : REXCVAR_GET(fm4_showroom_msaa);
+  if (choice == (group == TilingGroup::kRace ? "2x" : "4x")) {
+    return std::nullopt;
+  }
+  return choice == "4x" ? 0u : choice == "2x" ? 1u : 2u;
+}
+
+void ApplyScenarioFileTiling(uint8_t* membase, const ScenarioFile& file) {
+  if (OmittedScenarioMask() & (uint64_t(1) << kTilingScenario)) {
+    return;
+  }
+  const std::optional<uint32_t> choice = TilingChoice(file.group);
+  for (const uint32_t id : kTilingIds) {
+    if (file.tiling[id]) {
+      StoreGuestWord(ScenarioControlValue(membase, file.address, id),
+                     choice.value_or(*file.tiling[id]));
+    }
+  }
+}
+
 void ApplyRenderScenarioSettings() {
   std::array<std::span<const ScenarioValue>, 8> groups;
   size_t count = 0;
@@ -461,9 +531,6 @@ void ApplyRenderScenarioSettings() {
     groups[count++] = kReflectionsEveryRace;
   } else if (reflections == "double") {
     groups[count++] = kReflectionsDouble;
-  }
-  if (REXCVAR_GET(fm4_race_4x_msaa)) {
-    groups[count++] = kRace4xMsaa;
   }
   if (REXCVAR_GET(fm4_crowds_every_race)) {
     groups[count++] = kCrowdsEveryRace;
@@ -721,6 +788,46 @@ void Fm4ReflectionCubeMemory(PPCRegister& r3, PPCRegister& r26, PPCRegister& r30
   static SessionBuffer buffer;
   if (const uint32_t address = buffer.Get(r30.u32, "Reflection cube")) {
     r3.u64 = address;
+  }
+}
+
+void Fm4ScenarioFileLoaded(PPCRegister& r1, PPCRegister& r31) {
+  uint8_t* const membase = rex::system::kernel_state()->memory()->virtual_membase();
+  // The loader's std::string: 16 bytes inline or a pointer, then size and capacity.
+  const uint8_t* const string = membase + r1.u32 + 96;
+  const uint32_t size = LoadGuestWord(string + 16);
+  const uint8_t* const text =
+      LoadGuestWord(string + 20) >= 16 ? membase + LoadGuestWord(string) : string;
+  const std::string_view name(reinterpret_cast<const char*>(text), size);
+  const std::optional<TilingGroup> group = GroupOf(name);
+  if (!group) {
+    return;
+  }
+  ScenarioFile file{r31.u32, *group, {}};
+  const uint32_t mask = LoadGuestWord(membase + r31.u32 + kScenarioFileMaskOffset);
+  for (const uint32_t id : kTilingIds) {
+    if (mask & (1u << id)) {
+      file.tiling[id] = LoadGuestWord(ScenarioControlValue(membase, r31.u32, id));
+    }
+  }
+  REXLOG_INFO("Render scenario {}: {} MSAA, tiling {} / UI {}", name,
+              *group == TilingGroup::kRace ? "race" : "showroom",
+              file.tiling[kTilingScenario] ? int(*file.tiling[kTilingScenario]) : -1,
+              file.tiling[kUITilingScenario] ? int(*file.tiling[kUITilingScenario]) : -1);
+  ApplyScenarioFileTiling(membase, file);
+  const std::lock_guard lock(g_scenario_files_mutex);
+  g_scenario_files.push_back(file);
+}
+
+void Fm4ScenarioPush(PPCRegister& r4) {
+  uint8_t* const membase = rex::system::kernel_state()->memory()->virtual_membase();
+  const uint32_t address = LoadGuestWord(membase + r4.u32);
+  const std::lock_guard lock(g_scenario_files_mutex);
+  for (const ScenarioFile& file : g_scenario_files) {
+    if (file.address == address) {
+      ApplyScenarioFileTiling(membase, file);
+      return;
+    }
   }
 }
 

@@ -53,8 +53,9 @@ const Setting kDetail = {"fm4_level_of_detail",
 const Setting kScale = {"resolution_scale", false, {{"1X", "1"}, {"2X", "2"}, {"3X", "3"}, {"4X", "4"}}};
 const Setting kPostAa = {
     "swap_post_effect", true, {{"OFF", "none"}, {"FXAA", "fxaa"}, {"FXAA EXTREME", "fxaa_extreme"}}};
-// OFF keeps the game's MSAA surfaces single-sampled above 1x.
-const Setting kGameMsaa = {"fh1_scaled_msaa_single_sample", false, {{"ON", "false"}, {"OFF", "true"}}};
+const Setting kShowroomMsaa = {
+    "fm4_showroom_msaa", true, {{"4X", "4x"}, {"2X", "2x"}, {"OFF", "off"}}};
+const Setting kRaceMsaa = {"fm4_race_msaa", true, {{"4X", "4x"}, {"2X", "2x"}, {"OFF", "off"}}};
 const Setting kAnisotropy = {"anisotropic_override",
                              false,
                              {{"GAME", "-1"}, {"2X", "2"}, {"4X", "3"}, {"8X", "4"}, {"16X", "5"}}};
@@ -63,7 +64,6 @@ const Setting kMotionBlur = {"fm4_road_detail_blur", false, {{"ON", "true"}, {"O
 const Setting kDepthOfField = {"fm4_depth_of_field", false, {{"ON", "true"}, {"OFF", "false"}}};
 const Setting kCarDirt = {"fm4_car_dirt", false, {{"ON", "true"}, {"OFF", "false"}}};
 
-const Setting kRaceMsaa = {"fm4_race_4x_msaa", false, {{"2X", "false"}, {"4X", "true"}}};
 const Setting kSceneryShadows = {"fm4_scenery_shadows", false, {{"OFF", "false"}, {"ON", "true"}}};
 const Setting kReflectionUpdates = {
     "fm4_reflection_updates",
@@ -77,15 +77,15 @@ const Setting kCrowds = {
 
 // Every setting but the frame rate and the resolution scale.
 const Setting* const kPresetSettings[] = {
-    &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows, &kReflectionUpdates,
+    &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows, &kReflectionUpdates,
     &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur, &kDepthOfField,
     &kCarDirt};
 constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
-    &kFrameRate, &kVsync, &kScale, &kPostAa, &kGameMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows,
-    &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur,
-    &kDepthOfField, &kCarDirt};
+    &kFrameRate, &kVsync, &kScale, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
+    &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
+    &kMotionBlur, &kDepthOfField, &kCarDirt};
 
 struct Preset {
   const char* label;
@@ -95,16 +95,16 @@ struct Preset {
 // The page shows the preset all settings match, or CUSTOM.
 const Preset kPresets[] = {
     {"CONSOLE",
-     {"none", "false", "false", "-1", "false", "console", "console", "false", "false", "false",
+     {"none", "4x", "2x", "-1", "false", "console", "console", "false", "false", "false",
       "false", "true", "true", "true"}},
     {"HIGH",
-     {"fxaa", "true", "false", "5", "true", "console", "high", "false", "true", "false",
+     {"fxaa", "2x", "2x", "5", "false", "console", "high", "false", "true", "false",
       "false", "true", "true", "true"}},
     {"ULTRA",
-     {"fxaa_extreme", "true", "false", "5", "true", "every_race", "ultra", "true", "true",
+     {"fxaa_extreme", "2x", "2x", "5", "false", "every_race", "ultra", "true", "true",
       "true", "false", "true", "true", "true"}},
     {"EXPERIMENTAL",
-     {"fxaa_extreme", "true", "true", "5", "true", "double", "ultra", "true", "true", "true",
+     {"fxaa_extreme", "4x", "4x", "5", "true", "double", "ultra", "true", "true", "true",
       "true", "true", "true", "true"}},
 };
 constexpr int kPresetCount = int(std::size(kPresets));
@@ -131,16 +131,20 @@ const RowText kRows[] = {
      "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load."},
     {"GRAPHICS PRESET", nullptr,
      "Sets every setting below. Console is the game as on the console; "
-     "High raises most and adds FXAA; Ultra also raises the level of detail, the mirror and "
-     "particles and uses FXAA Extreme; Experimental adds 4x MSAA in races, double reflection "
-     "updates and crowds in every race. A change to one setting makes the preset Custom."},
-    {"GAME MSAA", &kGameMsaa,
-     "The game's own multisampling of its scenes. Off is faster above 1x and leaves edges to "
-     "the resolution scale.",
+     "High raises most, adds FXAA and uses 2x MSAA everywhere; Ultra also raises the level of "
+     "detail, the mirror and particles and uses FXAA Extreme; Experimental adds 4x MSAA "
+     "everywhere, scenery shadows, double reflection updates and crowds in every race. A "
+     "change to one setting makes the preset Custom."},
+    {"SHOWROOM MSAA", &kShowroomMsaa,
+     "The game's multisampling in the showroom, menus, pre-race, replays and photo mode. 4x is "
+     "the console's and draws the scene in three tiles, 2x in two, Off in one: fewer samples "
+     "are faster and leave edges to the resolution scale. Applies from the next screen.",
      true},
     {"RACE MSAA", &kRaceMsaa,
-     "The game's multisampling in races: 4x has twice the samples of the console's 2x and "
-     "draws the scene in three tiles instead of two. Heavy on the GPU."},
+     "The game's multisampling in races, the countdown and the results. 2x is the console's "
+     "(4x in races alone on track); 4x has twice the samples and three tiles instead of two, "
+     "heavy on the GPU; Off draws one tile and leaves edges to the resolution scale. Applies "
+     "from the next race."},
     {"ANISOTROPIC FILTERING", &kAnisotropy,
      "Keeps textures sharp at grazing angles. Game leaves each texture the filtering the game "
      "asks for."},
@@ -148,8 +152,9 @@ const RowText kRows[] = {
      "How far cars keep their detailed models. Ultra also keeps the best model loaded for your "
      "car, at more guest memory per car. Applies from the next race."},
     {"SCENERY SHADOWS", &kSceneryShadows,
-     "Shadows of the cones and barriers in races, which the game draws only in replays and "
-     "photo mode."},
+     "Experimental, so in no other preset: shadows of the cones, barriers and other scenery in "
+     "races, which the game draws only in replays and photo mode. Known bug: a shadow vanishes "
+     "or flickers as its object nears the edge of the screen, most visibly on large objects."},
     {"REFLECTION UPDATES", &kReflectionUpdates,
      "How often car reflections are redrawn. The console leaves them frozen in 16-car races "
      "and split screen; Every Race redraws them there too; Double redraws twice as many "
@@ -208,10 +213,6 @@ std::string JsonString(std::string_view text) {
 }
 
 std::string EffectiveDefault(const Setting& setting) {
-  // ApplySavedGraphicsSettings turns GAME MSAA off unless a launch option says otherwise.
-  if (&setting == &kGameMsaa) {
-    return "true";
-  }
   // A built-in default (built_in_defaults.cpp), over the SDK's auto.
   if (&setting == &kVsync) {
     return "immediate";
@@ -424,11 +425,6 @@ bool WriteGraphicsSchema(const std::filesystem::path& path) {
 }
 
 void ApplySavedGraphicsSettings(const config::HostConfig& config) {
-  // GAME MSAA OFF, as in every preset but CONSOLE: above 1x the single-sampled surfaces' alpha
-  // to coverage dither beats the game's MSAA on cut-outs (thirty-third session).
-  if (!SetByLaunchOption(kGameMsaa)) {
-    rex::cvar::SetFlagByName(kGameMsaa.name, "true");
-  }
   for (const Setting* setting : kSettings) {
     const auto value = config.Get(setting->name);
     if (!value) {
@@ -557,11 +553,8 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   preset.description = Text("GRAPHICS PRESET").description;
   rows.push_back(std::move(preset));
 
-  MenuRow msaa = Row("GAME MSAA", kGameMsaa, config, services);
-  msaa.note = [services] {
-    return LiveScale(services) < 2 ? std::string("Does nothing at 1x.") : std::string();
-  };
-  rows.push_back(std::move(msaa));
+  MenuRow showroom_msaa = Row("SHOWROOM MSAA", kShowroomMsaa, config, services);
+  rows.push_back(std::move(showroom_msaa));
 
   MenuRow race_msaa = Row("RACE MSAA", kRaceMsaa, config, services);
   rows.push_back(std::move(race_msaa));

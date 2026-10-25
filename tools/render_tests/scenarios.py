@@ -7,7 +7,8 @@ Switches of the spec's list, and how each is covered:
 - --fh1_surfaceless_clears: surfaceless-clears (a counter: tile passes per frame).
 - --fh1_async_readbacks: on in every run (a built-in default); its bugs show as tints (chroma).
 Left out, and why:
-- GAME MSAA with --fh1_scaled_msaa_single_sample, MOTION BLUR, DEPTH OF FIELD,
+- SHOWROOM MSAA: every run keeps the console's 4x, which the references were captured with.
+- RACE MSAA, MOTION BLUR, DEPTH OF FIELD,
   --fm4_full_rate_scenes, --fm4_road_detail_blur, the presets: their effect shows in races, on
   crowds, fences and the road in motion, and a race has no fixed camera (the grid slot and the
   AI cars change every run); the showroom does not use them.

@@ -64,7 +64,7 @@ ShiftGlue SDK (without this project's game hooks and renderer changes):
 | Menus and showroom | 60 / 30 fps | The console's pacing | The race frame rate; animations and the showroom camera run at real time |
 | Race loading | Console speed | Console speed | Faster |
 | Sun and lights | Correct | Screen-filling glare | Correct |
-| Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Game MSAA on or off, 4x race MSAA, FXAA, FXAA Extreme |
+| Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Showroom and race MSAA 4x, 2x or off each, FXAA, FXAA Extreme |
 | Graphics settings | Fixed | Launch options only | In-game GRAPHICS page with presets and per-setting switches, saved between sessions |
 | VRAM at 3x | - | About 8 GB | About 2.5 GB |
 | Input | Controller | XInput gamepad | XInput gamepad and **keyboard**, with keycap button prompts |
@@ -264,11 +264,11 @@ FRAME RATE and RESOLUTION SCALE are not part of a preset.
 
 | Setting | Console | High | Ultra | Experimental |
 |---|---|---|---|---|
-| Game MSAA | On | Off | Off | Off |
+| Showroom MSAA | 4x | 2x | 2x | 4x |
 | Race MSAA | 2x | 2x | 2x | 4x |
 | Anisotropic filtering | Game | 16x | 16x | 16x |
 | Level of detail | Console | High | Ultra | Ultra |
-| Scenery shadows | Off | On | On | On |
+| Scenery shadows | Off | Off | Off | On |
 | Reflection updates | Console | Console | Every race | Double |
 | Mirror | Console | Console | Full | Full |
 | Soft particles | Off | Off | On | On |
@@ -286,14 +286,14 @@ FRAME RATE and RESOLUTION SCALE are not part of a preset.
 | FRAME RATE | Frame rate of races, menus and the showroom, 60 fps up to your display's refresh rate (at most 240). Pick a rate your PC holds (see [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick the refresh rate or a whole fraction of it. |
 | VSYNC | Off by default, which suits G-Sync and FreeSync displays. Turn it on if you see tearing. |
 | RESOLUTION SCALE | 1x to 4x of 1280x720 on each axis, up to 5120x2880. |
-| GAME MSAA | The game's own multisampling (2x in races, 4x in the showroom). Off is faster and leaves edge smoothing to the resolution scale; at 1x it always stays on. |
-| RACE MSAA | 4x doubles the console's race samples. Heavy on the GPU. |
+| SHOWROOM MSAA | The game's own multisampling in the showroom, menus, pre-race, replays and photo mode: 4x as on the console, 2x or off. Fewer samples are faster and leave edge smoothing to the resolution scale. From the next screen. |
+| RACE MSAA | The same in races, the countdown and the results: 2x as on the console (4x in races alone on track), 4x (heavy on the GPU) or off. From the next race. |
 | POST AA | FXAA or FXAA Extreme over the finished picture; Extreme smooths and softens more. |
 | ANISOTROPIC FILTERING | Keeps textures sharp at grazing angles. Game keeps what the game asks for; 2x to 16x force it. |
 | LEVEL OF DETAIL | How far away, and for how many cars, detailed models stay in use. High moves the switch distances out about 1.4 times, Ultra about twice and keeps your own car on its best model. From the next race load. |
 | REFLECTION UPDATES | How often car paint, glass and chrome reflections are redrawn. The console freezes them in 16-car races and split screen; Every race redraws them there too; Double redraws twice as much each frame. |
 | MIRROR | Full draws the rear-view mirror every frame with up to 16 cars, where the console halves its rate and shows 6 cars in large races. |
-| SCENERY SHADOWS | Shadows of cones and barriers in races, otherwise only in replays and photo mode. |
+| SCENERY SHADOWS | Experimental, only in the Experimental preset. Shadows of cones, barriers and other scenery in races, otherwise only in replays and photo mode. Known bug: a shadow vanishes or flickers as its object nears the edge of the screen, most visibly on large objects ([#3](https://github.com/i2kiselev/fm4-static-recomp/issues/3)). |
 | SOFT PARTICLES | Smoke and dust fade into the ground and cars instead of cutting into them. |
 | CROWDS | Every race adds the crowds the console leaves out of 1- and 16-car races. |
 | BLOOM | Full rate updates the glow every frame, where the console skips every second one in 16-car races. |
