@@ -26,6 +26,7 @@
 #include "disc2_install.h"
 #include "file_open_log.h"
 #include "game_hooks.h"
+#include "game_language.h"
 #include "input/controls.h"
 #include "input/input_context.h"
 #include "input/keyboard_ramp.h"
@@ -127,6 +128,10 @@ class Fm4App final : public rex::ReXApp {
         REXLOG_ERROR("UI fonts: {}", error);
       }
       return true;
+    }
+    if (fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kNone &&
+        !fm4_static_recomp::ApplyGameLanguage()) {
+      return false;
     }
     if (!rex::ReXApp::ConstructRuntime(paths)) {
       return false;

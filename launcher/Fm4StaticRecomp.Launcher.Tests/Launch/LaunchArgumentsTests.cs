@@ -30,7 +30,18 @@ public class LaunchArgumentsTests
         Assert.Contains($"--update_data_root={layout.Update}", args);
         Assert.Contains($"--log_file={layout.RuntimeLog}", args);
         Assert.Contains("--fm4_skip_intro=true", args);
+        Assert.Contains("--fm4_language=en-US", args);
         Assert.DoesNotContain(args, a => a.StartsWith("--fh1_async_readbacks"));
+    }
+
+    [Fact]
+    public void Play_starts_the_game_in_the_chosen_language()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.Language = "pt-BR";
+        var args = LaunchArguments.ForPlay(layout, "0.1.0", profile, settings, new WindowsPlatform());
+        Assert.Contains("--fm4_language=pt-BR", args);
     }
 
     [Fact]

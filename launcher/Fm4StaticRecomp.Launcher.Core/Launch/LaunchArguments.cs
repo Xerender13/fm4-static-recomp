@@ -31,6 +31,7 @@ public static class LaunchArguments
             ["log_file"] = layout.RuntimeLog,
             ["fm4_config_root"] = layout.Config,
             ["user_name"] = profile.Gamertag,
+            ["fm4_language"] = settings.Language,
         };
         if (settings.SkipIntro) options["fm4_skip_intro"] = "true";
         if (settings.Compat) foreach (var (name, value) in CompatOptions) options[name] = value;

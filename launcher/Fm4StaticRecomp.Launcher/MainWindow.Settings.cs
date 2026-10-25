@@ -20,6 +20,7 @@ public partial class MainWindow
     private string? _graphicsProblem;
     private bool _skipIntro, _asyncReadbacks, _presentViaDxgi, _compat;
     private int _buildJobs;
+    private string _language = GameLanguages.Default.Code;
     private Button? _saveSettingsButton, _restoreSettingsButton;
     private TextBlock? _settingsStatus;
     private int? _refreshHz;
@@ -39,8 +40,8 @@ public partial class MainWindow
             _graphicsProblem = $"The graphics settings list could not be read: {error.Message}";
         }
         var settings = host.Settings;
-        (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs) =
-            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs);
+        (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language) =
+            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language);
         BuildSettingsPanel("");
     }
 
@@ -67,6 +68,15 @@ public partial class MainWindow
         }
 
         SettingsBody.Children.Add(Header("LAUNCH OPTIONS"));
+        var languages = GameLanguages.All;
+        var language = Combo(languages.Select(l => l.Name).ToList(), languages.ToList().FindIndex(l => l.Code == _language));
+        language.SelectionChanged += (_, _) =>
+        {
+            if (language.SelectedIndex >= 0) _language = languages[language.SelectedIndex].Code;
+        };
+        SettingsBody.Children.Add(Labelled("LANGUAGE", language,
+            "The game's text and voice-over. Korean, Chinese, Portuguese, Czech, Hungarian and Dutch keep the English voice-over.",
+            alwaysHelp: true));
         SettingsBody.Children.Add(Option("SKIP INTRO VIDEOS", "The game starts at its title screen.", _skipIntro, v => _skipIntro = v));
 
         SettingsBody.Children.Add(Header("ADVANCED"));
@@ -229,8 +239,8 @@ public partial class MainWindow
         {
             _graphics?.Save();
             var settings = host.Settings;
-            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs) =
-                (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs);
+            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language) =
+                (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language);
             settings.Save();
             if (_settingsStatus is not null) _settingsStatus.Text = "Saved. Applies at the next start.";
             UpdateSummary();

@@ -21,6 +21,7 @@ add_executable(fm4_static_recomp WIN32
     src/game_hooks.cpp
     src/car_dirt.cpp
     src/file_open_log.cpp
+    src/game_language.cpp
     src/string_log.cpp
     src/scripted_input.cpp
     src/shader_cache/cache_writer.cpp
@@ -62,10 +63,12 @@ if(FM4_BUILD_TESTS)
         tests/prompt_strings_test.cpp
         tests/car_dirt_test.cpp
         tests/file_open_log_test.cpp
+        tests/game_language_test.cpp
         tests/string_log_test.cpp
         tests/ui_fonts_test.cpp
         src/car_dirt.cpp
         src/file_open_log.cpp
+        src/game_language.cpp
         src/string_log.cpp
         src/config/host_config.cpp
         src/input/controls.cpp

@@ -19,6 +19,7 @@ public class LauncherSettingsTests
         Assert.Null(settings.ActiveVersion);
         Assert.Null(settings.PreviousVersion);
         Assert.Null(settings.AcceptedMicrosoftLicence);
+        Assert.Equal("en-US", settings.Language);
     }
 
     [Fact]
@@ -37,6 +38,7 @@ public class LauncherSettingsTests
         settings.BuildJobs = 6;
         settings.AcceptedMicrosoftLicence = "https://a https://b";
         settings.UseVisualStudioInstaller = true;
+        settings.Language = "ru";
         settings.Save();
         var read = LauncherSettings.Load(path);
         Assert.Equal(("main", "0.2.0", "0.1.3"), (read.ActiveProfile, read.ActiveVersion, read.PreviousVersion));
@@ -44,6 +46,7 @@ public class LauncherSettingsTests
             read.UseVisualStudioInstaller));
         Assert.Equal(6, read.BuildJobs);
         Assert.Equal("https://a https://b", read.AcceptedMicrosoftLicence);
+        Assert.Equal("ru", read.Language);
         Assert.Contains("toolchain_source = \"VisualStudio\"", File.ReadAllText(path));
         read.UseVisualStudioInstaller = false;
         read.Save();
@@ -74,6 +77,14 @@ public class LauncherSettingsTests
         using var temp = new TempDir();
         var settings = LauncherSettings.Load(temp.File("launcher.toml", "build_jobs = 99\n"u8.ToArray()));
         Assert.Equal(0, settings.BuildJobs);
+    }
+
+    [Fact]
+    public void A_language_the_game_does_not_offer_reads_as_english()
+    {
+        using var temp = new TempDir();
+        var settings = LauncherSettings.Load(temp.File("launcher.toml", "language = \"sv\"\n"u8.ToArray()));
+        Assert.Equal("en-US", settings.Language);
     }
 
     [Fact]

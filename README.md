@@ -121,8 +121,8 @@ with its size and hash.
    - **Build**: the launcher downloads its build tools, translates and compiles the game.
    - **Your profile**: a name; the gamertag starts as it.
 3. **PLAY**. PROFILE beside it adds, renames, imports and deletes profiles (separate saves);
-   CONTENT installs Disc 2 and DLC; SETTINGS has the GRAPHICS page's settings, launch options
-   and advanced options.
+   CONTENT installs Disc 2 and DLC; SETTINGS has the GRAPHICS page's settings, the game's
+   language, launch options and advanced options.
 
 Everything lives in `data\` beside the launcher: the extracted disc, the build tools, the
 builds, your saves and settings. Move or back up the folder as a whole. A first setup with
@@ -360,9 +360,15 @@ next launch.
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |
+| `--fm4_language=<code>` | The game's language: `en-US` (default), `en-GB`, `fr`, `de`, `it`, `es`, `es-MX`, `pl`, `ru`, `ja`, `ko`, `zh-TW`, `pt-BR`, `cs`, `hu` or `nl` |
 | `--fm4_config_root=<folder>` | Where `graphics.toml` and `controls.toml` live (default: the state folder's `config`) |
 | `--fh1_async_readbacks=false` | Turn off asynchronous readbacks, if you ever see a corrupted texture |
 | `--vulkan_present_via_dxgi=true` | Present through DXGI, for frame generation tools |
+
+**Languages**: the game shows every language on Disc 1. Korean, Traditional Chinese,
+Brazilian Portuguese, Czech, Hungarian and Dutch have no voice-over of their own and keep
+the English one. With the keyboard, some prompts keep the controller's wording in languages
+other than English.
 
 **`-Compat`**: `tools\run.ps1 -Compat` turns off every rendering shortcut of this project
 and uses the console's graphics settings. If something looks wrong, compare with a
