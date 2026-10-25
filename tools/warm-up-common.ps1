@@ -232,6 +232,9 @@ function Get-Fm4CurrentCacheHeaders {
                     Select-Object -First 1
                 if ((Get-Fm4FileLength (Join-Path $folder $script:Fm4ShaderFile)) -ge 20 -and $pipelines -and
                     $pipelines.Length -ge (12 + $script:Fm4StoredPipelineBytes)) { break }
+                # Windows may report an open file's size as 0 until it is closed; by the executor's
+                # first frame report (600 frames) the first records are written.
+                if ($pipelines -and (Test-Fm4LogLine -StateRoot $state -Pattern 'native executor \(Vulkan\) frame=')) { break }
                 if ($game.HasExited) { throw "The game exited (code $($game.ExitCode)) before writing its shader cache." }
                 if ((Get-Date) -gt $deadline) { throw 'The game wrote no shader cache within 120 s.' }
                 Start-Sleep -Milliseconds 500
