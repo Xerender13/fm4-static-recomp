@@ -13,6 +13,7 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+#include <rex/ui/upscaler.h>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -138,13 +139,14 @@ const RowText kRows[] = {
     {"SHOWROOM MSAA", &kShowroomMsaa,
      "The game's multisampling in the showroom, menus, pre-race, replays and photo mode. 4x is "
      "the console's and draws the scene in three tiles, 2x in two, Off in one: fewer samples "
-     "are faster and leave edges to the resolution scale. Applies from the next screen.",
+     "are faster and leave edges to the resolution scale. Applies from the next screen. Off "
+     "while DLSS or FSR 2 / 3 upscales: the upscaler smooths edges itself.",
      true},
     {"RACE MSAA", &kRaceMsaa,
      "The game's multisampling in races, the countdown and the results. 2x is the console's "
      "(4x in races alone on track); 4x has twice the samples and three tiles instead of two, "
      "heavy on the GPU; Off draws one tile and leaves edges to the resolution scale. Applies "
-     "from the next race."},
+     "from the next race. Off while DLSS or FSR 2 / 3 upscales."},
     {"ANISOTROPIC FILTERING", &kAnisotropy,
      "Keeps textures sharp at grazing angles. Game leaves each texture the filtering the game "
      "asks for."},
@@ -395,6 +397,29 @@ MenuRow Row(const char* label, const Setting& setting, config::HostConfig& confi
   return row;
 }
 
+// The upscaler present_effect names, while one is upscaling.
+std::string TemporalUpscalerName() {
+  if (!rex::ui::IsTemporalUpscalerActive()) {
+    return std::string();
+  }
+  const std::string effect = Live("present_effect");
+  return effect == "dlss" ? "DLSS" : effect == "fsr3" ? "FSR 3" : "FSR 2";
+}
+
+// A temporal upscaler takes over the anti-aliasing (TilingChoice in
+// game_hooks.cpp): the row says so and keeps the player's choice for later.
+MenuRow MsaaRow(const char* label, const Setting& setting, config::HostConfig& config,
+                const GraphicsPageServices& services) {
+  MenuRow row = Row(label, setting, config, services);
+  row.value = [&setting] {
+    const std::string upscaler = TemporalUpscalerName();
+    return upscaler.empty() ? Label(setting, Find(setting, Live(setting.name)))
+                            : "OFF (" + upscaler + ")";
+  };
+  row.enabled = [] { return !rex::ui::IsTemporalUpscalerActive(); };
+  return row;
+}
+
 }  // namespace
 
 bool WriteGraphicsSchema(const std::filesystem::path& path) {
@@ -553,10 +578,10 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   preset.description = Text("GRAPHICS PRESET").description;
   rows.push_back(std::move(preset));
 
-  MenuRow showroom_msaa = Row("SHOWROOM MSAA", kShowroomMsaa, config, services);
+  MenuRow showroom_msaa = MsaaRow("SHOWROOM MSAA", kShowroomMsaa, config, services);
   rows.push_back(std::move(showroom_msaa));
 
-  MenuRow race_msaa = Row("RACE MSAA", kRaceMsaa, config, services);
+  MenuRow race_msaa = MsaaRow("RACE MSAA", kRaceMsaa, config, services);
   rows.push_back(std::move(race_msaa));
 
   MenuRow anisotropy = Row("ANISOTROPIC FILTERING", kAnisotropy, config, services);

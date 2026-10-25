@@ -27,6 +27,7 @@
 #include <rex/ppc/func.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
+#include <rex/ui/upscaler.h>
 
 #include "car_dirt.h"
 #include "game_hooks.h"
@@ -482,8 +483,12 @@ uint8_t* ScenarioControlValue(uint8_t* membase, uint32_t file, uint32_t id) {
 }
 
 // The TilingScenario ids of the game's table: 4x MSAA in three tiles, 2x in two,
-// none in one.
+// none in one. A temporal upscaler does the anti-aliasing itself, so it gets
+// one tile whatever the rows say; the rows keep the player's choice for later.
 std::optional<uint32_t> TilingChoice(TilingGroup group) {
+  if (rex::ui::IsTemporalUpscalerActive()) {
+    return 2u;
+  }
   const std::string& choice =
       group == TilingGroup::kRace ? REXCVAR_GET(fm4_race_msaa) : REXCVAR_GET(fm4_showroom_msaa);
   if (choice == (group == TilingGroup::kRace ? "2x" : "4x")) {
@@ -826,6 +831,12 @@ void Fm4ScenarioPush(PPCRegister& r4) {
   for (const ScenarioFile& file : g_scenario_files) {
     if (file.address == address) {
       ApplyScenarioFileTiling(membase, file);
+      if (file.tiling[kTilingScenario]) {
+        REXLOG_INFO("Render scenario {:08X} pushed: {} MSAA, tiling {}{}", address,
+                    file.group == TilingGroup::kRace ? "race" : "showroom",
+                    LoadGuestWord(ScenarioControlValue(membase, address, kTilingScenario)),
+                    rex::ui::IsTemporalUpscalerActive() ? " (temporal upscaler)" : "");
+      }
       return;
     }
   }
