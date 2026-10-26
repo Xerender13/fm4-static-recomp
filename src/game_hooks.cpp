@@ -44,6 +44,10 @@ REXCVAR_DEFINE_BOOL(fm4_car_dirt, true, "Forza Motorsport 4",
 REXCVAR_DEFINE_BOOL(fm4_depth_of_field, true, "Forza Motorsport 4",
                     "Depth of field where the game uses it (showroom, pre-race and replay "
                     "cameras, photo mode); a change applies from the next screen");
+REXCVAR_DEFINE_BOOL(fm4_upscaler_replay_blur, false, "Forza Motorsport 4",
+                    "Keep the replay cameras' motion blur while a temporal upscaler (DLSS, "
+                    "FSR 2/3) runs; off by default: the upscaler turns its smear around the "
+                    "car's mirrors and exhaust pipes into ghosting");
 REXCVAR_DEFINE_INT32(fm4_frame_rate, 120, "Forza Motorsport 4",
                      "Frame rate, 60 (the console's races) to 240: the guest vblank rate "
                      "(fh1_guest_vblank_hz) in races, menus and the showroom")
@@ -130,6 +134,9 @@ REXCVAR_DEFINE_STRING(fm4_graphics_lod_thresholds, "", "Forza Motorsport 4",
 
 namespace {
 std::atomic<bool> g_race_session{false};
+// Set when the switches below own gpu_pixel_shader_constant_override (none was given at launch).
+std::atomic<bool> g_switches_own_override{false};
+std::atomic<bool> g_applied_replay_blur{true};
 // The main loop's measured milliseconds since the showroom's and the UI's last update.
 std::atomic<uint32_t> g_showroom_pending_ms{0};
 std::atomic<uint32_t> g_ui_pending_ms{0};
@@ -622,6 +629,19 @@ void LogCarStep(uint32_t car, uint32_t substeps, uint32_t low_detail, double sec
   }
   std::fputc('\n', log);
 }
+
+bool ReplayBlur() {
+  return REXCVAR_GET(fm4_upscaler_replay_blur) || !rex::ui::IsTemporalUpscalerActive();
+}
+
+void ApplyPixelShaderConstantOverride() {
+  const bool replay_blur = ReplayBlur();
+  g_applied_replay_blur.store(replay_blur, std::memory_order_relaxed);
+  rex::cvar::SetFlagByName("gpu_pixel_shader_constant_override",
+                           fm4_static_recomp::ComposePixelShaderConstantOverride(
+                               REXCVAR_GET(fm4_road_detail_blur), REXCVAR_GET(fm4_car_dirt),
+                               replay_blur));
+}
 }  // namespace
 
 void Fm4MainLoopStep(PPCRegister& r30, PPCRegister& f31) {
@@ -862,6 +882,11 @@ void Fm4MainLoopSession(PPCRegister& r11) {
   }
   // Every tick, so the values are in place before a race loads its cars.
   ApplyRenderScenarioSettings();
+  // No cvar change tells when the presenter starts or stops a temporal upscaler.
+  if (g_switches_own_override.load(std::memory_order_relaxed) &&
+      ReplayBlur() != g_applied_replay_blur.load(std::memory_order_relaxed)) {
+    ApplyPixelShaderConstantOverride();
+  }
 }
 
 void Fm4RaceMenuSceneCreated(PPCRegister& r3) {
@@ -903,22 +928,18 @@ bool Fm4SkipVblankCallback() {
 
 namespace fm4_static_recomp {
 
-void ApplyPixelShaderConstantOverride() {
-  rex::cvar::SetFlagByName("gpu_pixel_shader_constant_override",
-                           ComposePixelShaderConstantOverride(
-                               REXCVAR_GET(fm4_road_detail_blur), REXCVAR_GET(fm4_car_dirt)));
-}
-
 void InstallPixelShaderSwitches() {
   rex::cvar::SetFlagByName("gpu_wrap_seam_vertex_shaders", DirtVertexShaderList());
   rex::cvar::SetFlagByName("gpu_wrap_seam_pixel_shaders", DirtPixelShaderList());
   rex::cvar::SetFlagByName("gpu_wrap_seam_fix", "true");
-  // An override given at launch is a diagnostic and wins over MOTION BLUR and CAR DIRT's OFF.
+  // An override given at launch is a diagnostic and wins over MOTION BLUR and CAR DIRT's OFF
+  // and the replay blur's.
   const bool own_override =
       SwitchesOwnOverride(rex::cvar::GetFlagByName("gpu_pixel_shader_constant_override"));
   if (own_override) {
+    g_switches_own_override.store(true, std::memory_order_relaxed);
     ApplyPixelShaderConstantOverride();
-    for (const char* name : {"fm4_road_detail_blur", "fm4_car_dirt"}) {
+    for (const char* name : {"fm4_road_detail_blur", "fm4_car_dirt", "fm4_upscaler_replay_blur"}) {
       rex::cvar::RegisterChangeCallback(name, [](std::string_view, std::string_view) {
         ApplyPixelShaderConstantOverride();
       });

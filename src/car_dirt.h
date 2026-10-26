@@ -15,8 +15,10 @@ std::string DirtVertexShaderList();
 std::string DirtPixelShaderList();
 
 // The value FM4 writes to gpu_pixel_shader_constant_override for MOTION BLUR off (the road
-// detail's constant) and CAR DIRT off (c57.y of the dirt pixel shaders).
-std::string ComposePixelShaderConstantOverride(bool road_detail_blur, bool car_dirt);
+// detail's constant), CAR DIRT off (c57.y of the dirt pixel shaders) and the replay cameras'
+// motion blur off (its camera reprojection).
+std::string ComposePixelShaderConstantOverride(bool road_detail_blur, bool car_dirt,
+                                               bool replay_blur);
 
 // Whether FM4's switches may write gpu_pixel_shader_constant_override: not when it was given
 // at launch, a diagnostic that wins.

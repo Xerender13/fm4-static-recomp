@@ -30,6 +30,13 @@ constexpr std::array<std::string_view, 31> kDirtPixelShaders = {
 // raw grain texture, about three times the contrast.
 constexpr std::string_view kRoadDetailStill = "79B4914F27ECEC73:c5=0,0,0,1";
 
+// The replay cameras' motion blur (PS 4746CAD3, after the scene; races never draw it) takes
+// twelve taps of the scene along each pixel's motion, from its depth through the camera
+// reprojection in c0-c3. The identity leaves every pixel where it is.
+constexpr std::string_view kReplayBlurStill =
+    "4746CAD32EF168CF:c0=1,0,0,0;4746CAD32EF168CF:c1=0,1,0,0;"
+    "4746CAD32EF168CF:c2=0,0,1,0;4746CAD32EF168CF:c3=0,0,0,1";
+
 template <size_t N>
 std::string Join(const std::array<std::string_view, N>& hashes) {
   std::string list;
@@ -48,7 +55,8 @@ std::string DirtVertexShaderList() { return Join(kDirtVertexShaders); }
 
 std::string DirtPixelShaderList() { return Join(kDirtPixelShaders); }
 
-std::string ComposePixelShaderConstantOverride(bool road_detail_blur, bool car_dirt) {
+std::string ComposePixelShaderConstantOverride(bool road_detail_blur, bool car_dirt,
+                                               bool replay_blur) {
   std::string value;
   if (!road_detail_blur) {
     value = kRoadDetailStill;
@@ -61,6 +69,12 @@ std::string ComposePixelShaderConstantOverride(bool road_detail_blur, bool car_d
       value += hash;
       value += ":c57.y=0";
     }
+  }
+  if (!replay_blur) {
+    if (!value.empty()) {
+      value += ';';
+    }
+    value += kReplayBlurStill;
   }
   return value;
 }
