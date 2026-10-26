@@ -379,6 +379,9 @@ through the Vulkan swapchain. `--vulkan_present_via_dxgi=true` presents through 
 instead, and both tools then work. It is off by default because Smooth Motion's frame
 pacing does not look right with it yet.
 
+**Debug and A/B options**: switches of individual rendering fixes, debug views of the
+upscaler's inputs and renderer diagnostics are listed in [DEBUG_OPTIONS.md](DEBUG_OPTIONS.md).
+
 ## Tested
 
 - Offline modes: World Tour (played up to the Expert Division), Event List (about 30 races
@@ -522,6 +525,7 @@ Never attach game files, disc images or a built executable.
 | `tools/package-release.ps1` | Builds the release assets and the players' zip |
 | `config/shaders/` | The pipeline list and vertex shader table setup builds the shader cache from |
 | `tools/shader_list.py`, `tools/warm-up.ps1`, `config/warm-up/` | Development tools that make that list: a scripted warm-up, its profile, list merging and checks |
+| `DEBUG_OPTIONS.md` | Debug views, A/B switches of rendering fixes and diagnostics |
 | `tools/` (the rest) | Development tools; several assume the author's folder layout |
 
 ## AI use
