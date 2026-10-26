@@ -114,13 +114,12 @@ Known problems are tracked as
 [Reporting issues](guide/reporting-issues.md).
 
 ## Roadmap
-
-1. **Project Forza Plus** support.
-2. **Racing wheels**, starting with MOZA wheels.
-3. **AMD GPU** testing.
+1. **Ongoing: DLSS/FSR3** upscaler support
+2. **Project Forza Plus** support.
+3. **Racing wheels**, starting with MOZA wheels.
 4. **Linux**: a native build of the game and the launcher.
 5. **Other disc releases**, such as the Essentials Edition.
-
+6. More tests on niche or legacy hardware
 ## Repository layout
 
 <details>
