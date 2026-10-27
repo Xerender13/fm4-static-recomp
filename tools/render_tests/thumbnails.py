@@ -4,8 +4,10 @@ The game writes a bought car's thumbnail to
 <state>\\user\\<profile>\\4D530910\\00000001\\ForzaProfile\\Thumbnails\\Thumbnail_<n>.xdc:
 "cxds", then big-endian u32s: version (2), unpacked size, packed size, unpacked size again;
 from 0x14 raw deflate. Unpacked: a 52-byte texture fetch constant (format 0x86, 768x288),
-then 768x288 texels of 4 bytes, Xenos 2D-tiled, each X R G B (big-endian ARGB, X = 0).
-Confirmed on Thumbnail_1.xdc of the test save (a red Ford Ka, upright, natural colours).
+then 768x288 texels of 4 bytes, Xenos 2D-tiled, each A R G B (big-endian). Confirmed on
+Thumbnail_1.xdc of the test save (a red Ford Ka, upright, natural colours). RGB is on black; A
+is the car's coverage, with the ground shadow as a soft band under it, so the garage draws the
+shadow from A alone.
 """
 import re
 import struct
@@ -19,6 +21,9 @@ HEIGHT = 288
 HEADER_BYTES = 0x14
 FETCH_BYTES = 52
 UNPACKED_BYTES = FETCH_BYTES + WIDTH * HEIGHT * 4
+MAIN_VIEW_WIDTH = 0.75
+OPAQUE_ALPHA = 250
+SHADOW_ALPHA = 8
 _NAME = re.compile(r"^Thumbnail_(\d+)\.xdc$", re.IGNORECASE)
 
 
@@ -37,7 +42,7 @@ def tiled_offset_2d(x, y, width, bytes_per_texel):
             + ((y & 16) << 7) + (((((y & 8) >> 2) + (x >> 3)) & 3) << 6))
 
 
-def read_thumbnail(path):
+def _texels(path):
     data = Path(path).read_bytes()
     if data[:4] != b"cxds":
         raise ValueError(f"{path}: not a thumbnail (magic {data[:4]!r}, expected cxds)")
@@ -47,7 +52,31 @@ def read_thumbnail(path):
     unpacked = zlib.decompress(data[HEADER_BYTES:], -15)
     if len(unpacked) != UNPACKED_BYTES:
         raise ValueError(f"{path}: {len(unpacked)} bytes unpacked, expected {UNPACKED_BYTES}")
-    texels = memoryview(unpacked)[FETCH_BYTES:]
+    return memoryview(unpacked)[FETCH_BYTES:]
+
+
+def read_thumbnail_alpha(path):
+    """The A plane, row by row, one byte a pixel."""
+    texels = _texels(path)
+    return bytes(texels[tiled_offset_2d(x, y, WIDTH, 4)] for y in range(HEIGHT) for x in range(WIDTH))
+
+
+def shadow_pixels(alpha):
+    """Pixels with some coverage below each column's lowest opaque one, over the main view (the
+    small side view on the right stands upright, its shadow along its side). Measured on 38
+    thumbnails of a save: 2,652 to 7,020 with the shadow, 337 to 414 without (the antialiased
+    edge under the body)."""
+    count = 0
+    for x in range(int(WIDTH * MAIN_VIEW_WIDTH)):
+        column = alpha[x::WIDTH]
+        opaque = [y for y, value in enumerate(column) if value >= OPAQUE_ALPHA]
+        if opaque:
+            count += sum(1 for value in column[opaque[-1] + 1:] if value >= SHADOW_ALPHA)
+    return count
+
+
+def read_thumbnail(path):
+    texels = _texels(path)
     rgb = bytearray(WIDTH * HEIGHT * 3)
     target = 0
     for y in range(HEIGHT):

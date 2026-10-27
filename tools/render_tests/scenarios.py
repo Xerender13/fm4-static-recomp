@@ -6,8 +6,9 @@ Switches of the spec's list, and how each is covered:
 - RESOLUTION SCALE: every tier runs 2x, long and full 3x, full 4x.
 - --fh1_surfaceless_clears: surfaceless-clears (a counter: tile passes per frame).
 - --fh1_async_readbacks: on in every run (a built-in default); its bugs show as tints (chroma).
+- SHOWROOM MSAA: thumbnail-msaa-off (off: a bought car's thumbnail keeps its ground shadow).
+  Every other run keeps the console's 4x, which the references were captured with.
 Left out, and why:
-- SHOWROOM MSAA: every run keeps the console's 4x, which the references were captured with.
 - RACE MSAA, MOTION BLUR, DEPTH OF FIELD,
   --fm4_full_rate_scenes, --fm4_road_detail_blur, the presets: their effect shows in races, on
   crowds, fences and the road in motion, and a race has no fixed camera (the grid slot and the
@@ -22,7 +23,7 @@ from pathlib import Path
 
 from . import counters, images, routes, seed, thumbnails
 from .checks import (CheckResult, Figures, References, chroma_check, defaults_check, differ_check,
-                     log_checks, max_check, ratio_check, reference_size, tint_check)
+                     log_checks, max_check, min_check, ratio_check, reference_size, tint_check)
 from .game import Session
 from .images import ImageLimits, Rect
 
@@ -62,6 +63,9 @@ GARAGE_NOSE = Rect(0.44, 0.39, 0.57, 0.56)
 # over a 45 s drive into the walls; race-perf.ps1 prints 0.02-0.04 as 0.0). A race that reads
 # back every frame, the regression this guards, gives 1 or more.
 ONE_OFF_READBACKS = 0.25
+# Coverage under the car in a thumbnail's A plane (thumbnails.shadow_pixels): 2,652 to 7,020 with
+# the ground shadow, 337 to 414 without it, as SHOWROOM MSAA off made them from v0.2.0 on.
+SHADOW_MIN_PIXELS = 1500
 
 
 @dataclass
@@ -109,11 +113,17 @@ def _image(run, session, scale, name, rect=None, limits=FIXED, mask=None):
     return image
 
 
+def _shadow(run, path, slot):
+    shadow = thumbnails.shadow_pixels(thumbnails.read_thumbnail_alpha(path))
+    run.add(min_check(f"thumbnail {slot} ground shadow pixels", shadow, SHADOW_MIN_PIXELS))
+
+
 def _thumbnail(run, session, scale, slot):
     path = thumbnails.thumbnail_paths(session.state)[slot]
     image = thumbnails.read_thumbnail(path)
     run.add(run.refs(scale).image_check("thumbnail-abarth-500", image, THUMBNAIL))
     run.add(chroma_check(f"thumbnail {slot}", image, THUMBNAIL_CAR, CHROMA_MEAN, CHROMA_P95))
+    _shadow(run, path, slot)
 
 
 def _purchase(run, session, scale, garage_too):
@@ -183,6 +193,30 @@ def short(run):
             routes.back_to_main_menu(session)
             _race(run, session, scale, 0, 30, "race bernese alps")
             _log_checks(run, session, after)
+        finally:
+            run.keep_log(session)
+
+
+def thumbnail_msaa_off(run):
+    """2x, SHOWROOM MSAA off (as a temporal upscaler also makes it): the bought car's thumbnail
+    keeps its ground shadow. From v0.2.0 the row set the thumbnail's own tiling too, and the car
+    floated."""
+    scale = 2
+    with run.session(scale, ["--fm4_showroom_msaa=off"]) as session:
+        try:
+            routes.to_main_menu(session)
+            after = _title_time(session)
+            slot = routes.buy_car(session)
+            path = thumbnails.thumbnail_paths(session.state)[slot]
+            run.add(chroma_check(f"thumbnail {slot}", thumbnails.read_thumbnail(path),
+                                 THUMBNAIL_CAR, CHROMA_MEAN, CHROMA_P95))
+            _shadow(run, path, slot)
+            routes.back_to_main_menu(session)
+            # The seed's cache was warmed at the console's 4x: the showroom's single-sample
+            # pipelines are made here (103 in a run), so only the rest of the log checks apply.
+            session.poll()
+            run.add(*[result for result in log_checks(session.lines, after)
+                      if result.name != "cache warm"], defaults_check(session.lines))
         finally:
             run.keep_log(session)
 
@@ -385,13 +419,14 @@ def cold_cache(run):
             run.keep_log(session)
 
 
-SCENARIOS = {"short": short, "session-2x": session_2x, "session-3x": session_3x,
-             "car-dirt": car_dirt, "surfaceless-clears": surfaceless_clears, "vram-4x": vram_4x,
+SCENARIOS = {"short": short, "thumbnail-msaa-off": thumbnail_msaa_off, "session-2x": session_2x,
+             "session-3x": session_3x, "car-dirt": car_dirt,
+             "surfaceless-clears": surfaceless_clears, "vram-4x": vram_4x,
              "validation": validation, "cold-cache": cold_cache}
 TIERS = {
-    "short": ["short"],
-    "long": ["short", "session-2x", "session-3x"],
+    "short": ["short", "thumbnail-msaa-off"],
+    "long": ["short", "thumbnail-msaa-off", "session-2x", "session-3x"],
     # The cold cache empties the run's shader cache: it comes last.
-    "full": ["short", "session-2x", "session-3x", "car-dirt", "surfaceless-clears", "vram-4x",
-             "validation", "cold-cache"],
+    "full": ["short", "thumbnail-msaa-off", "session-2x", "session-3x", "car-dirt",
+             "surfaceless-clears", "vram-4x", "validation", "cold-cache"],
 }

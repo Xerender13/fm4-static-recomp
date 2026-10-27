@@ -156,6 +156,10 @@ def max_check(name, value, limit):
     return CheckResult(name, value <= limit, f"{value:.3g}", f"<= {limit:g}")
 
 
+def min_check(name, value, limit):
+    return CheckResult(name, value >= limit, f"{value:g}", f">= {limit:g}")
+
+
 def log_checks(lines, after, allowed_pipelines=0):
     """The log after a time (the title screen: the shader cache is loaded before it). A warm
     cache may still make a few pipelines the shipped list lacks (pairs of the random AI cars);

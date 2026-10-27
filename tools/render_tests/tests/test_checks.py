@@ -7,7 +7,8 @@ from pathlib import Path
 
 from render_tests import images, seed
 from render_tests.checks import (References, band_check, chroma_check, defaults_check,
-                                 differ_check, log_checks, max_check, pipeline_list_check)
+                                 differ_check, log_checks, max_check, min_check,
+                                 pipeline_list_check)
 from render_tests.images import Image, ImageLimits, Rect
 from render_tests.logtail import parse
 
@@ -110,6 +111,8 @@ class ChecksTest(unittest.TestCase):
         self.assertFalse(band_check("resolves", 30.0, 29.0, 0.02).passed)
         self.assertTrue(max_check("readbacks", 0.0, 0.0).passed)
         self.assertFalse(max_check("readbacks", 0.1, 0.0).passed)
+        self.assertTrue(min_check("shadow", 1500, 1500).passed)
+        self.assertFalse(min_check("shadow", 414, 1500).passed)
 
     def test_cache_warm_fails_on_pipeline_creation_after_title(self):
         after = datetime(2026, 10, 24, 1, 3, 34)

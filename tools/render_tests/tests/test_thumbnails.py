@@ -5,7 +5,8 @@ import zlib
 from pathlib import Path
 
 from render_tests import thumbnails
-from render_tests.thumbnails import HEIGHT, WIDTH, read_thumbnail, thumbnail_paths, tiled_offset_2d
+from render_tests.thumbnails import (HEIGHT, WIDTH, read_thumbnail, read_thumbnail_alpha,
+                                     shadow_pixels, thumbnail_paths, tiled_offset_2d)
 
 # A texture fetch constant as the game writes it before the texels (Thumbnail_1.xdc).
 FETCH = bytes.fromhex("0000000300000001000000000000000000000000ffff0000ffff0000860000020000"
@@ -65,6 +66,41 @@ class ThumbnailsTest(unittest.TestCase):
         for x, y in ((0, 0), (5, 3), (767, 287), (400, 100)):
             start = (y * WIDTH + x) * 3
             self.assertEqual(tuple(image.rgb[start:start + 3]), pattern(x, y), (x, y))
+
+    def test_alpha_plane_from_the_first_byte(self):
+        texels = bytearray(WIDTH * HEIGHT * 4)
+        for x, y, value in ((0, 0, 7), (767, 287, 255), (400, 100, 128)):
+            offset = tiled_offset_2d(x, y, WIDTH, 4)
+            texels[offset:offset + 4] = bytes((value, 1, 2, 3))
+        path = self.dir / "Thumbnail_4.xdc"
+        path.write_bytes(pack(bytes(texels)))
+        alpha = read_thumbnail_alpha(path)
+        self.assertEqual(len(alpha), WIDTH * HEIGHT)
+        for x, y, value in ((0, 0, 7), (767, 287, 255), (400, 100, 128), (5, 5, 0)):
+            self.assertEqual(alpha[y * WIDTH + x], value, (x, y))
+
+    def test_shadow_pixels_count_the_soft_band_under_the_car(self):
+        def car(shadow):
+            alpha = bytearray(WIDTH * HEIGHT)
+            for y in range(100, 240):
+                alpha[y * WIDTH + 100:y * WIDTH + 500] = bytes([255]) * 400
+            # One fringe pixel under the body, as an antialiased edge leaves.
+            alpha[240 * WIDTH + 100:240 * WIDTH + 500] = bytes([60]) * 400
+            if shadow:
+                for y in range(241, 270):
+                    alpha[y * WIDTH + 80:y * WIDTH + 520] = bytes([200 - (y - 241) * 6]) * 440
+            return bytes(alpha)
+
+        self.assertEqual(shadow_pixels(car(False)), 400)
+        self.assertGreater(shadow_pixels(car(True)), 10000)
+
+    def test_shadow_pixels_ignore_the_small_side_view(self):
+        alpha = bytearray(WIDTH * HEIGHT)
+        for y in range(50, 200):
+            alpha[y * WIDTH + 700:y * WIDTH + 760] = bytes([255]) * 60
+        for y in range(200, 280):
+            alpha[y * WIDTH + 700:y * WIDTH + 760] = bytes([100]) * 60
+        self.assertEqual(shadow_pixels(bytes(alpha)), 0)
 
     def test_thumbnail_paths_by_slot(self):
         folder = self.dir / "user" / "B13EBABEBABEBABE" / "4D530910" / "00000001" / "ForzaProfile" / "Thumbnails"
