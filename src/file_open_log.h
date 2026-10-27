@@ -9,6 +9,6 @@ namespace fm4_static_recomp {
 // which screen is up.
 std::string FileOpenLogLine(std::string_view guest_path);
 
-void InstallFileOpenLog();
+void LogFileOpen(std::string_view guest_path);
 
 }  // namespace fm4_static_recomp

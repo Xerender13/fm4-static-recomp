@@ -27,4 +27,8 @@ void SetPromptTextSource(
 // plugin has registered them.
 void InstallPixelShaderSwitches();
 
+// Every guest file open, on the opening guest thread: the game's saving of a car
+// thumbnail ends the readback hold its render began.
+void NoteGuestFileOpen(std::string_view guest_path);
+
 }  // namespace fm4_static_recomp

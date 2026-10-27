@@ -89,6 +89,7 @@ Resolves and visibility:
 |---|---|
 | `--fh1_resolve_dump_dir=<folder>`, `--fh1_resolve_dump_frame=<n>` | Write every resolve's output bytes to that folder (only frame `n` if given) |
 | `--fh1_readback_all_resolves` | Copy every resolve into guest memory, not only the ones the CPU reads (slow) |
+| `--fh1_readback_all_resolves_hold` | Live. The same while set; the game sets it from a car thumbnail's render until it is saved, and clears it after, so a launch value does not last |
 | `--fh1_log_resolve_readbacks` | Log runs of resolves into a range and whether they are read back |
 | `--fh1_async_recurring_readbacks=false` | Live. Let a capture the game keeps re-rendering (the cars' environment captures) wait for the whole GPU queue again when it comes back after an idle gap, as before; the default (`true`) copies it back without that wait, which was a 5-15 ms hitch mid-race |
 | `--fh1_trace_resolve_cpu_accesses` | Log guest CPU reads and writes of each resolved range |

@@ -11,6 +11,7 @@
 
 #include <rex/cvar.h>
 #include <rex/input/input_system.h>
+#include <rex/kernel/xboxkrnl/io.h>
 #include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/system/gpu_plugin.h>
@@ -95,7 +96,10 @@ class Fm4App final : public rex::ReXApp {
       REXLOG_ERROR("Graphics settings: cannot read {}", graphics_config_->path().string());
     }
     fm4_static_recomp::InstallPixelShaderSwitches();
-    fm4_static_recomp::InstallFileOpenLog();
+    rex::kernel::xboxkrnl::SetGuestFileOpenObserver([](std::string_view guest_path) {
+      fm4_static_recomp::NoteGuestFileOpen(guest_path);
+      fm4_static_recomp::LogFileOpen(guest_path);
+    });
     if (controls_config_->Load()) {
       controls_ = fm4_static_recomp::input::LoadControls(*controls_config_);
     } else {

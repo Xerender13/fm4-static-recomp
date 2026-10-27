@@ -4,6 +4,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -496,10 +497,18 @@ uint8_t* ScenarioControlValue(uint8_t* membase, uint32_t file, uint32_t id) {
   return membase + file + LoadGuestWord(membase + kControlOffsetTable + 4 * id) + 4;
 }
 
+// Set while the game renders a car's garage thumbnail.
+std::atomic<bool> g_thumbnail_render{false};
+
 // The TilingScenario ids of the game's table: 4x MSAA in three tiles, 2x in two,
 // none in one. A temporal upscaler does the anti-aliasing itself, so it gets
 // one tile whatever the rows say; the rows keep the player's choice for later.
+// A thumbnail keeps the game's own tiling: in one tile it loses the car's
+// ground shadow, and the saved thumbnail keeps that for good.
 std::optional<uint32_t> TilingChoice(TilingGroup group) {
+  if (g_thumbnail_render.load(std::memory_order_relaxed)) {
+    return std::nullopt;
+  }
   if (rex::ui::IsTemporalUpscalerActive()) {
     return 2u;
   }
@@ -869,6 +878,54 @@ void Fm4ScenarioPush(PPCRegister& r4) {
   }
 }
 
+namespace {
+
+// From a thumbnail's render until the game has saved it, every resolve is read
+// back: the readback rules miss some of the captures the game lights the car
+// from (re-rendered past a run's first frames, or into a range no longer new),
+// and it saves the thumbnail as lit (a flat white car on about one launch in
+// eight). It reads the result later than the render ends.
+enum class ThumbnailReadback { kNone, kPending, kSaved };
+std::atomic<ThumbnailReadback> g_thumbnail_readback{ThumbnailReadback::kNone};
+
+void UpdateThumbnailReadbacks() {
+  const bool all =
+      g_thumbnail_readback.load(std::memory_order_relaxed) != ThumbnailReadback::kNone;
+  static bool applied = false;
+  if (applied != all) {
+    applied = all;
+    rex::cvar::SetFlagByName("fh1_readback_all_resolves_hold", all ? "true" : "false");
+    REXLOG_INFO("Thumbnail readbacks {}", all ? "all" : "back to the rules");
+  }
+}
+
+void SetThumbnailRender(bool render) {
+  g_thumbnail_render.store(render, std::memory_order_relaxed);
+  REXLOG_INFO("Thumbnail render {}", render ? "started" : "done");
+  // The scene's tiling is read every frame, so the thumbnail's own applies at once.
+  {
+    uint8_t* const membase = rex::system::kernel_state()->memory()->virtual_membase();
+    const std::lock_guard lock(g_scenario_files_mutex);
+    for (const ScenarioFile& file : g_scenario_files) {
+      ApplyScenarioFileTiling(membase, file);
+    }
+  }
+  if (render) {
+    g_thumbnail_readback.store(ThumbnailReadback::kPending, std::memory_order_relaxed);
+    UpdateThumbnailReadbacks();
+  }
+}
+
+}  // namespace
+
+void Fm4ThumbnailRenderStart() {
+  SetThumbnailRender(true);
+}
+
+void Fm4ThumbnailRenderDone() {
+  SetThumbnailRender(false);
+}
+
 void Fm4MainLoopSession(PPCRegister& r11) {
   const bool race = r11.u32 != 0;
   g_race_session.store(race, std::memory_order_relaxed);
@@ -887,6 +944,11 @@ void Fm4MainLoopSession(PPCRegister& r11) {
     rex::cvar::SetFlagByName("fh1_async_readbacks_hold", held ? "true" : "false");
     REXLOG_INFO("Async readbacks {} ({})", held ? "held" : "released", race ? "race" : "menus");
   }
+  // The game opens a thumbnail's file and writes it within one tick.
+  ThumbnailReadback saved = ThumbnailReadback::kSaved;
+  g_thumbnail_readback.compare_exchange_strong(saved, ThumbnailReadback::kNone,
+                                               std::memory_order_relaxed);
+  UpdateThumbnailReadbacks();
   // Every tick, so the values are in place before a race loads its cars.
   ApplyRenderScenarioSettings();
   // No cvar change tells when the presenter starts or stops a temporal upscaler.
@@ -970,6 +1032,20 @@ void SetInputTick(std::function<void()> tick) {
 void SetGraphicsPageOpener(std::function<void()> opener) {
   const std::lock_guard lock(g_graphics_page_mutex);
   g_graphics_page_opener = std::move(opener);
+}
+
+void NoteGuestFileOpen(std::string_view guest_path) {
+  constexpr std::string_view kThumbnailFile = "\\thumbnails\\thumbnail_";
+  // The garage opens saved thumbnails to show them too.
+  if (g_thumbnail_render.load(std::memory_order_relaxed) ||
+      g_thumbnail_readback.load(std::memory_order_relaxed) != ThumbnailReadback::kPending ||
+      !std::ranges::search(guest_path, kThumbnailFile, [](char a, char b) {
+         return std::tolower(static_cast<unsigned char>(a)) == b;
+       })) {
+    return;
+  }
+  g_thumbnail_readback.store(ThumbnailReadback::kSaved, std::memory_order_relaxed);
+  REXLOG_INFO("Thumbnail saved: {}", guest_path);
 }
 
 }  // namespace fm4_static_recomp

@@ -756,6 +756,19 @@ address = 0x82450DE0
 name = "Fm4ScenarioPush"
 registers = ["r4"]
 
+# CCarThumbnailRenderStateMachine (vtable 0x8200DA0C, state table 0x8200D9C8)
+# renders a car's garage thumbnail in states 1 to 3 (load the uithumbnail
+# backdrop, draw, read back and save), twice per new car or paint: uithumbig,
+# then uithumbnail. Its state 1 entry starts a render...
+[[midasm_hook]]
+address = 0x823C6A18
+name = "Fm4ThumbnailRenderStart"
+
+# ...and its state 3 update, once the readback is done, sets state 0 here.
+[[midasm_hook]]
+address = 0x823C6BA0
+name = "Fm4ThumbnailRenderDone"
+
 # The main loop ticks once per guest vblank (every second one in menus). The
 # loop has just loaded its race session pointer (lwz r11, 4(r31)), null in the
 # showroom and non-null on the pre-race screen...

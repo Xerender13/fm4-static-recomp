@@ -76,7 +76,7 @@
   "sdk": {
     "repository": "https://github.com/i2kiselev/shiftglue-sdk",
     "branch": "dlss-debugging",
-    "revision": "ff1e80494504f53cce402b6bae19b44a40a938ab",
+    "revision": "7cb2e4cbba5e89a392f253d910ce733f822bdbb0",
     "fallback_path": ".local/shiftglue-sdk"
   }
 }
