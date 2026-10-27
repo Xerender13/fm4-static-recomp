@@ -16,6 +16,7 @@ public static class LaunchArguments
         ("gpu_record_thread", "false"), ("clear_memory_page_state", "true"),
         ("texture_cache_memory_limit_soft", "1024"), ("anisotropic_override", "-1"),
         ("fm4_level_of_detail", "console"), ("fm4_shadow_map_size", "512"),
+        ("fm4_ground_shadow_size", "256"),
         ("fm4_reflection_cube_size", "256"), ("fm4_full_rate_scenes", "false"),
     ];
 

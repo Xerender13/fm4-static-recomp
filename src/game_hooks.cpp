@@ -76,6 +76,12 @@ REXCVAR_DEFINE_INT32(fm4_shadow_map_size, 0, "Forza Motorsport 4",
                      "temporal upscaler takes a 1x frame, else 512; applies from the next "
                      "scene load");
 
+REXCVAR_DEFINE_INT32(fm4_ground_shadow_size, 0, "Forza Motorsport 4",
+                     "Size of the races' ground shadow map in guest pixels, 256 (the "
+                     "console's) to 768, before the resolution scale; 0 is 512 while a "
+                     "temporal upscaler takes a 1x frame, else 256; applies from the next "
+                     "scene load");
+
 REXCVAR_DEFINE_INT32(fm4_reflection_cube_size, 256, "Forza Motorsport 4",
                      "Face size of the cars' reflection cube in guest pixels, 256 (the "
                      "console's) to 512, before the resolution scale; applies from the next "
@@ -748,7 +754,16 @@ void Fm4PresentInterval(PPCRegister& r4) {
 
 void Fm4ShadowMapSetup(PPCRegister& r4, PPCRegister& r5) {
   const uint32_t size = ShadowMapSize();
-  REXLOG_INFO("Shadow map setup: variance {} grey {}, setting {}", r4.u32, r5.u32, size);
+  const auto* graphics = rex::system::kernel_state()->emulator()->graphics_system();
+  const uint32_t ground = fm4_static_recomp::GroundShadowSize(
+      REXCVAR_GET(fm4_ground_shadow_size), graphics ? graphics->draw_resolution_scale() : 1,
+      rex::ui::IsTemporalUpscalerActive());
+  REXLOG_INFO("Shadow map setup: variance {} grey {}, settings {} / {}", r4.u32, r5.u32, size,
+              ground);
+  // Only the races' 256 map: the showroom-type scenes already draw it at 512.
+  if (r5.u32 == 256) {
+    r5.u64 = ground;
+  }
   if (r4.u32 == 512) {
     r4.u64 = size;
   }
