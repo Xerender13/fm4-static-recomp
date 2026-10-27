@@ -769,6 +769,14 @@ name = "Fm4ThumbnailRenderStart"
 address = 0x823C6BA0
 name = "Fm4ThumbnailRenderDone"
 
+# Its state 2 update goes on to the final render once the studio track is ready
+# (bytes 48-50) and the car is: r3 holds the car's check here, and 0 keeps the
+# state 2 update running a few more ticks, until the car's lighting has caught up.
+[[midasm_hook]]
+address = 0x823C6AF4
+name = "Fm4ThumbnailSettle"
+registers = ["r3"]
+
 # The main loop ticks once per guest vblank (every second one in menus). The
 # loop has just loaded its race session pointer (lwz r11, 4(r31)), null in the
 # showroom and non-null on the pre-race screen...

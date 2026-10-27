@@ -881,12 +881,20 @@ void Fm4ScenarioPush(PPCRegister& r4) {
 namespace {
 
 // From a thumbnail's render until the game has saved it, every resolve is read
-// back: the readback rules miss some of the captures the game lights the car
-// from (re-rendered past a run's first frames, or into a range no longer new),
-// and it saves the thumbnail as lit (a flat white car on about one launch in
-// eight). It reads the result later than the render ends.
+// back: the readback rules miss some of the captures the CPU lights the car
+// from (re-rendered past a run's first frames, or into a range no longer new).
+// It reads the result later than the render ends.
 enum class ThumbnailReadback { kNone, kPending, kSaved };
 std::atomic<ThumbnailReadback> g_thumbnail_readback{ThumbnailReadback::kNone};
+
+// The render draws the final car on the first tick its studio track and car are
+// ready, but the car's ambient light is still the one the CPU computed from
+// captures of the studio before its streaming thread filled it in: a flat white
+// car. The console's timing always gets a fresh capture in first; a streaming
+// thread that starts late here does not (1 launch in 10; every launch with the
+// thread held back 500 ms, none with 3 ticks or more of this wait).
+constexpr int kThumbnailSettleTicks = 12;
+std::atomic<int> g_thumbnail_ready_ticks{0};
 
 void UpdateThumbnailReadbacks() {
   const bool all =
@@ -911,6 +919,7 @@ void SetThumbnailRender(bool render) {
     }
   }
   if (render) {
+    g_thumbnail_ready_ticks.store(0, std::memory_order_relaxed);
     g_thumbnail_readback.store(ThumbnailReadback::kPending, std::memory_order_relaxed);
     UpdateThumbnailReadbacks();
   }
@@ -920,6 +929,12 @@ void SetThumbnailRender(bool render) {
 
 void Fm4ThumbnailRenderStart() {
   SetThumbnailRender(true);
+}
+
+void Fm4ThumbnailSettle(PPCRegister& r3) {
+  if (g_thumbnail_ready_ticks.fetch_add(1, std::memory_order_relaxed) < kThumbnailSettleTicks) {
+    r3.u64 = 0;
+  }
 }
 
 void Fm4ThumbnailRenderDone() {

@@ -197,6 +197,27 @@ def short(run):
             run.keep_log(session)
 
 
+def thumbnail_late_streaming(run):
+    """2x, the studio tracks' streaming thread (start 82926250) held back 500 ms: the bought car's
+    thumbnail is lit as always. The final render went ahead with the car lit from captures of the
+    studio before the thread had filled it in, a flat white car (about 1 launch in 10 by itself;
+    every launch so held back)."""
+    scale = 2
+    with run.session(scale, ["--debug_guest_thread_start_delay=82926250:500"]) as session:
+        try:
+            routes.to_main_menu(session)
+            after = _title_time(session)
+            slot = routes.buy_car(session)
+            path = thumbnails.thumbnail_paths(session.state)[slot]
+            run.add(run.refs(scale).image_check("thumbnail-abarth-500",
+                                                thumbnails.read_thumbnail(path), THUMBNAIL,
+                                                label=f"thumbnail {slot} late streaming"))
+            routes.back_to_main_menu(session)
+            _log_checks(run, session, after)
+        finally:
+            run.keep_log(session)
+
+
 def thumbnail_msaa_off(run):
     """2x, SHOWROOM MSAA off (as a temporal upscaler also makes it): the bought car's thumbnail
     keeps its ground shadow. From v0.2.0 the row set the thumbnail's own tiling too, and the car
@@ -419,14 +440,17 @@ def cold_cache(run):
             run.keep_log(session)
 
 
-SCENARIOS = {"short": short, "thumbnail-msaa-off": thumbnail_msaa_off, "session-2x": session_2x,
+SCENARIOS = {"short": short, "thumbnail-msaa-off": thumbnail_msaa_off,
+             "thumbnail-late-streaming": thumbnail_late_streaming, "session-2x": session_2x,
              "session-3x": session_3x, "car-dirt": car_dirt,
              "surfaceless-clears": surfaceless_clears, "vram-4x": vram_4x,
              "validation": validation, "cold-cache": cold_cache}
 TIERS = {
-    "short": ["short", "thumbnail-msaa-off"],
-    "long": ["short", "thumbnail-msaa-off", "session-2x", "session-3x"],
+    "short": ["short", "thumbnail-msaa-off", "thumbnail-late-streaming"],
+    "long": ["short", "thumbnail-msaa-off", "thumbnail-late-streaming", "session-2x",
+             "session-3x"],
     # The cold cache empties the run's shader cache: it comes last.
-    "full": ["short", "thumbnail-msaa-off", "session-2x", "session-3x", "car-dirt",
-             "surfaceless-clears", "vram-4x", "validation", "cold-cache"],
+    "full": ["short", "thumbnail-msaa-off", "thumbnail-late-streaming", "session-2x",
+             "session-3x", "car-dirt", "surfaceless-clears", "vram-4x", "validation",
+             "cold-cache"],
 }

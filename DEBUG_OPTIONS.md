@@ -51,6 +51,7 @@ Views and measurements:
 | `--fm4_render_scenario_omit` | empty | Render settings left to the game, comma-separated: `tiling`, `lod_thresholds`, `focus_lod`, `other_lod`, `lod_distances`, ... |
 | `--fm4_graphics_lod_thresholds` | empty | Car level-of-detail rank thresholds of the high and ultra settings, as `lod1,lod2,count` |
 | `--fm4_runtime_replacement_probe` | empty | Replace the texture with this 16-digit hash by a magenta test image |
+| `--debug_guest_thread_start_delay` | empty | `<hex start address>:<ms>`: every guest thread starting there waits that long before it runs. `82926250:500` holds back the studio tracks' streaming thread, as the host now and then does on its own; a bought car's thumbnail must still come out lit (the `thumbnail-late-streaming` render test) |
 
 ## The renderer
 
