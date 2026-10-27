@@ -28,7 +28,8 @@ Switches of the fixes that give the upscaler correct motion. Turn one off to see
 | `--present_dlss_preset` | `auto` | DLSS model: `auto` (M from Performance mode on RTX 40 and later, K otherwise), `default` (the runtime's choice), `j`, `k`, `l` or `m` |
 | `--present_dlss_runtime` | empty | Folder holding `nvngx_dlss.dll`; empty uses the newest one next to the executable |
 | `--present_fsr_quality_mode` | `auto` | FSR mode: `auto`, `nativeaa`, `quality`, `balanced`, `performance`, `ultra_performance` |
-| `--present_fsr_sharpness_reduction` | | FSR's RCAS sharpening reduction, in stops |
+| `--present_upscaler_sharpness` | `30` | Live. Sharpening after DLSS, FSR 2 and FSR 3, in percent: one RCAS pass on FSR 2's curve (`2 x (1 - value)` stops below RCAS's maximum); `0` skips the pass. The upscalers' own sharpening is off |
+| `--present_fsr_sharpness_reduction` | `0.2` | FSR 1's RCAS sharpening reduction, in stops |
 
 Views and measurements:
 
