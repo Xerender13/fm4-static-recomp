@@ -25,6 +25,8 @@
 #include <rex/memory.h>
 #include <rex/ppc/context.h>
 #include <rex/ppc/func.h>
+#include <rex/runtime.h>
+#include <rex/system/interfaces/graphics.h>
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 #include <rex/ui/upscaler.h>
@@ -34,6 +36,7 @@
 #include "input/input_context.h"
 #include "input/prompt_strings.h"
 #include "scripted_input.h"
+#include "shadow_map.h"
 #include "string_log.h"
 
 REXCVAR_DEFINE_BOOL(fm4_road_detail_blur, true, "Forza Motorsport 4",
@@ -66,10 +69,11 @@ REXCVAR_DEFINE_BOOL(fm4_full_rate_scenes, true, "Forza Motorsport 4",
                     "pre-race screen, Autovista) at the full rate; false is the game's own "
                     "half rate");
 
-REXCVAR_DEFINE_INT32(fm4_shadow_map_size, 512, "Forza Motorsport 4",
+REXCVAR_DEFINE_INT32(fm4_shadow_map_size, 0, "Forza Motorsport 4",
                      "Size of the car shadow map in guest pixels, 512 (the console's, 4x "
-                     "MSAA) to 768 (2x MSAA), before the resolution scale; "
-                     "applies from the next scene load");
+                     "MSAA) to 768 (2x MSAA), before the resolution scale; 0 is 768 while a "
+                     "temporal upscaler takes a 1x frame, else 512; applies from the next "
+                     "scene load");
 
 REXCVAR_DEFINE_INT32(fm4_reflection_cube_size, 256, "Forza Motorsport 4",
                      "Face size of the cars' reflection cube in guest pixels, 256 (the "
@@ -416,7 +420,10 @@ void StoreGuestWord(uint8_t* address, uint32_t value) {
 // Above 768 the variance map's colour and depth surfaces fit the 10 MB of
 // EDRAM only without MSAA (1024 at 1x); sizes that lose the MSAA are not offered.
 uint32_t ShadowMapSize() {
-  return uint32_t(std::clamp(REXCVAR_GET(fm4_shadow_map_size), 512, 768));
+  const auto* graphics = rex::system::kernel_state()->emulator()->graphics_system();
+  return fm4_static_recomp::ShadowMapSize(REXCVAR_GET(fm4_shadow_map_size),
+                                          graphics ? graphics->draw_resolution_scale() : 1,
+                                          rex::ui::IsTemporalUpscalerActive());
 }
 
 // The cube's faces render with 4x MSAA: above 512 their colour and depth no

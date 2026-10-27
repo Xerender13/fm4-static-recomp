@@ -20,6 +20,7 @@ add_executable(fm4_static_recomp WIN32
     src/disc2_install.cpp
     src/game_hooks.cpp
     src/car_dirt.cpp
+    src/shadow_map.cpp
     src/file_open_log.cpp
     src/game_language.cpp
     src/string_log.cpp
@@ -62,11 +63,13 @@ if(FM4_BUILD_TESTS)
         tests/prompt_swap_test.cpp
         tests/prompt_strings_test.cpp
         tests/car_dirt_test.cpp
+        tests/shadow_map_test.cpp
         tests/file_open_log_test.cpp
         tests/game_language_test.cpp
         tests/string_log_test.cpp
         tests/ui_fonts_test.cpp
         src/car_dirt.cpp
+        src/shadow_map.cpp
         src/file_open_log.cpp
         src/game_language.cpp
         src/string_log.cpp
