@@ -120,6 +120,28 @@ public class GraphicsSettingsTests
     }
 
     [Fact]
+    public void Shows_a_row_only_while_the_setting_it_depends_on_has_its_value()
+    {
+        using var temp = new TempDir();
+        var json = temp.File("schema.json", """
+            {"schema_version":1,"blocks":[{"rows":[
+             {"label":"UPSCALER","key":"present_effect","string":true,"kind":"choice","choices":[{"label":"OFF","value":"bilinear"},{"label":"FSR 3","value":"fsr3"},{"label":"DLSS","value":"dlss"}],"default":"bilinear","description":"d"},
+             {"label":"DLSS PRESET","key":"present_dlss_preset","string":true,"kind":"choice","choices":[{"label":"AUTO","value":"auto"},{"label":"K","value":"k"}],"default":"auto","shown_when":{"present_effect":"dlss"},"description":"d"}]}],
+             "presets":[]}
+            """u8.ToArray());
+        var schema = GraphicsSchema.Load(json);
+        var settings = new GraphicsSettings(schema, Path.Combine(temp.Path, "g.toml"), temp.Path);
+        var upscaler = schema.SettingRows.Single(r => r.Key == "present_effect");
+        var preset = schema.SettingRows.Single(r => r.Key == "present_dlss_preset");
+        Assert.True(settings.Shows(upscaler));
+        Assert.False(settings.Shows(preset));
+        settings.Set("present_effect", "dlss");
+        Assert.True(settings.Shows(preset));
+        settings.Set("present_effect", "fsr3");
+        Assert.False(settings.Shows(preset));
+    }
+
+    [Fact]
     public void Loads_the_schema_the_game_writes()
     {
         var real = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
@@ -127,7 +149,9 @@ public class GraphicsSettingsTests
         if (!File.Exists(real)) return;
         var schema = GraphicsSchema.Load(real);
         Assert.Equal(3, schema.Blocks.Count);
-        Assert.Equal(17, schema.SettingRows.Count());
+        Assert.Equal(20, schema.SettingRows.Count());
+        Assert.Equal(new Dictionary<string, string> { ["present_effect"] = "dlss" },
+            schema.SettingRows.Single(r => r.Label == "DLSS PRESET").ShownWhen);
         Assert.Equal(["CONSOLE", "HIGH", "ULTRA", "EXPERIMENTAL"], schema.Presets.Select(p => p.Label));
         var labels = schema.Blocks.SelectMany(b => b.Rows).Select(r => r.Label).ToList();
         Assert.Contains("VSYNC", labels);

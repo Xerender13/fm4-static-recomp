@@ -68,6 +68,7 @@ if(FM4_BUILD_TESTS)
         tests/game_language_test.cpp
         tests/string_log_test.cpp
         tests/ui_fonts_test.cpp
+        tests/graphics_page_test.cpp
         src/car_dirt.cpp
         src/shadow_map.cpp
         src/file_open_log.cpp
@@ -83,6 +84,8 @@ if(FM4_BUILD_TESTS)
         src/ui/hostui/ui_archive.cpp
         src/ui/hostui/ui_fonts.cpp
         src/ui/hostui/vector_font.cpp
+        src/ui/hostui/menu.cpp
+        src/ui/graphics_page.cpp
     )
     # Away from the game's staged runtime, which is only as new as the last game build;
     # run with rexglue-artifacts on PATH.

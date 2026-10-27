@@ -6,6 +6,9 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <vector>
+
+#include <rex/ui/upscaler.h>
 
 #include "config/host_config.h"
 #include "ui/hostui/menu.h"
@@ -13,8 +16,8 @@
 namespace fm4_static_recomp::ui {
 
 // The GRAPHICS page of My Profile -> Options: the race frame rate (a slider),
-// preset, resolution scale, post-process anti-aliasing, the game's MSAA,
-// anisotropic filtering and more. Each change sets its setting and saves
+// preset, resolution scale, upscaler, post-process anti-aliasing, the game's
+// MSAA, anisotropic filtering and more. Each change sets its setting and saves
 // `<state>/config/graphics.toml`, which holds only these settings.
 
 // Applies the file's values, skipping settings given on the command line and
@@ -40,6 +43,8 @@ struct GraphicsPageServices {
   std::function<uint32_t()> draw_resolution_scale;
   // Where the latest frame reached the window, in pixels.
   std::function<std::optional<std::pair<uint32_t, uint32_t>>()> output_size;
+  // The presenter's upscalers, each with whether it runs on this GPU.
+  std::function<std::vector<rex::ui::UpscalerInfo>()> upscalers;
   // After each successful save.
   std::function<void()> saved;
 };

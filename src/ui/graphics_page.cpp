@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -52,6 +53,26 @@ const Setting kDetail = {"fm4_level_of_detail",
                           {"HIGH", "high"},
                           {"ULTRA", "ultra"}}};
 const Setting kScale = {"resolution_scale", false, {{"1X", "1"}, {"2X", "2"}, {"3X", "3"}, {"4X", "4"}}};
+const Setting kUpscaler = {"present_effect",
+                           true,
+                           {{"OFF", "bilinear"}, {"FSR 2", "fsr2"}, {"FSR 3", "fsr3"}, {"DLSS", "dlss"}}};
+const Setting kDlssPreset = {
+    "present_dlss_preset",
+    true,
+    {{"AUTO", "auto"}, {"K", "k"}, {"M", "m"}, {"J", "j"}, {"L", "l"}, {"DEFAULT", "default"}}};
+const Setting kSharpness = {"present_upscaler_sharpness",
+                            false,
+                            {{"OFF", "0"},
+                             {"10 %", "10"},
+                             {"20 %", "20"},
+                             {"30 %", "30"},
+                             {"40 %", "40"},
+                             {"50 %", "50"},
+                             {"60 %", "60"},
+                             {"70 %", "70"},
+                             {"80 %", "80"},
+                             {"90 %", "90"},
+                             {"100 %", "100"}}};
 const Setting kPostAa = {
     "swap_post_effect", true, {{"OFF", "none"}, {"FXAA", "fxaa"}, {"FXAA EXTREME", "fxaa_extreme"}}};
 const Setting kShowroomMsaa = {
@@ -76,7 +97,7 @@ const Setting kSoftParticles = {"fm4_soft_particles", false, {{"OFF", "false"}, 
 const Setting kCrowds = {
     "fm4_crowds_every_race", false, {{"CONSOLE", "false"}, {"EVERY RACE", "true"}}};
 
-// Every setting but the frame rate and the resolution scale.
+// Every setting but the frame rate, the resolution scale and the upscaler's.
 const Setting* const kPresetSettings[] = {
     &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows, &kReflectionUpdates,
     &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds, &kMotionBlur, &kDepthOfField,
@@ -84,7 +105,8 @@ const Setting* const kPresetSettings[] = {
 constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
-    &kFrameRate, &kVsync, &kScale, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
+    &kFrameRate, &kVsync, &kScale, &kUpscaler, &kDlssPreset, &kSharpness, &kPostAa,
+    &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
     &kMotionBlur, &kDepthOfField, &kCarDirt};
 
@@ -115,10 +137,14 @@ struct RowText {
   const Setting* setting;  // null for the preset row
   const char* description;
   bool divider_above = false;
+  // The launcher shows the row only while this setting has this value.
+  const Setting* shown_with = nullptr;
+  const char* shown_value = nullptr;
 };
 
-// The page's rows in order; the frame rate, scale and preset rows add live
-// behaviour of their own in CreateGraphicsPage.
+// The page's rows in order; the frame rate, scale, upscaler and preset rows
+// add live behaviour of their own in CreateGraphicsPage. The DLSS preset is
+// the launcher's alone: DLSS takes it only as it starts.
 const RowText kRows[] = {
     {"FRAME RATE", &kFrameRate,
      "Frames per second in races, menus and the showroom, from the console's 60 up to your "
@@ -130,6 +156,18 @@ const RowText kRows[] = {
      "lower frame rate."},
     {"RESOLUTION SCALE", &kScale,
      "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load."},
+    {"UPSCALER", &kUpscaler,
+     "Upscales the picture from the resolution scale to your display with the game's depth and "
+     "motion, and smooths edges on the way: DLSS on NVIDIA RTX GPUs, FSR 2 and FSR 3 on any. "
+     "Off stretches the picture. While one runs, MSAA and post AA are off; the MSAA change "
+     "applies from the next screen."},
+    {"DLSS PRESET", &kDlssPreset,
+     "The DLSS model. Auto takes M where DLSS upscales by more than 1.8x on an RTX 40 or later "
+     "GPU, else K; Default leaves the choice to the DLSS runtime and the NVIDIA app's override.",
+     false, &kUpscaler, "dlss"},
+    {"SHARPNESS", &kSharpness,
+     "Sharpens the picture after DLSS, FSR 2 or FSR 3. Off leaves the upscaler's picture as it "
+     "is."},
     {"GRAPHICS PRESET", nullptr,
      "Sets every setting below. Console is the game as on the console; "
      "High raises most, adds FXAA and uses 2x MSAA everywhere; Ultra also raises the level of "
@@ -171,7 +209,9 @@ const RowText kRows[] = {
      "Every Race adds the crowds the console leaves out of 1- and 16-car races. Uses more "
      "guest memory."},
     {"POST AA", &kPostAa,
-     "Smooths edges in the finished picture. FXAA Extreme smooths more and softens more.", true},
+     "Smooths edges in the finished picture. FXAA Extreme smooths more and softens more. Off "
+     "while DLSS or FSR 2 / 3 upscales: the upscaler smooths edges itself.",
+     true},
     {"BLOOM", &kBloom,
      "Full Rate updates the glow every frame, where the console skips every second one "
      "(16-car races)."},
@@ -243,6 +283,10 @@ std::string RowJson(const RowText& row) {
     out += "]";
   }
   out += ",\"default\":" + JsonString(EffectiveDefault(setting));
+  if (row.shown_with) {
+    out += ",\"shown_when\":{" + JsonString(row.shown_with->name) + ":" +
+           JsonString(row.shown_value) + "}";
+  }
   return out + ",\"description\":" + JsonString(row.description) + "}";
 }
 
@@ -309,6 +353,15 @@ uint32_t LiveScale(const GraphicsPageServices& services) {
   return scale;
 }
 
+// The upscaler present_effect names, while one is upscaling.
+std::string TemporalUpscalerName() {
+  if (!rex::ui::IsTemporalUpscalerActive()) {
+    return std::string();
+  }
+  const std::string effect = Live("present_effect");
+  return effect == "dlss" ? "DLSS" : effect == "fsr3" ? "FSR 3" : "FSR 2";
+}
+
 std::string ResolutionLine(const GraphicsPageServices& services) {
   const uint32_t scale = LiveScale(services);
   const uint32_t render_width = 1280 * scale;
@@ -322,11 +375,22 @@ std::string ResolutionLine(const GraphicsPageServices& services) {
     return line;
   }
   const auto [output_width, output_height] = *output;
+  const std::string upscaler = TemporalUpscalerName();
   if (output_width == render_width && output_height == render_height) {
-    return line + ", shown at that size.";
+    // At 1:1 the upscalers only anti-alias, under the names NVIDIA and AMD give that mode.
+    if (upscaler.empty()) {
+      return line + ", shown at that size.";
+    }
+    return line + ", shown at that size with " + (upscaler == "DLSS" ? "DLAA" : upscaler + " Native AA") + ".";
   }
   if (output_width * output_height > render_width * render_height) {
-    return line + ", stretched to " + size(output_width, output_height) + ".";
+    if (upscaler.empty()) {
+      return line + ", stretched to " + size(output_width, output_height) + ".";
+    }
+    char factor[16];
+    std::snprintf(factor, sizeof(factor), "%.1f", double(output_width) / double(render_width));
+    return line + ", upscaled to " + size(output_width, output_height) + " by " + upscaler + " (" +
+           factor + "x).";
   }
   return line + ", downscaled to " + size(output_width, output_height) + ".";
 }
@@ -397,19 +461,11 @@ MenuRow Row(const char* label, const Setting& setting, config::HostConfig& confi
   return row;
 }
 
-// The upscaler present_effect names, while one is upscaling.
-std::string TemporalUpscalerName() {
-  if (!rex::ui::IsTemporalUpscalerActive()) {
-    return std::string();
-  }
-  const std::string effect = Live("present_effect");
-  return effect == "dlss" ? "DLSS" : effect == "fsr3" ? "FSR 3" : "FSR 2";
-}
-
 // A temporal upscaler takes over the anti-aliasing (TilingChoice in
-// game_hooks.cpp): the row says so and keeps the player's choice for later.
-MenuRow MsaaRow(const char* label, const Setting& setting, config::HostConfig& config,
-                const GraphicsPageServices& services) {
+// game_hooks.cpp, the post effect in the SDK): the row says so and keeps the
+// player's choice for later.
+MenuRow AntiAliasingRow(const char* label, const Setting& setting, config::HostConfig& config,
+                        const GraphicsPageServices& services) {
   MenuRow row = Row(label, setting, config, services);
   row.value = [&setting] {
     const std::string upscaler = TemporalUpscalerName();
@@ -417,6 +473,44 @@ MenuRow MsaaRow(const char* label, const Setting& setting, config::HostConfig& c
                             : "OFF (" + upscaler + ")";
   };
   row.enabled = [] { return !rex::ui::IsTemporalUpscalerActive(); };
+  return row;
+}
+
+// Why the upscaler `value` names cannot run on this GPU, or nullopt when it can.
+std::optional<std::string> UpscalerProblem(const GraphicsPageServices& services,
+                                           std::string_view value) {
+  if (value == "bilinear" || !services.upscalers) {
+    return std::nullopt;
+  }
+  for (const rex::ui::UpscalerInfo& info : services.upscalers()) {
+    if (info.id == value) {
+      return info.available ? std::nullopt : std::optional(info.unavailable_reason);
+    }
+  }
+  return std::string("its runtime is missing");
+}
+
+// Steps over the upscalers this GPU cannot run; OFF always can.
+MenuRow UpscalerRow(config::HostConfig& config, const GraphicsPageServices& services) {
+  MenuRow row = Row("UPSCALER", kUpscaler, config, services);
+  row.adjust = [&config, services](int direction) {
+    int index = Find(kUpscaler, Live(kUpscaler.name));
+    do {
+      index = Step(kUpscaler, index, direction);
+    } while (UpscalerProblem(services, kUpscaler.choices[size_t(index)].value));
+    Commit(kUpscaler, kUpscaler.choices[size_t(index)].value, config, services.saved);
+  };
+  row.note = [services] {
+    if (rex::ui::IsTemporalUpscalerActive()) {
+      return ResolutionLine(services);
+    }
+    const int index = Find(kUpscaler, Live(kUpscaler.name));
+    const auto problem =
+        index > 0 ? UpscalerProblem(services, kUpscaler.choices[size_t(index)].value)
+                  : std::nullopt;
+    return problem ? Label(kUpscaler, index) + " does not run here: " + *problem + "."
+                   : std::string();
+  };
   return row;
 }
 
@@ -560,6 +654,12 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   };
   rows.push_back(std::move(scale));
 
+  rows.push_back(UpscalerRow(config, services));
+
+  MenuRow sharpness = Row("SHARPNESS", kSharpness, config, services);
+  sharpness.enabled = [] { return rex::ui::IsTemporalUpscalerActive(); };
+  rows.push_back(std::move(sharpness));
+
   MenuRow preset;
   preset.label = "GRAPHICS PRESET";
   preset.value = [] {
@@ -578,10 +678,10 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   preset.description = Text("GRAPHICS PRESET").description;
   rows.push_back(std::move(preset));
 
-  MenuRow showroom_msaa = MsaaRow("SHOWROOM MSAA", kShowroomMsaa, config, services);
+  MenuRow showroom_msaa = AntiAliasingRow("SHOWROOM MSAA", kShowroomMsaa, config, services);
   rows.push_back(std::move(showroom_msaa));
 
-  MenuRow race_msaa = MsaaRow("RACE MSAA", kRaceMsaa, config, services);
+  MenuRow race_msaa = AntiAliasingRow("RACE MSAA", kRaceMsaa, config, services);
   rows.push_back(std::move(race_msaa));
 
   MenuRow anisotropy = Row("ANISOTROPIC FILTERING", kAnisotropy, config, services);
@@ -605,7 +705,7 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   MenuRow crowds = Row("CROWDS", kCrowds, config, services);
   rows.push_back(std::move(crowds));
 
-  MenuRow post_aa = Row("POST AA", kPostAa, config, services);
+  MenuRow post_aa = AntiAliasingRow("POST AA", kPostAa, config, services);
   rows.push_back(std::move(post_aa));
 
   MenuRow bloom = Row("BLOOM", kBloom, config, services);

@@ -26,10 +26,8 @@ Switches of the fixes that give the upscaler correct motion. Turn one off to see
 | `--present_upscaler_mip_bias` | `0` | Live. Added to the texture LOD bias an upscaler gives, `log2(render / output width)` (-1 from 720p to 1440p), with which textures keep the output's detail: negative is sharper and can shimmer (the DLSS and FSR guides recommend `-1`), positive is softer |
 | `--fm4_shadow_map_size` | `0` | Car shadow map size from the next scene load: `0` is 768 while an upscaler takes a 1x frame, else 512 (the console's); `512` or `768` fixes it |
 | `--fm4_ground_shadow_size` | `0` | Races' ground shadow map size (the car seen from the sun) from the next scene load: `0` is 512 while an upscaler takes a 1x frame, else 256 (the console's); `256` to `768` fixes it |
-| `--present_dlss_preset` | `auto` | DLSS model: `auto` (M from Performance mode on RTX 40 and later, K otherwise), `default` (the runtime's choice), `j`, `k`, `l` or `m` |
 | `--present_dlss_runtime` | empty | Folder holding `nvngx_dlss.dll`; empty uses the newest one next to the executable |
 | `--present_fsr_quality_mode` | `auto` | FSR mode: `auto`, `nativeaa`, `quality`, `balanced`, `performance`, `ultra_performance` |
-| `--present_upscaler_sharpness` | `30` | Live. Sharpening after DLSS, FSR 2 and FSR 3, in percent: one RCAS pass on FSR 2's curve (`2 x (1 - value)` stops below RCAS's maximum); `0` skips the pass. The upscalers' own sharpening is off |
 | `--present_fsr_sharpness_reduction` | `0.2` | FSR 1's RCAS sharpening reduction, in stops |
 
 Views and measurements:

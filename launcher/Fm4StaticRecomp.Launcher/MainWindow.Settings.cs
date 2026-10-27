@@ -62,7 +62,7 @@ public partial class MainWindow
             foreach (var block in graphics.Schema.Blocks)
             {
                 var rows = new StackPanel { Spacing = 6, Margin = new Thickness(0, 4, 0, 10) };
-                foreach (var row in block.Rows) rows.Children.Add(GraphicsRow(graphics, row));
+                foreach (var row in block.Rows.Where(graphics.Shows)) rows.Children.Add(GraphicsRow(graphics, row));
                 SettingsBody.Children.Add(rows);
             }
         }
@@ -171,7 +171,11 @@ public partial class MainWindow
                 {
                     if (combo.SelectedIndex < 0) return;
                     graphics.Set(row.Key!, choices[combo.SelectedIndex].Value);
-                    RefreshPresetCombo(graphics);
+                    // Rows shown only for some of this setting's values come and go with it.
+                    if (graphics.Schema.SettingRows.Any(r => r.ShownWhen?.ContainsKey(row.Key!) == true))
+                        BuildSettingsPanel("");
+                    else
+                        RefreshPresetCombo(graphics);
                 };
                 return Labelled(row.Label, combo, row.Description);
             }

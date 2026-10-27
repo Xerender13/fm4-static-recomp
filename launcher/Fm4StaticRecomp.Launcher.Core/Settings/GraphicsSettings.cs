@@ -23,6 +23,8 @@ public sealed class GraphicsSettings(GraphicsSchema schema, string tomlPath, str
         _changed[key] = value;
     }
 
+    public bool Shows(SchemaRow row) => row.ShownWhen is null || row.ShownWhen.All(c => Value(c.Key) == c.Value);
+
     public string? CurrentPreset() =>
         schema.Presets.FirstOrDefault(p => p.Values.All(v => Value(v.Key) == v.Value))?.Label;
 

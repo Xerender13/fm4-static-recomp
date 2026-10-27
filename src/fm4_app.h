@@ -362,6 +362,7 @@ class Fm4App final : public rex::ReXApp {
       return uint64_t(width) * 9 > uint64_t(height) * 16 ? std::pair{height * 16 / 9, height}
                                                          : std::pair{width, width * 9 / 16};
     };
+    services.upscalers = [presenter] { return presenter->GetUpscalers(); };
     services.saved = [this] { host_ui_->NotifySaved(); };
     host_ui_->Open(
         fm4_static_recomp::ui::CreateGraphicsPage(*graphics_config_, std::move(services)));

@@ -260,7 +260,7 @@ of these settings sets its starting value for that session only.
 ### Presets
 
 GRAPHICS PRESET sets every row below it; changing one of them makes the preset CUSTOM.
-FRAME RATE and RESOLUTION SCALE are not part of a preset.
+FRAME RATE, RESOLUTION SCALE, UPSCALER and SHARPNESS are not part of a preset.
 
 | Setting | Console | High | Ultra | Experimental |
 |---|---|---|---|---|
@@ -286,9 +286,12 @@ FRAME RATE and RESOLUTION SCALE are not part of a preset.
 | FRAME RATE | Frame rate of races, menus and the showroom, 60 fps up to your display's refresh rate (at most 240). Pick a rate your PC holds (see [Benchmarks](#benchmarks)). Without G-Sync or FreeSync, pick the refresh rate or a whole fraction of it. |
 | VSYNC | Off by default, which suits G-Sync and FreeSync displays. Turn it on if you see tearing. |
 | RESOLUTION SCALE | 1x to 4x of 1280x720 on each axis, up to 5120x2880. |
-| SHOWROOM MSAA | The game's own multisampling in the showroom, menus, pre-race, replays and photo mode: 4x as on the console, 2x or off. Fewer samples are faster and leave edge smoothing to the resolution scale. From the next screen. |
-| RACE MSAA | The same in races, the countdown and the results: 2x as on the console (4x in races alone on track), 4x (heavy on the GPU) or off. From the next race. |
-| POST AA | FXAA or FXAA Extreme over the finished picture; Extreme smooths and softens more. |
+| UPSCALER | Off stretches the picture to your display. DLSS (NVIDIA RTX GPUs), FSR 2 or FSR 3 (any GPU) upscale it from the resolution scale with the game's depth and motion and smooth edges themselves, so MSAA and post AA are off while one runs. With the output at the render size they work as anti-aliasing alone (DLAA). Applies at once; the MSAA change from the next screen. |
+| SHARPNESS | Sharpening after DLSS, FSR 2 or FSR 3: Off, or 10 % to 100 %; 30 % by default. Applies at once. |
+| DLSS PRESET | In the launcher only, while UPSCALER is DLSS: the DLSS model. Auto takes M where DLSS upscales by more than 1.8x on an RTX 40 or later GPU, else K; K, M, J and L pick one; Default leaves the choice to the DLSS runtime and the NVIDIA app's override. From the next start. |
+| SHOWROOM MSAA | The game's own multisampling in the showroom, menus, pre-race, replays and photo mode: 4x as on the console, 2x or off. Fewer samples are faster and leave edge smoothing to the resolution scale. From the next screen. Off while an upscaler runs. |
+| RACE MSAA | The same in races, the countdown and the results: 2x as on the console (4x in races alone on track), 4x (heavy on the GPU) or off. From the next race. Off while an upscaler runs. |
+| POST AA | FXAA or FXAA Extreme over the finished picture; Extreme smooths and softens more. Off while an upscaler runs. |
 | ANISOTROPIC FILTERING | Keeps textures sharp at grazing angles. Game keeps what the game asks for; 2x to 16x force it. |
 | LEVEL OF DETAIL | How far away, and for how many cars, detailed models stay in use. High moves the switch distances out about 1.4 times, Ultra about twice and keeps your own car on its best model. From the next race load. |
 | REFLECTION UPDATES | How often car paint, glass and chrome reflections are redrawn. The console freezes them in 16-car races and split screen; Every race redraws them there too; Double redraws twice as much each frame. |
@@ -357,6 +360,9 @@ next launch.
 | `--fm4_frame_rate=60..240` | Frame rate of races, menus and the showroom |
 | `--vulkan_present_mode=immediate\|fifo` | VSYNC off or on |
 | `--swap_post_effect=none\|fxaa\|fxaa_extreme` | Post-process anti-aliasing |
+| `--present_effect=bilinear\|fsr2\|fsr3\|dlss` | UPSCALER: off, FSR 2, FSR 3 or DLSS |
+| `--present_upscaler_sharpness=0..100` | SHARPNESS after the upscaler, in percent |
+| `--present_dlss_preset=auto\|k\|m\|j\|l\|default` | DLSS PRESET |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |

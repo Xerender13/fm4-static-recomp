@@ -17,6 +17,10 @@ public sealed record SchemaRow(
     [property: JsonPropertyName("default")] string? Default,
     [property: JsonPropertyName("description")] string Description)
 {
+    // The row is shown only while each of these settings has its value.
+    [JsonPropertyName("shown_when")]
+    public IReadOnlyDictionary<string, string>? ShownWhen { get; init; }
+
     public bool Accepts(string value) => Kind switch
     {
         "range" => int.TryParse(value, out var n) && n.ToString() == value && n >= Low && n <= High,
