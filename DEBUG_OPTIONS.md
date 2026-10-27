@@ -23,6 +23,7 @@ Switches of the fixes that give the upscaler correct motion. Turn one off to see
 | `--present_upscaler_uniform_alpha_to_coverage` | `false` | Above 1x, cut-outs (foliage, crowds, fences) take one steady threshold instead of an ordered dither, which can show as hatching on leaf edges |
 | `--fm4_upscaler_replay_blur` | `false` | Keep the replay cameras' motion blur while an upscaler runs (`false`: no blur, whose smear around the car's mirrors and exhaust pipes the upscaler turns into ghosting) |
 | `--present_upscaler_hud` | `composite` | What the upscaler gets where the HUD is: `composite` (the frame without the HUD, the HUD drawn after the upscale), `off` (the frame with the HUD) or `debug` (the frame without the HUD, shown so) |
+| `--present_upscaler_mip_bias` | `0` | Live. Added to the texture LOD bias an upscaler gives, `log2(render / output width)` (-1 from 720p to 1440p), with which textures keep the output's detail: negative is sharper and can shimmer (the DLSS and FSR guides recommend `-1`), positive is softer |
 | `--fm4_shadow_map_size` | `0` | Car shadow map size from the next scene load: `0` is 768 while an upscaler takes a 1x frame, else 512 (the console's); `512` or `768` fixes it |
 | `--present_dlss_preset` | `auto` | DLSS model: `auto` (M from Performance mode on RTX 40 and later, K otherwise), `default` (the runtime's choice), `j`, `k`, `l` or `m` |
 | `--present_dlss_runtime` | empty | Folder holding `nvngx_dlss.dll`; empty uses the newest one next to the executable |
