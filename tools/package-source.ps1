@@ -54,7 +54,7 @@ if (Test-Path -LiteralPath $payloadRoot) { Remove-Item -LiteralPath $payloadRoot
 [void](New-Item -ItemType Directory -Force -Path $payloadRoot)
 
 $include = @(
-    'CMakeLists.txt', 'CMakePresets.json', 'LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md', 'cmake', 'src',
+    'CMakeLists.txt', 'CMakePresets.json', 'LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md', 'DEBUG_OPTIONS.md', 'guide', 'cmake', 'src',
     'config/rexglue', 'config/release.json', 'config/release-toolchain.json',
     'config/supported-discs.json', 'config/shaders', 'config/warm-up',
     'tools/release-common.ps1', 'tools/provision-toolchain.ps1', 'tools/install-build-tools.ps1',
