@@ -1,7 +1,7 @@
 """-Path and positional paths read `[`, `]`, `*` and `?` as wildcards, so a player's folder named
 `Тест [1]` breaks them; -LiteralPath does not. Resolve-Path has the same problem and is not needed.
 Expand-Archive checks an existing -DestinationPath with wildcards (then tries to create the folder and
-fails), and Start-Process -WorkingDirectory does not find a bracketed folder, in both editions."""
+fails), Compress-Archive's -Path takes a wildcard to name a folder's contents, and Start-Process -WorkingDirectory does not find a bracketed folder, in both editions."""
 import re
 import unittest
 from pathlib import Path
@@ -46,7 +46,7 @@ def _wildcard_prone(argument):
 def violations(text):
     found = []
     for number, line in logical_lines(text):
-        for banned in ("Resolve-Path", "Expand-Archive"):
+        for banned in ("Resolve-Path", "Expand-Archive", "Compress-Archive"):
             if re.search(rf"(?<![\w-]){banned}(?![\w-])", line, re.IGNORECASE):
                 found.append((number, banned))
         if re.search(r"Start-Process\b.*-WorkingDirectory\b", line, re.IGNORECASE):
@@ -70,7 +70,8 @@ class ScannerTest(unittest.TestCase):
             "$p = (Resolve-Path $x).Path\n"
             "Remove-Item `\n    $staging -Recurse\n"
             "Expand-Archive -LiteralPath $zip -DestinationPath $root -Force\n"
-            "Start-Process -FilePath $exe `\n    -WorkingDirectory $dir\n")], [1, 2, 3, 4, 5, 7, 8])
+            "Start-Process -FilePath $exe `\n    -WorkingDirectory $dir\n"
+            "Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip\n")], [1, 2, 3, 4, 5, 7, 8, 10])
 
     def test_literal_paths_and_constants_pass(self):
         self.assertEqual(violations(

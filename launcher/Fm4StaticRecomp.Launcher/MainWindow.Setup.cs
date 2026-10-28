@@ -403,7 +403,7 @@ public partial class MainWindow
         {
             try
             {
-                licences = await MicrosoftLicences.ReadAsync(host.Layout.LicencesScript(host.Payload.Version), cancellation);
+                licences = await MicrosoftLicences.ReadAsync(host.Layout.LicencesScript(host.Payload.Version), host.Platform.ConsoleEncoding, cancellation);
             }
             catch (InvalidOperationException error)
             {

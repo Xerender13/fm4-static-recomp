@@ -1,3 +1,5 @@
+using System.Text;
+using Fm4StaticRecomp.Launcher.Core.Platform;
 using Fm4StaticRecomp.Launcher.Core.Settings;
 using Fm4StaticRecomp.Launcher.Core.Setup;
 
@@ -33,9 +35,26 @@ public class MicrosoftLicencesTests
         var script = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\..\tools\microsoft-licences.ps1"));
         MicrosoftLicences licences;
         // The script reads Microsoft's channel; without network it exits non-zero.
-        try { licences = await MicrosoftLicences.ReadAsync(script, CancellationToken.None); }
+        try { licences = await MicrosoftLicences.ReadAsync(script, new WindowsPlatform().ConsoleEncoding, CancellationToken.None); }
         catch (InvalidOperationException) { return; }
         Assert.StartsWith("https://", licences.BuildTools);
         Assert.StartsWith("https://", licences.WindowsSdk);
+    }
+
+    // Windows PowerShell writes its errors in the console's code page, a script may switch to UTF-8.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Reports_the_script_s_error_readably(bool utf8)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var oem = new WindowsPlatform().ConsoleEncoding;
+        var text = new[] { "Ошибка сети", "Erreur réseau" }.First(t => oem.GetString(oem.GetBytes(t)) == t);
+        using var temp = new TempDir();
+        var script = Path.Combine(temp.Path, "fails.ps1");
+        File.WriteAllText(script, (utf8 ? "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); " : "") +
+                                  $"[Console]::Error.WriteLine('{text}'); exit 1", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => MicrosoftLicences.ReadAsync(script, oem, CancellationToken.None));
+        Assert.Contains(text, error.Message);
     }
 }

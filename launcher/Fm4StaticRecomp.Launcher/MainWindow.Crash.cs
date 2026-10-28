@@ -63,10 +63,14 @@ public partial class MainWindow
         try
         {
             using var process = Process.Start(start)!;
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
+            // Decoded as setup's output is: PowerShell writes its own errors in the OEM code page.
+            List<string> outputLines = [], errorLines = [];
+            var pumps = Task.WhenAll(
+                ConsoleLines.PumpAsync(process.StandardOutput.BaseStream, host.Platform.ConsoleEncoding, outputLines.Add, CancellationToken.None),
+                ConsoleLines.PumpAsync(process.StandardError.BaseStream, host.Platform.ConsoleEncoding, errorLines.Add, CancellationToken.None));
             await process.WaitForExitAsync();
-            (output, error, scriptExit) = (await outputTask, await errorTask, process.ExitCode);
+            await pumps;
+            (output, error, scriptExit) = (string.Join('\n', outputLines), string.Join('\n', errorLines), process.ExitCode);
         }
         catch (Exception failure) when (failure is System.ComponentModel.Win32Exception or IOException)
         {

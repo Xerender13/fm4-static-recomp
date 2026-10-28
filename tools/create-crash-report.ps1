@@ -222,7 +222,8 @@ try {
     }
 
     $archivePath = Join-Path $reportsRoot "FM4StaticRecomp-$fingerprint-$timestamp.zip"
-    Compress-Archive -Path (Join-Path $stagingRoot '*') -DestinationPath $archivePath -CompressionLevel Optimal
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($stagingRoot, $archivePath, [IO.Compression.CompressionLevel]::Optimal, $false)
     $issueUrl = "$RepositoryUrl/issues/new?title=$([Uri]::EscapeDataString($title))&body=$([Uri]::EscapeDataString($body))&labels=crash"
     $record = [ordered]@{
         schema = 1

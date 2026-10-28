@@ -52,6 +52,7 @@ $deps = Get-Content -LiteralPath (Join-Path $root 'launcher/Fm4StaticRecomp.Laun
 if ($deps -notmatch 'runtimepack\.Microsoft\.NETCore\.App\.Runtime\.win-x64/(?<version>[0-9.]+)') { throw 'The .NET runtime pack version was not found.' }
 Copy-Item -LiteralPath (Join-Path $packages "microsoft.netcore.app.runtime.win-x64/$($Matches.version)/THIRD-PARTY-NOTICES.TXT") `
     -Destination (Join-Path $notices 'dotnet-THIRD-PARTY-NOTICES.txt')
-Compress-Archive -Path (Join-Path $zipFolder '*') -DestinationPath (Join-Path $out 'FM4StaticRecomp-Launcher.zip')
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[IO.Compression.ZipFile]::CreateFromDirectory($zipFolder, (Join-Path $out 'FM4StaticRecomp-Launcher.zip'))
 Remove-Item -LiteralPath $zipFolder -Recurse -Force
 Get-ChildItem -LiteralPath $out | ForEach-Object { '{0,12:N0}  {1}' -f $_.Length, $_.Name }

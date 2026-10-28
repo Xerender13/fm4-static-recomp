@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Fm4StaticRecomp.Launcher.Core.Settings;
@@ -27,14 +28,16 @@ public sealed record MicrosoftLicences(
     private static bool IsHttps(string? link) =>
         Uri.TryCreate(link, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
 
-    public static async Task<MicrosoftLicences> ReadAsync(string script, CancellationToken cancellation)
+    public static async Task<MicrosoftLicences> ReadAsync(string script, Encoding consoleEncoding, CancellationToken cancellation)
     {
         var start = PowerShell.StartInfo(PowerShell.FileArguments(script));
         start.RedirectStandardOutput = true;
         start.RedirectStandardError = true;
         using var process = Process.Start(start)!;
-        var output = process.StandardOutput.ReadToEndAsync(cancellation);
-        var error = process.StandardError.ReadToEndAsync(cancellation);
+        List<string> output = [], error = [];
+        var pumps = Task.WhenAll(
+            ConsoleLines.PumpAsync(process.StandardOutput.BaseStream, consoleEncoding, output.Add, CancellationToken.None),
+            ConsoleLines.PumpAsync(process.StandardError.BaseStream, consoleEncoding, error.Add, CancellationToken.None));
         try
         {
             await process.WaitForExitAsync(cancellation);
@@ -44,9 +47,10 @@ public sealed record MicrosoftLicences(
             process.Kill(entireProcessTree: true);
             throw;
         }
+        await pumps;
         if (process.ExitCode != 0)
-            throw new InvalidOperationException($"The Microsoft licences could not be read: {(await error).Trim()}");
-        var line = (await output).Split('\n').Select(l => l.Trim()).LastOrDefault(l => l.StartsWith('{'))
+            throw new InvalidOperationException($"The Microsoft licences could not be read: {string.Join('\n', error).Trim()}");
+        var line = output.Select(l => l.Trim()).LastOrDefault(l => l.StartsWith('{'))
                    ?? throw new InvalidOperationException("The licence script printed no licences.");
         return Parse(line);
     }
