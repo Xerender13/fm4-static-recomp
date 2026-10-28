@@ -50,6 +50,8 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   ~HostUi() override;
 
   bool is_open() const { return bool(screen_); }
+  // Closed, but still holding the input until the closing press is released.
+  bool is_closing() const { return draining_; }
   // Fails (and logs) when the title's UI assets cannot be loaded.
   bool Open(std::unique_ptr<MenuScreen> screen);
   // The guest gets its input back only once no pad button or key is held,

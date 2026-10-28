@@ -2,7 +2,8 @@
 
 [← Back to the README](../README.md)
 
-**Play Career → My Profile → Options → GRAPHICS**, or **F6** anywhere, opens a settings page
+**Play Career → My Profile → Options → GRAPHICS**, or **F6** or **BACK + START** held
+together on a controller anywhere, opens a settings page
 in the game's own style. Each row explains itself, applies at once or from the next race or
 screen, and is saved to `config\graphics.toml` in the state folder. A
 [launch option](launch-options.md) for one of these settings sets its starting value for that

@@ -63,7 +63,6 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"xma_direct_decode", "false"},
     Default{"xma_lazy_decoder_state", "false"},
     Default{"pad_chord_debug_overlay", ""},
-    Default{"pad_chord_game_menu", ""},
     // The keyboard plays beside the pad, Left Shift as the clutch while driving keys are
     // held; no mouse input (the game's menus have no pointer).
     Default{"mnk_mode", "true"},

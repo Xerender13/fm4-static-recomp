@@ -180,7 +180,12 @@ class Fm4App final : public rex::ReXApp {
       }
     });
     InstallKeyboard();
-    rex::ui::RegisterBind("bind_graphics_page", "F6", "Toggle the GRAPHICS page", [this] {
+    // The SDK's pad_chord_game_menu runs the bind of this name.
+    rex::ui::RegisterBind("bind_game_menu", "F6", "Toggle the GRAPHICS page", [this] {
+      // BACK+START's START has already closed the page by itself.
+      if (host_ui_ && host_ui_->is_closing()) {
+        return;
+      }
       if (host_ui_ && host_ui_->is_open()) {
         host_ui_->Close();
       } else {
@@ -190,7 +195,7 @@ class Fm4App final : public rex::ReXApp {
   }
 
   void OnShutdown() override {
-    rex::ui::UnregisterBind("bind_graphics_page");
+    rex::ui::UnregisterBind("bind_game_menu");
     fm4_static_recomp::SetInputTick(nullptr);
     fm4_static_recomp::SetPromptTextSource(nullptr);
     fm4_static_recomp::SetGraphicsPageOpener(nullptr);
