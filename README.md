@@ -68,6 +68,7 @@ the command line? See the [manual install](guide/manual-install.md).
 | [Manual install](guide/manual-install.md) | Command-line setup, Disc 2 and DLC, updating |
 | [Graphics settings](guide/graphics.md) | The in-game GRAPHICS page, presets, what each setting does |
 | [Upscalers](guide/upscalers.md) | DLSS, FSR 2 and FSR 3: what to pick, how the port feeds them, known limits |
+| [High frame rates](guide/high-frame-rate.md) | Picking a frame rate, how the game runs at up to 240 fps at real speed, limits |
 | [Keyboard](guide/controls.md) | Key layout for driving and menus, rebinding |
 | [Launch options](guide/launch-options.md) | Command-line options, languages, `-Compat`, frame generation, setting options, logs and crash reports |
 | [Debug options](DEBUG_OPTIONS.md) | Debug views, A/B switches of rendering fixes and diagnostics |
@@ -82,7 +83,7 @@ ShiftGlue SDK (without this project's game hooks and renderer changes):
 | | Xbox 360 | Stock ShiftGlue SDK | FM4 Static Recomp |
 |---|---|---|---|
 | Resolution | 1280x720 | 1x to 4x of 720p, but the road and car shadows render wrong | 1x to 4x of 720p (up to 5120x2880), switchable live |
-| Race frame rate | 60 fps | The console's pacing | 60 fps up to the display's refresh rate (at most 240) |
+| Race frame rate | 60 fps | The console's pacing | 60 fps up to the display's refresh rate (at most 240) ([how](guide/high-frame-rate.md)) |
 | Menus and showroom | 60 / 30 fps | The console's pacing | The race frame rate; animations and the showroom camera run at real time |
 | Race loading | Console speed | Console speed | Faster |
 | Sun and lights | Correct | Screen-filling glare | Correct |
