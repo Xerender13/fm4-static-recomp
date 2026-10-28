@@ -1,5 +1,6 @@
 // Adapted from Pinyon Shift's launcher (launcher/PinyonShift.Launcher.Desktop, BSD-3-Clause; see THIRD_PARTY_NOTICES.md).
 using System.ComponentModel;
+using Fm4StaticRecomp.Launcher.Core.Profiles;
 
 namespace Fm4StaticRecomp.Launcher;
 
@@ -21,9 +22,9 @@ public partial class MainWindow
         Subhead.Text = $"Vulkan · {scale}× ({1280 * scale} × {720 * scale}) · F6 opens settings in game";
     }
 
-    private async Task PlayAsync()
+    private async Task PlayAsync(Profile? chosen = null)
     {
-        if (_host is not { } host || SelectedProfile is not { } profile) return;
+        if (_host is not { } host || (chosen ?? SelectedProfile) is not { } profile) return;
         StatusText.Text = "";
         ShowMode(Mode.Playing);
         var session = new GameSession(host);
@@ -35,6 +36,7 @@ public partial class MainWindow
         }
         catch (Exception error) when (error is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
+            OpenSkippedWindow();
             ShowFailure("THE GAME DID NOT START", error.Message);
             return;
         }
@@ -42,9 +44,15 @@ public partial class MainWindow
         ReloadProfiles();
         if (NormalExitCodes.Contains(exitCode))
         {
+            if (_skip is not null)
+            {
+                ExitSkippedLauncher();
+                return;
+            }
             ShowMode(Mode.Ready);
             return;
         }
+        OpenSkippedWindow();
         await OfferCrashReportAsync(session, exitCode);
     }
 }

@@ -1,6 +1,8 @@
 // Adapted from Pinyon Shift's launcher (launcher/PinyonShift.Launcher.Desktop, BSD-3-Clause; see THIRD_PARTY_NOTICES.md).
 using System.Collections.Concurrent;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -21,6 +23,8 @@ public partial class MainWindow : Window
     public static readonly string Version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     private readonly string[] _args;
+    // Set while --skip-launcher keeps the window closed; cleared once it opens.
+    private SkipLauncherRequest? _skip;
     private LauncherHost? _host;
     private Mode _mode = Mode.Loading;
     private CancellationTokenSource? _cancel;
@@ -42,6 +46,7 @@ public partial class MainWindow : Window
     public MainWindow(string[] args)
     {
         _args = args;
+        _skip = SkipLauncherRequest.Parse(args);
         InitializeComponent();
         Title = Branding.ProductName;
         ProductText.Text = Branding.ProductName.ToUpperInvariant();
@@ -49,7 +54,8 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, (_, _) => DropOverlay.IsVisible = false);
-        Opened += async (_, _) => await LoadAsync();
+        if (_skip is null) Opened += async (_, _) => await LoadAsync();
+        else Dispatcher.UIThread.Post(async () => await LoadAsync());
         new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => FlushLog()).Start();
         Dispatcher.UIThread.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += (_, e) =>
@@ -66,6 +72,7 @@ public partial class MainWindow : Window
         e.Handled = true;
         AppendLog($"UNEXPECTED ERROR: {e.Exception}");
         FlushLog();
+        OpenSkippedWindow();
         var log = _host?.Layout.LauncherLog ?? "the launcher's log";
         await Dialog.AskAsync(this, "SOMETHING WENT WRONG",
             $"{e.Exception.Message}\n\nThe details are in {log}. REPORT A PROBLEM opens an issue; attach that file.", "OK");
@@ -91,6 +98,7 @@ public partial class MainWindow : Window
             SetupPanel.IsVisible = false;
             PrimaryButton.IsVisible = false;
             SavesButton.IsVisible = false;
+            OpenSkippedWindow();
             return;
         }
         finally
@@ -116,9 +124,23 @@ public partial class MainWindow : Window
         {
             AppendLog($"Could not tidy the game folder: {error.Message}");
         }
-        _ = StartUpdateCheckAsync();
+        if (_skip is null) _ = StartUpdateCheckAsync();
         _ = RefreshFlagsAsync();
-        switch (StartDecision.Decide(host.Setup, host.Profiles.List().Count, host.Payload.Version))
+        var kind = StartDecision.Decide(host.Setup, host.Profiles.List().Count, host.Payload.Version);
+        string? note = null;
+        if (_skip is { } skip)
+        {
+            var start = skip.Decide(kind, host.Profiles.List(), host.Settings.ActiveProfile);
+            if (start.Profile is { } profile)
+            {
+                ShowMode(Mode.Ready);
+                await PlayAsync(profile);
+                return;
+            }
+            note = start.Note;
+            OpenSkippedWindow();
+        }
+        switch (kind)
         {
             case StartKind.Setup:
                 ShowMode(Mode.Setup);
@@ -129,8 +151,31 @@ public partial class MainWindow : Window
                 break;
             default:
                 ShowMode(Mode.Ready);
+                if (note is not null) StatusText.Text = note;
                 break;
         }
+    }
+
+    // --skip-launcher opens the window once the player has to act; from then on it runs as usual.
+    private void OpenSkippedWindow()
+    {
+        if (_skip is null) return;
+        _skip = null;
+        ((IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).MainWindow = this;
+        Show();
+        _ = StartUpdateCheckAsync();
+    }
+
+    // The game quit normally under --skip-launcher: the frontend gets control back.
+    private void ExitSkippedLauncher()
+    {
+        FlushLog();
+        lock (_sessionLogGate)
+        {
+            _sessionLog?.Dispose();
+            _sessionLog = null;
+        }
+        ((IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Shutdown();
     }
 
     private void ShowMode(Mode mode)

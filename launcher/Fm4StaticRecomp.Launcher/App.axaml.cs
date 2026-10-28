@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Fm4StaticRecomp.Launcher.Core.Install;
 
 namespace Fm4StaticRecomp.Launcher;
 
@@ -15,7 +16,8 @@ public partial class App : Application
         {
             var args = desktop.Args ?? [];
             var window = new MainWindow(args);
-            desktop.MainWindow = window;
+            // Under --skip-launcher the window opens itself only when it is needed.
+            if (!args.Contains(SkipLauncherRequest.Switch)) desktop.MainWindow = window;
             // --snapshot FILE [STATE] [WIDTHxHEIGHT]: render the window to a
             // PNG and exit, to check the layout without a desktop.
             var index = Array.IndexOf(args, "--snapshot");

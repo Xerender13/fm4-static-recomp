@@ -36,6 +36,23 @@ instead, see the [manual install](manual-install.md).
 | **CONTENT** | Installs Disc 2 and DLC. |
 | **SETTINGS** | The [GRAPHICS page's settings](graphics.md), the game's language, launch options and advanced options. |
 
+## Starting from Steam, Pegasus or another frontend
+
+`FM4StaticRecompLauncher.exe --skip-launcher` starts the game without showing the launcher, on
+the profile last chosen in it; `--profile "<name>"` picks another profile by its name. The
+launcher waits in the background while the game runs and closes with it, so the frontend sees
+the game running for its whole length. It does not check for updates then: start it as usual
+for those.
+
+Its window opens when you are needed: while setup or a new version's build is unfinished, for
+an unknown profile name, when the game does not start, and after a crash (REPORT CRASH).
+
+- **Steam:** Games → Add a Non-Steam Game to My Library, choose
+  `FM4StaticRecompLauncher.exe`, then in the shortcut's Properties set Launch Options to
+  `--skip-launcher`.
+- **Pegasus, Playnite, LaunchBox and others:** the command
+  `"D:\FM4\FM4StaticRecompLauncher.exe" --skip-launcher`, with your folder.
+
 ## The `data` folder
 
 Everything lives in `data\` beside the launcher: the extracted disc, the build tools, the
