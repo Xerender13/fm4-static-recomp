@@ -14,6 +14,22 @@ commands run on ShiftGlue's native Vulkan renderer, written for
 [Pinyon Shift](https://github.com/arcanite24/pinyon-shift) (*Forza Horizon*) and extended
 here for FM4.
 
+## New in 0.3.0: DLSS, FSR 2 and FSR 3
+
+[![NVIDIA DLSS](https://img.shields.io/badge/NVIDIA-DLSS-76B900?logo=nvidia&logoColor=white)](guide/upscalers.md)
+[![AMD FSR 2](https://img.shields.io/badge/AMD-FSR%202-ED1C24?logo=amd&logoColor=white)](guide/upscalers.md)
+[![AMD FSR 3](https://img.shields.io/badge/AMD-FSR%203-ED1C24?logo=amd&logoColor=white)](guide/upscalers.md)
+[![DLAA](https://img.shields.io/badge/native%20AA-DLAA-76B900)](guide/upscalers.md)
+
+> [!TIP]
+> **Temporal upscalers now work with FM4.** Render at 720p and get a sharp 1440p or 4K
+> picture, or use them as anti-aliasing at your screen's resolution. The Xbox 360 game never
+> computed motion, so this port rebuilds the camera, jitter and every moving car, wheel,
+> driver and shadow from the game's draws. Choose **UPSCALER** on the GRAPHICS page
+> (**BACK + START** on a controller, or **F6**). How it works and what to pick:
+> **[Upscalers](guide/upscalers.md)**. Everything else in this version:
+> [release notes](https://github.com/i2kiselev/fm4-static-recomp/releases/latest).
+
 > [!NOTE]
 > **Experimental release.** The offline game modes play without known blocking problems
 > (see [Tested](guide/performance.md#tested)). This repository contains **no** game code or
@@ -51,6 +67,7 @@ the command line? See the [manual install](guide/manual-install.md).
 | [Launcher](guide/launcher.md) | First setup, profiles, content, the `data` folder, updates |
 | [Manual install](guide/manual-install.md) | Command-line setup, Disc 2 and DLC, updating |
 | [Graphics settings](guide/graphics.md) | The in-game GRAPHICS page, presets, what each setting does |
+| [Upscalers](guide/upscalers.md) | DLSS, FSR 2 and FSR 3: what to pick, how the port feeds them, known limits |
 | [Keyboard](guide/controls.md) | Key layout for driving and menus, rebinding |
 | [Launch options](guide/launch-options.md) | Command-line options, languages, `-Compat`, frame generation, setting options, logs and crash reports |
 | [Debug options](DEBUG_OPTIONS.md) | Debug views, A/B switches of rendering fixes and diagnostics |
@@ -69,8 +86,9 @@ ShiftGlue SDK (without this project's game hooks and renderer changes):
 | Menus and showroom | 60 / 30 fps | The console's pacing | The race frame rate; animations and the showroom camera run at real time |
 | Race loading | Console speed | Console speed | Faster |
 | Sun and lights | Correct | Screen-filling glare | Correct |
-| Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Showroom and race MSAA 4x, 2x or off each, FXAA, FXAA Extreme |
-| Graphics settings | Fixed | Launch options only | In-game [GRAPHICS page](guide/graphics.md) with presets and per-setting switches, saved between sessions |
+| Anti-aliasing | The game's 2x/4x MSAA | The game's MSAA | Showroom and race MSAA 4x, 2x or off each, FXAA, FXAA Extreme, DLAA |
+| Upscaling | - | DLSS, FSR 2 and FSR 3 with Forza Horizon's camera tracking, which does not fit FM4 | **DLSS, FSR 2 and FSR 3** with FM4's own depth, camera cuts and per-object motion ([how](guide/upscalers.md)) |
+| Graphics settings | Fixed | Launch options only | In-game [GRAPHICS page](guide/graphics.md) (**BACK + START** or **F6**) with presets and per-setting switches, saved between sessions |
 | VRAM at 3x | - | About 8 GB | About 2.5 GB |
 | Input | Controller | XInput gamepad | XInput gamepad and **[keyboard](guide/controls.md)**, with keycap button prompts |
 | Disc 2 and DLC | From the disc and Marketplace | Not wired up | Installed at launch from folders you name |
@@ -121,12 +139,15 @@ Known problems are tracked as
 [Reporting issues](guide/reporting-issues.md).
 
 ## Roadmap
-1. **Ongoing: DLSS/FSR3** upscaler support
+
+1. **Upscaler polish**: the mirrors and the remaining shimmer (see
+   [Known limitations](guide/upscalers.md#known-limitations)).
 2. **Project Forza Plus** support.
 3. **Racing wheels**, starting with MOZA wheels.
 4. **Linux**: a native build of the game and the launcher.
 5. **Other disc releases**, such as the Essentials Edition.
-6. More tests on niche or legacy hardware
+6. More tests on niche or legacy hardware.
+
 ## Repository layout
 
 <details>

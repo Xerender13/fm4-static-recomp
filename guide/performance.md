@@ -7,6 +7,7 @@
 - Offline modes: World Tour (played up to the Expert Division), Event List (about 30 races
   without an issue), Free Play (Quick Race, Hot Lap), Test Drive, Autovista and photo mode.
 - The garage (upgrades, tuning presets, paint and decals), replays and saving.
+- Intel GPUs: a player's test confirmed the flickering lights fixed in 0.3.0.
 - Not tested: Xbox LIVE modes, split screen, racing wheels, and most AMD and Intel GPUs.
 
 ## Test bench
