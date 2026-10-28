@@ -323,8 +323,9 @@ function Get-Fm4BuildToolsLicence {
     $resources = @(if ($product.Count -gt 0 -and $product[0].PSObject.Properties['localizedResources']) {
         $product[0].localizedResources
     })
-    $licence = @($resources | Where-Object { $_.language -eq 'en-us' -and $_.license }) +
-        @($resources | Where-Object { $_.license }) | Select-Object -First 1
+    $withLicence = @($resources | Where-Object { $_.PSObject.Properties['license'] -and $_.license })
+    $licence = @($withLicence | Where-Object { $_.PSObject.Properties['language'] -and $_.language -eq 'en-us' }) +
+        $withLicence | Select-Object -First 1
     if ($null -eq $licence) { throw "Microsoft's channel names no Build Tools licence: $ChannelUrl" }
     $licence.license
 }

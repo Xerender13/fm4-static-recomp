@@ -148,7 +148,7 @@ if ($ToolchainSource -eq 'VisualStudio') {
             "$($config.msvc.toolset_line) toolset with the Windows SDK $($config.windows_sdk.sdk_folder_version)."))
     }
 }
-elseif ($null -eq (Get-Fm4BuildToolset | Where-Object Source -eq 'feed')) {
+elseif ($null -eq (Get-Fm4BuildToolset | Where-Object { $null -ne $_ -and $_.Source -eq 'feed' })) {
     $failure = $null
     if ($AcceptMicrosoftLicense) {
         $paths = Get-Fm4MicrosoftToolchainPaths

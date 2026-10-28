@@ -18,9 +18,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $resolvedStateRoot = [IO.Path]::GetFullPath($StateRoot)
-$resolvedExecutable = (Resolve-Path -LiteralPath $Executable).Path
+$resolvedExecutable = [IO.Path]::GetFullPath($Executable)
 $reportsRoot = Join-Path $resolvedStateRoot 'reports'
 [void](New-Item -ItemType Directory -Force -Path $reportsRoot)
 $releasePath = Join-Path $repoRoot 'config/release.json'
