@@ -198,6 +198,21 @@ public class GraphicsSettingsTests
     }
 
     [Fact]
+    public void A_version_without_the_upscaler_row_offers_every_scale()
+    {
+        using var temp = new TempDir();
+        var json = temp.File("schema.json", """
+            {"schema_version":1,"blocks":[{"rows":[
+             {"label":"RESOLUTION SCALE","key":"resolution_scale","string":false,"kind":"choice","choices":[{"label":"1X","value":"1"},{"label":"2X","value":"2"},{"label":"3X","value":"3"}],"default":"1","description":"d"}]}],
+             "presets":[]}
+            """u8.ToArray());
+        var settings = new GraphicsSettings(GraphicsSchema.Load(json), temp.File("g.toml", "resolution_scale = 3\npresent_effect = \"dlss\"\n"u8.ToArray()), temp.Path);
+        Assert.Equal(["1", "2", "3"], Scales(settings, (2560, 1440)));
+        Assert.Null(settings.FitScaleToUpscaler((2560, 1440)));
+        Assert.Null(settings.TemporalUpscaler((2560, 1440)));
+    }
+
+    [Fact]
     public void Loads_the_schema_the_game_writes()
     {
         var real = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,

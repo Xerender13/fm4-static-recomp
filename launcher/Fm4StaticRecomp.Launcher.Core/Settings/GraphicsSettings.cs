@@ -47,7 +47,9 @@ public sealed class GraphicsSettings(GraphicsSchema schema, string tomlPath, str
     public static int? LargestFittingScale((int Width, int Height)? display) =>
         display is { Width: > 0, Height: > 0 } size ? Math.Min(size.Width / 1280, size.Height / 720) : null;
 
-    private bool UpscalerChosen => Value(Upscaler) != "bilinear";
+    // A version built before the UPSCALER row (0.2.2, still active while an update builds or
+    // after GO BACK TO) has none.
+    private bool UpscalerChosen => schema.SettingRows.Any(r => r.Key == Upscaler) && Value(Upscaler) != "bilinear";
 
     // With an upscaler chosen, only the scales it runs at, plus the current one if it is larger.
     public IReadOnlyList<SchemaChoice> ScaleChoices((int Width, int Height)? display)
