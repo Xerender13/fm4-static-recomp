@@ -26,7 +26,14 @@ bool MenuScreen::SetFocus(size_t index) {
 
 MenuScreen::Result MenuScreen::Handle(NavCommand command) {
   if (command == NavCommand::kBack || command == NavCommand::kClose) {
-    return Result::kBack;
+    return leave_ && !leave_() ? Result::kChanged : Result::kBack;
+  }
+  if (command == NavCommand::kApply) {
+    if (!apply_) {
+      return Result::kNone;
+    }
+    apply_();
+    return Result::kChanged;
   }
   if (rows_.empty()) {
     return Result::kNone;
@@ -44,6 +51,9 @@ MenuScreen::Result MenuScreen::Handle(NavCommand command) {
     }
     return Result::kNone;
   }
+  if (status().busy) {
+    return Result::kNone;
+  }
   const int direction = command == NavCommand::kLeft ? -1 : 1;
   if (rows_[focus_].slider) {
     return Slide(direction);
@@ -57,7 +67,8 @@ MenuScreen::Result MenuScreen::Handle(NavCommand command) {
 }
 
 MenuScreen::Result MenuScreen::Slide(int steps) {
-  if (focus_ >= rows_.size() || !rows_[focus_].slider || !rows_[focus_].is_enabled()) {
+  if (focus_ >= rows_.size() || !rows_[focus_].slider || !rows_[focus_].is_enabled() ||
+      status().busy) {
     return Result::kNone;
   }
   const MenuSlider& slider = *rows_[focus_].slider;
@@ -122,7 +133,10 @@ std::vector<NavCommand> PadNavigator::Poll(uint16_t buttons, int16_t thumb_lx, i
   if (pressed & kButtonB) {
     commands.push_back(NavCommand::kBack);
   }
-  if (pressed & kStart) {
+  if (pressed & kButtonY) {
+    commands.push_back(NavCommand::kApply);
+  }
+  if ((pressed & kStart) && !(buttons & kBack)) {
     commands.push_back(NavCommand::kClose);
   }
   previous_buttons_ = buttons;

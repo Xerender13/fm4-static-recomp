@@ -44,9 +44,11 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   // Above the guest's input listeners.
   static constexpr size_t kZOrder = 32;
 
+  // `apply_keys` are the keyboard's keys for Y in menus, in the keyboard
+  // driver's bind syntax ("Y", "Y,P").
   HostUi(rex::ReXApp& app, rex::ui::Presenter& presenter, rex::ui::ImmediateDrawer& drawer,
          rex::ui::Window& window, rex::input::InputSystem* input_system,
-         std::filesystem::path game_data_root);
+         std::filesystem::path game_data_root, std::string apply_keys);
   ~HostUi() override;
 
   bool is_open() const { return bool(screen_); }
@@ -57,8 +59,8 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   // The guest gets its input back only once no pad button or key is held,
   // so the press that closed the menu does not also reach the title.
   void Close();
-  // Shows the game's spinner with SAVED for a moment.
-  void NotifySaved();
+  // Leaves as Start does; the screen may stay open (unapplied changes).
+  void Leave();
 
   void Draw(rex::ui::UIDrawContext& context) override;
 
@@ -139,6 +141,7 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   rex::ui::Window& window_;
   rex::input::InputSystem* input_system_;
   std::filesystem::path game_data_root_;
+  std::string apply_bind_;
 
   std::unique_ptr<MenuScreen> screen_;
   PadNavigator pad_;
@@ -169,13 +172,14 @@ class HostUi final : public rex::ui::UIDrawer, public rex::ui::WindowInputListen
   std::unique_ptr<rex::ui::ImmediateTexture> white_;
   std::unique_ptr<rex::ui::ImmediateTexture> button_a_;
   std::unique_ptr<rex::ui::ImmediateTexture> button_b_;
+  std::unique_ptr<rex::ui::ImmediateTexture> button_y_;
   // Keycaps of the menu's own keys, for the help while the keyboard leads.
   std::unique_ptr<rex::ui::ImmediateTexture> key_accept_;
   std::unique_ptr<rex::ui::ImmediateTexture> key_back_;
+  std::unique_ptr<rex::ui::ImmediateTexture> key_apply_;
   std::unique_ptr<rex::ui::ImmediateTexture> spinner_;
   std::unique_ptr<rex::ui::ImmediateTexture> selection_bar_;
   std::unique_ptr<rex::ui::ImmediateTexture> arrow_;
-  std::chrono::steady_clock::time_point saved_at_{};
   std::chrono::steady_clock::time_point opened_at_{};
   // Alpha scale of what is drawn, for the opening fade.
   float fade_ = 1.0f;

@@ -14,6 +14,7 @@
 #include <rex/kernel/xam/module.h>
 #include <rex/logging.h>
 #include <rex/rex_app.h>
+#include <rex/ui/keybinds.h>
 #include <rex/ui/presenter.h>
 #include <rex/ui/ui_event.h>
 #include <rex/ui/virtual_key.h>
@@ -83,6 +84,8 @@ constexpr float kSliderBarRight = 914.0f;
 constexpr float kSliderBarTop = 9.0f;  // below the row's top
 constexpr float kSliderBarHeight = 13.0f;
 constexpr float kSliderNumberLeft = 927.0f;
+// The square beside a value whose change is not applied yet.
+constexpr float kUnappliedMark = 6.0f;
 // Opening as the game's screens do: the title strip fades in while the rest
 // slides in from the right and fades in.
 constexpr float kStripFadeMs = 150.0f;
@@ -133,17 +136,49 @@ std::unique_ptr<ImmediateTexture> LoadTexture(rex::ui::ImmediateDrawer& drawer,
                               image->rgba.data());
 }
 
+// The tokens of a keyboard driver bind ("Y", "Shift+Y,P"), trimmed.
+std::vector<std::string_view> BindTokens(std::string_view bind) {
+  std::vector<std::string_view> tokens;
+  while (!bind.empty()) {
+    const size_t comma = bind.find(',');
+    std::string_view token = bind.substr(0, comma);
+    bind = comma == std::string_view::npos ? std::string_view() : bind.substr(comma + 1);
+    while (token.starts_with(' '))
+      token.remove_prefix(1);
+    while (token.ends_with(' '))
+      token.remove_suffix(1);
+    if (!token.empty()) {
+      tokens.push_back(token);
+    }
+  }
+  return tokens;
+}
+
+// Whether `key` is the key of one of the bind's tokens, modifiers aside.
+bool BindHasKey(std::string_view bind, VirtualKey key) {
+  for (std::string_view token : BindTokens(bind)) {
+    const size_t plus = token.rfind('+');
+    if (rex::ui::ParseVirtualKey(plus == std::string_view::npos || plus + 1 == token.size()
+                                     ? token
+                                     : token.substr(plus + 1)) == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace
 
 HostUi::HostUi(rex::ReXApp& app, rex::ui::Presenter& presenter, rex::ui::ImmediateDrawer& drawer,
                rex::ui::Window& window, rex::input::InputSystem* input_system,
-               std::filesystem::path game_data_root)
+               std::filesystem::path game_data_root, std::string apply_keys)
     : app_(app),
       presenter_(presenter),
       drawer_(drawer),
       window_(window),
       input_system_(input_system),
-      game_data_root_(std::move(game_data_root)) {}
+      game_data_root_(std::move(game_data_root)),
+      apply_bind_(std::move(apply_keys)) {}
 
 HostUi::~HostUi() {
   alive_.reset();
@@ -185,9 +220,13 @@ bool HostUi::LoadAssets() {
   };
   key_accept_ = keycap("Return");
   key_back_ = keycap("Escape");
+  if (const auto tokens = BindTokens(apply_bind_); !tokens.empty()) {
+    key_apply_ = keycap(tokens.front());
+  }
   if (auto textures = UiArchive::Open(ui_root / "Textures.zip")) {
     button_a_ = LoadTexture(drawer_, *textures, "UI4/A_Button_F3.xds");
     button_b_ = LoadTexture(drawer_, *textures, "UI4/B_Button_F3.xds");
+    button_y_ = LoadTexture(drawer_, *textures, "UI4/Y_Button_F3.xds");
     spinner_ = LoadTexture(drawer_, *textures, "UI4/Common/LOADING_SPINNER_RGB.xds");
     selection_bar_ = LoadTexture(drawer_, *textures, "UI4/Common/SELECTION_BAR_GRADIENT.xds");
     arrow_ = LoadTexture(drawer_, *textures, "UI4/Common/Arrows_Sm_Front.xds");
@@ -290,10 +329,7 @@ void HostUi::SetGuestUiActive(bool active) {
   }
 }
 
-void HostUi::NotifySaved() {
-  saved_at_ = std::chrono::steady_clock::now();
-  RequestPaint();
-}
+void HostUi::Leave() { Apply(NavCommand::kClose); }
 
 void HostUi::RequestPaint() { presenter_.RequestUIPaintFromUIThread(); }
 
@@ -315,10 +351,6 @@ void HostUi::PacePaint() {
 
 void HostUi::Apply(NavCommand command) {
   if (!is_open()) {
-    return;
-  }
-  if (command == NavCommand::kClose) {
-    Close();
     return;
   }
   applying_ = true;
@@ -705,7 +737,12 @@ void HostUi::Draw(rex::ui::UIDrawContext& context) {
     return;
   }
   PollPad();
-  screen_->Update(false);
+  // As the pad's commands: a setting the update applies must not apply inside Draw.
+  window_.app_context().CallInUIThreadDeferred([alive = std::weak_ptr<bool>(alive_), this] {
+    if (!alive.expired() && is_open()) {
+      screen_->Update(false);
+    }
+  });
   DrawMenu(context);
 }
 
@@ -835,6 +872,10 @@ void HostUi::DrawMenu(rex::ui::UIDrawContext& context) {
       DrawText(Face::kCondensed, kTextSize + 1.0f, row.value(), kValueLeft, baseline,
                !enabled ? kDisabled : (focused ? kWhite : kValue));
     }
+    if (row.unapplied && row.unapplied()) {
+      DrawRect(kColumnX + 5.0f, top + (kBarHeight - kUnappliedMark) * 0.5f, kUnappliedMark,
+               kUnappliedMark, kRed);
+    }
     row_rects_[i] = RowRect{canvas_.x + kContentLeft * canvas_.scale,
                             canvas_.y + top * canvas_.scale,
                             canvas_.x + kRowsRight * canvas_.scale,
@@ -867,7 +908,8 @@ void HostUi::DrawMenu(rex::ui::UIDrawContext& context) {
     };
     paragraph(row.description, kLabel);
     paragraph(row.note ? row.note() : std::string(), kLabel);
-    paragraph(row.pending && row.pending() ? std::string("Applying...") : std::string(), kRed);
+    paragraph(row.unapplied && row.unapplied() ? std::string("Not applied yet.") : std::string(),
+              kRed);
     paragraph(row.badge ? row.badge() : std::string(), kHeader);
   }
 
@@ -876,11 +918,15 @@ void HostUi::DrawMenu(rex::ui::UIDrawContext& context) {
     ImmediateTexture* icon;
     const char* label;
   };
-  const Help help[] = {
-      {keyboard_prompts_ ? key_accept_.get() : button_a_.get(), "CHANGE"},
-      {keyboard_prompts_ ? key_back_.get() : button_b_.get(), "BACK"}};
+  const MenuStatus status = screen.status();
+  std::vector<Help> help = {{keyboard_prompts_ ? key_accept_.get() : button_a_.get(), "CHANGE"}};
+  if (screen.has_apply()) {
+    help.push_back({keyboard_prompts_ ? key_apply_.get() : button_y_.get(), "SAVE & APPLY"});
+  }
+  help.push_back(
+      {keyboard_prompts_ ? key_back_.get() : button_b_.get(), status.warning ? "DISCARD" : "BACK"});
   float help_x = kHelpRight - 16.0f;
-  for (size_t i = std::size(help); i-- > 0;) {
+  for (size_t i = help.size(); i-- > 0;) {
     help_x -= DrawText(Face::kMedium, kHelpSize, help[i].label, help_x, kHelpBaseline, kHelpText,
                        1.0f);
     if (help[i].icon) {
@@ -891,15 +937,19 @@ void HostUi::DrawMenu(rex::ui::UIDrawContext& context) {
     help_x -= 26.0f;
   }
 
-  // Settings save on every change; the game's spinner says so for a moment,
-  // turning a segment at a time as the game's does.
-  constexpr auto kSavedShown = std::chrono::milliseconds(1500);
-  const auto since_save = std::chrono::steady_clock::now() - saved_at_;
-  if (spinner_ && since_save < kSavedShown) {
-    const auto step = std::chrono::duration_cast<std::chrono::milliseconds>(since_save).count() / 80;
+  // The screen's state; while busy, the game's spinner turns a segment at a
+  // time as the game's does.
+  if (status.busy && spinner_) {
+    const auto step = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          std::chrono::steady_clock::now() - start_time_)
+                          .count() /
+                      80;
     DrawRotated(kContentLeft + 22.0f, kHelpBaseline - 5.0f, 26.0f, float(step % 10) / 10.0f,
                 kWhite, spinner_.get());
-    DrawText(Face::kMedium, kHelpSize, "SAVED", kContentLeft + 44.0f, kHelpBaseline, kHelpText);
+  }
+  if (!status.text.empty()) {
+    DrawText(Face::kMedium, kHelpSize, status.text, kContentLeft + 44.0f, kHelpBaseline,
+             status.warning ? kRed : kLabel);
   }
 
   canvas_.x = content_x;
@@ -952,6 +1002,10 @@ void HostUi::DrawSliderSection(const MenuRow& row, bool focused) {
   }
   DrawText(Face::kCondensed, kTextSize + 3.0f, std::to_string(value), kRowsRight - 2.0f,
            top + kRowBaseline + 1.0f, !enabled ? kDisabled : kWhite, 1.0f);
+  if (row.unapplied && row.unapplied()) {
+    DrawRect(kSliderNumberLeft + 5.0f, top + (kBarHeight - kUnappliedMark) * 0.5f, kUnappliedMark,
+             kUnappliedMark, kRed);
+  }
 }
 
 void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
@@ -1002,6 +1056,9 @@ void HostUi::OnKeyDown(rex::ui::KeyEvent& e) {
       }
       break;
     default:
+      if (!e.prev_state() && BindHasKey(apply_bind_, key)) {
+        Apply(NavCommand::kApply);
+      }
       break;
   }
 }

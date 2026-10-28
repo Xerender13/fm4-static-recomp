@@ -182,12 +182,12 @@ class Fm4App final : public rex::ReXApp {
     InstallKeyboard();
     // The SDK's pad_chord_game_menu runs the bind of this name.
     rex::ui::RegisterBind("bind_game_menu", "F6", "Toggle the GRAPHICS page", [this] {
-      // BACK+START's START has already closed the page by itself.
+      // A START pressed before BACK has already closed the page by itself.
       if (host_ui_ && host_ui_->is_closing()) {
         return;
       }
       if (host_ui_ && host_ui_->is_open()) {
-        host_ui_->Close();
+        host_ui_->Leave();
       } else {
         OpenGraphicsPage();
       }
@@ -352,7 +352,8 @@ class Fm4App final : public rex::ReXApp {
     if (!host_ui_) {
       host_ui_ = std::make_unique<fm4_static_recomp::hostui::HostUi>(
           *this, *presenter, *immediate_drawer(), *window(),
-          static_cast<rex::input::InputSystem*>(runtime()->input_system()), game_data_root());
+          static_cast<rex::input::InputSystem*>(runtime()->input_system()), game_data_root(),
+          controls_.menu.keys[size_t(fm4_static_recomp::input::PadControl::kY)]);
     }
     fm4_static_recomp::ui::GraphicsPageServices services;
     services.display_refresh_hz = [hz = fm4_static_recomp::ui::DisplayRefreshHz(
@@ -374,7 +375,6 @@ class Fm4App final : public rex::ReXApp {
                                                          : std::pair{width, width * 9 / 16};
     };
     services.upscalers = [presenter] { return presenter->GetUpscalers(); };
-    services.saved = [this] { host_ui_->NotifySaved(); };
     host_ui_->Open(
         fm4_static_recomp::ui::CreateGraphicsPage(*graphics_config_, std::move(services)));
   }

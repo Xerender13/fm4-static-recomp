@@ -7,6 +7,9 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -143,7 +146,7 @@ struct RowText {
 };
 
 // The page's rows in order; the frame rate, scale, upscaler and preset rows
-// add live behaviour of their own in CreateGraphicsPage. The DLSS preset is
+// add behaviour of their own in CreateGraphicsPage. The DLSS preset is
 // the launcher's alone: DLSS takes it only as it starts.
 const RowText kRows[] = {
     {"FRAME RATE", &kFrameRate,
@@ -290,12 +293,16 @@ std::string RowJson(const RowText& row) {
   return out + ",\"description\":" + JsonString(row.description) + "}";
 }
 
-// Each scale switch rebuilds the renderer for most of a second, so steps
-// through the scales apply once the choice has rested this long.
-constexpr auto kScaleSettle = std::chrono::milliseconds(500);
-// The frame rate applies at once, but a slide passes through many values; the
-// file is written once the value has rested this long.
-constexpr auto kFrameRateSettle = std::chrono::milliseconds(500);
+// SAVE & APPLY sets the drafted settings one per frame. After a setting that
+// rebuilds the renderer or the presenter, the next waits until it is done:
+// the resolution scale until the renderer draws at it (at most
+// kRebuildTimeout), the upscaler and vsync for kPresenterSettle. A scale the
+// driver's pipeline cache already holds switches in about 2 s; one not used
+// before builds all its pipelines first (11-12 s on an RTX 4070 Ti), which
+// the page says once the switch outlasts kShaderBuildShown.
+constexpr auto kPresenterSettle = std::chrono::milliseconds(500);
+constexpr auto kRebuildTimeout = std::chrono::seconds(60);
+constexpr auto kShaderBuildShown = std::chrono::seconds(3);
 
 std::string Live(const char* name) { return rex::cvar::GetFlagByName(name); }
 
@@ -345,6 +352,42 @@ bool SetByLaunchOption(const Setting& setting) {
   return FromCommandLine(setting.name);
 }
 
+// The page's changes: drafted by the rows, then saved and applied together.
+struct Draft {
+  // The changed settings' values; a setting changed back is no longer here.
+  std::map<const Setting*, std::string> values;
+  // Applying: the settings still to set, in order, and the one set last while
+  // the renderer or presenter takes it in.
+  std::vector<const Setting*> queue;
+  const Setting* settling = nullptr;
+  std::chrono::steady_clock::time_point set_at;
+  // Leaving was refused once over these changes; the next leave discards them.
+  bool leave_warned = false;
+  // Applied, with nothing changed since.
+  bool applied = false;
+  // The scale the UPSCALER row lowered the drafted scale to, until the next
+  // change; 0 when it did not.
+  uint32_t lowered_scale = 0;
+
+  bool busy() const { return !queue.empty() || settling; }
+
+  std::string Value(const Setting& setting) const {
+    const auto it = values.find(&setting);
+    return it != values.end() ? it->second : Live(setting.name);
+  }
+
+  void Change(const Setting& setting, std::string value) {
+    if (value == Live(setting.name)) {
+      values.erase(&setting);
+    } else {
+      values[&setting] = std::move(value);
+    }
+    leave_warned = false;
+    applied = false;
+    lowered_scale = 0;
+  }
+};
+
 uint32_t LiveScale(const GraphicsPageServices& services) {
   uint32_t scale = services.draw_resolution_scale ? services.draw_resolution_scale() : 0;
   if (!scale) {
@@ -353,17 +396,93 @@ uint32_t LiveScale(const GraphicsPageServices& services) {
   return scale;
 }
 
-// The upscaler present_effect names, while one is upscaling.
-std::string TemporalUpscalerName() {
-  if (!rex::ui::IsTemporalUpscalerActive()) {
-    return std::string();
+// Why the upscaler `value` names cannot run on this GPU, or nullopt when it can.
+std::optional<std::string> UpscalerProblem(const GraphicsPageServices& services,
+                                           std::string_view value) {
+  if (value == "bilinear" || !services.upscalers) {
+    return std::nullopt;
   }
-  const std::string effect = Live("present_effect");
-  return effect == "dlss" ? "DLSS" : effect == "fsr3" ? "FSR 3" : "FSR 2";
+  for (const rex::ui::UpscalerInfo& info : services.upscalers()) {
+    if (info.id == value) {
+      return info.available ? std::nullopt : std::optional(info.unavailable_reason);
+    }
+  }
+  return std::string("its runtime is missing");
 }
 
-std::string ResolutionLine(const GraphicsPageServices& services) {
-  const uint32_t scale = LiveScale(services);
+uint32_t DraftedScale(const Draft& draft, const GraphicsPageServices& services) {
+  return draft.values.contains(&kScale) ? uint32_t(std::atoi(draft.Value(kScale).c_str()))
+                                        : LiveScale(services);
+}
+
+// Whether the render size, at the drafted scale, fits the output. The
+// presenter runs a temporal upscaler only then (temporal_fits): a larger
+// render is downscaled without it.
+// The largest scale whose render fits the output, 0 when none does; nullopt
+// while the output size is unknown.
+std::optional<uint32_t> LargestFittingScale(const GraphicsPageServices& services) {
+  const auto output = services.output_size ? services.output_size() : std::nullopt;
+  if (!output || !output->first || !output->second) {
+    return std::nullopt;
+  }
+  return std::min(output->first / 1280, output->second / 720);
+}
+
+bool RenderFits(const Draft& draft, const GraphicsPageServices& services) {
+  const auto largest = LargestFittingScale(services);
+  return !largest || DraftedScale(draft, services) <= *largest;
+}
+
+// Whether the drafted upscaler is one this GPU runs.
+bool UpscalerChosen(const Draft& draft, const GraphicsPageServices& services) {
+  const std::string effect = draft.Value(kUpscaler);
+  return effect != "bilinear" && !UpscalerProblem(services, effect);
+}
+
+std::string ScreenSize(const GraphicsPageServices& services) {
+  const auto [width, height] = *services.output_size();
+  return std::to_string(width) + "x" + std::to_string(height);
+}
+
+// The chosen upscaler, when it runs on this GPU but not at the drafted scale,
+// which renders larger than the output; empty otherwise.
+std::string IdleUpscaler(const Draft& draft, const GraphicsPageServices& services) {
+  return !UpscalerChosen(draft, services) || RenderFits(draft, services)
+             ? std::string()
+             : Label(kUpscaler, Find(kUpscaler, draft.Value(kUpscaler)));
+}
+
+// Why the chosen upscaler does not run at the drafted scale, or empty.
+std::string IdleUpscalerNote(const Draft& draft, const GraphicsPageServices& services) {
+  const std::string upscaler = IdleUpscaler(draft, services);
+  if (upscaler.empty()) {
+    return upscaler;
+  }
+  const uint32_t largest = *LargestFittingScale(services);
+  const std::string screen = ScreenSize(services);
+  return (largest ? upscaler + " runs up to " + std::to_string(largest) + "x on this " + screen
+                  : upscaler + " does not run on this " + screen) +
+         " screen: at " + std::to_string(DraftedScale(draft, services)) +
+         "x the picture is downscaled without it, with MSAA and post AA instead.";
+}
+
+// The temporal upscaler that is upscaling, or will once the drafted upscaler
+// or scale is applied; empty for none.
+std::string TemporalUpscalerName(const Draft& draft, const GraphicsPageServices& services) {
+  if (!draft.values.contains(&kUpscaler) && !draft.values.contains(&kScale)) {
+    if (!rex::ui::IsTemporalUpscalerActive()) {
+      return std::string();
+    }
+    const std::string effect = Live("present_effect");
+    return effect == "dlss" ? "DLSS" : effect == "fsr3" ? "FSR 3" : "FSR 2";
+  }
+  return !UpscalerChosen(draft, services) || !RenderFits(draft, services)
+             ? std::string()
+             : Label(kUpscaler, Find(kUpscaler, draft.Value(kUpscaler)));
+}
+
+std::string ResolutionLine(const Draft& draft, const GraphicsPageServices& services) {
+  const uint32_t scale = DraftedScale(draft, services);
   const uint32_t render_width = 1280 * scale;
   const uint32_t render_height = 720 * scale;
   const auto size = [](uint32_t width, uint32_t height) {
@@ -375,7 +494,7 @@ std::string ResolutionLine(const GraphicsPageServices& services) {
     return line;
   }
   const auto [output_width, output_height] = *output;
-  const std::string upscaler = TemporalUpscalerName();
+  const std::string upscaler = TemporalUpscalerName(draft, services);
   if (output_width == render_width && output_height == render_height) {
     // At 1:1 the upscalers only anti-alias, under the names NVIDIA and AMD give that mode.
     if (upscaler.empty()) {
@@ -395,10 +514,10 @@ std::string ResolutionLine(const GraphicsPageServices& services) {
   return line + ", downscaled to " + size(output_width, output_height) + ".";
 }
 
-bool Set(const Setting& setting, const char* value, config::HostConfig& config) {
+void SetLive(const Setting& setting, const std::string& value) {
   if (!rex::cvar::SetFlagByName(setting.name, value)) {
     REXLOG_ERROR("Graphics page: {} refused {}", setting.name, value);
-    return false;
+    return;
   }
   REXLOG_INFO("Graphics page: {} = {}", setting.name, value);
   if (&setting == &kScale) {
@@ -409,30 +528,87 @@ bool Set(const Setting& setting, const char* value, config::HostConfig& config) 
       }
     }
   }
-  config.Set(setting.name, setting.string ? config::Quote(value) : std::string(value));
-  return true;
 }
 
-void Save(config::HostConfig& config, const std::function<void()>& saved) {
+// Saves every drafted value, then queues them: the settings that rebuild
+// something first, each alone.
+void SaveAndApply(Draft& draft, config::HostConfig& config) {
+  if (draft.busy() || draft.values.empty()) {
+    return;
+  }
+  for (const auto& [setting, value] : draft.values) {
+    config.Set(setting->name, setting->string ? config::Quote(value) : value);
+  }
   if (!config.Save()) {
     REXLOG_ERROR("Graphics page: could not write {}", config.path().string());
-  } else if (saved) {
-    saved();
+  }
+  for (const Setting* setting : {&kScale, &kUpscaler, &kVsync}) {
+    if (draft.values.contains(setting)) {
+      draft.queue.push_back(setting);
+    }
+  }
+  for (const Setting* setting : kSettings) {
+    if (draft.values.contains(setting) &&
+        std::find(draft.queue.begin(), draft.queue.end(), setting) == draft.queue.end()) {
+      draft.queue.push_back(setting);
+    }
+  }
+  REXLOG_INFO("Graphics page: applying {} settings", draft.queue.size());
+  draft.leave_warned = false;
+  draft.applied = true;
+}
+
+// Whether the setting set last has taken effect, so the next may be set.
+bool Settled(const Draft& draft, const GraphicsPageServices& services,
+             std::chrono::steady_clock::time_point now) {
+  const auto elapsed = now - draft.set_at;
+  if (draft.settling != &kScale) {
+    return elapsed >= kPresenterSettle;
+  }
+  if (!services.draw_resolution_scale ||
+      std::to_string(services.draw_resolution_scale()) == Live(kScale.name)) {
+    return true;
+  }
+  if (elapsed >= kRebuildTimeout) {
+    REXLOG_WARN("Graphics page: the renderer did not take {} = {} within {} s", kScale.name,
+                Live(kScale.name), kRebuildTimeout.count());
+    return true;
+  }
+  return false;
+}
+
+// Sets the next queued setting once the one before has settled.
+void ApplyNext(Draft& draft, const GraphicsPageServices& services) {
+  const auto now = std::chrono::steady_clock::now();
+  if (draft.settling) {
+    if (!Settled(draft, services, now)) {
+      return;
+    }
+    draft.settling = nullptr;
+    if (draft.queue.empty()) {
+      REXLOG_INFO("Graphics page: all settings applied");
+    }
+  }
+  if (draft.queue.empty()) {
+    return;
+  }
+  const Setting* setting = draft.queue.front();
+  draft.queue.erase(draft.queue.begin());
+  SetLive(*setting, draft.values.at(setting));
+  draft.values.erase(setting);
+  if (setting == &kScale || setting == &kUpscaler || setting == &kVsync) {
+    draft.settling = setting;
+    draft.set_at = now;
+  } else if (draft.queue.empty()) {
+    REXLOG_INFO("Graphics page: all settings applied");
   }
 }
 
-void Commit(const Setting& setting, const char* value, config::HostConfig& config,
-            const std::function<void()>& saved) {
-  if (Set(setting, value, config)) {
-    Save(config, saved);
-  }
-}
-
-int LivePreset() {
+int DraftedPreset(const Draft& draft) {
   for (int i = 0; i < kPresetCount; ++i) {
     bool match = true;
     for (size_t j = 0; j < kPresetSettingCount && match; ++j) {
-      match = Live(kPresetSettings[j]->name) == kPresets[i].values[j];
+      match = draft.Value(*kPresetSettings[j]) == kPresets[i].values[j];
     }
     if (match) {
       return i;
@@ -441,70 +617,82 @@ int LivePreset() {
   return -1;
 }
 
-MenuRow Row(const char* label, const Setting& setting, config::HostConfig& config,
-            const GraphicsPageServices& services) {
+MenuRow Row(const char* label, const Setting& setting, const std::shared_ptr<Draft>& draft) {
   MenuRow row;
   row.label = label;
   row.description = Text(label).description;
   row.divider_above = Text(label).divider_above;
-  row.value = [&setting] { return Label(setting, Find(setting, Live(setting.name))); };
+  row.value = [&setting, draft] { return Label(setting, Find(setting, draft->Value(setting))); };
   // A launch option sets the starting value only; the badge goes once the
-  // page changes the setting.
+  // page applies a change to the setting.
   row.badge = [&setting] {
     return SetByLaunchOption(setting) ? std::string("Set by a launch option for this session.")
                                       : std::string();
   };
-  row.adjust = [&setting, &config, saved = services.saved](int direction) {
-    const int next = Step(setting, Find(setting, Live(setting.name)), direction);
-    Commit(setting, setting.choices[size_t(next)].value, config, saved);
+  row.adjust = [&setting, draft](int direction) {
+    const int next = Step(setting, Find(setting, draft->Value(setting)), direction);
+    draft->Change(setting, setting.choices[size_t(next)].value);
   };
+  row.unapplied = [&setting, draft] { return draft->values.contains(&setting); };
   return row;
 }
 
 // A temporal upscaler takes over the anti-aliasing (TilingChoice in
 // game_hooks.cpp, the post effect in the SDK): the row says so and keeps the
 // player's choice for later.
-MenuRow AntiAliasingRow(const char* label, const Setting& setting, config::HostConfig& config,
+MenuRow AntiAliasingRow(const char* label, const Setting& setting,
+                        const std::shared_ptr<Draft>& draft,
                         const GraphicsPageServices& services) {
-  MenuRow row = Row(label, setting, config, services);
-  row.value = [&setting] {
-    const std::string upscaler = TemporalUpscalerName();
-    return upscaler.empty() ? Label(setting, Find(setting, Live(setting.name)))
+  MenuRow row = Row(label, setting, draft);
+  row.value = [&setting, draft, services] {
+    const std::string upscaler = TemporalUpscalerName(*draft, services);
+    return upscaler.empty() ? Label(setting, Find(setting, draft->Value(setting)))
                             : "OFF (" + upscaler + ")";
   };
-  row.enabled = [] { return !rex::ui::IsTemporalUpscalerActive(); };
+  row.enabled = [draft, services] { return TemporalUpscalerName(*draft, services).empty(); };
   return row;
 }
 
-// Why the upscaler `value` names cannot run on this GPU, or nullopt when it can.
-std::optional<std::string> UpscalerProblem(const GraphicsPageServices& services,
-                                           std::string_view value) {
-  if (value == "bilinear" || !services.upscalers) {
-    return std::nullopt;
-  }
-  for (const rex::ui::UpscalerInfo& info : services.upscalers()) {
-    if (info.id == value) {
-      return info.available ? std::nullopt : std::optional(info.unavailable_reason);
-    }
-  }
-  return std::string("its runtime is missing");
-}
-
 // Steps over the upscalers this GPU cannot run; OFF always can.
-MenuRow UpscalerRow(config::HostConfig& config, const GraphicsPageServices& services) {
-  MenuRow row = Row("UPSCALER", kUpscaler, config, services);
-  row.adjust = [&config, services](int direction) {
-    int index = Find(kUpscaler, Live(kUpscaler.name));
+MenuRow UpscalerRow(const std::shared_ptr<Draft>& draft, const GraphicsPageServices& services) {
+  MenuRow row = Row("UPSCALER", kUpscaler, draft);
+  row.adjust = [draft, services](int direction) {
+    int index = Find(kUpscaler, draft->Value(kUpscaler));
     do {
       index = Step(kUpscaler, index, direction);
     } while (UpscalerProblem(services, kUpscaler.choices[size_t(index)].value));
-    Commit(kUpscaler, kUpscaler.choices[size_t(index)].value, config, services.saved);
-  };
-  row.note = [services] {
-    if (rex::ui::IsTemporalUpscalerActive()) {
-      return ResolutionLine(services);
+    draft->Change(kUpscaler, kUpscaler.choices[size_t(index)].value);
+    // An upscaler only upscales: a scale rendering larger than the screen
+    // comes down to the largest that fits, drafted like any change.
+    const auto largest = LargestFittingScale(services);
+    if (UpscalerChosen(*draft, services) && largest && *largest &&
+        DraftedScale(*draft, services) > *largest) {
+      draft->Change(kScale, std::to_string(*largest));
+      draft->lowered_scale = *largest;
     }
-    const int index = Find(kUpscaler, Live(kUpscaler.name));
+  };
+  // A chosen upscaler that cannot run at the scale says so, as the rows it
+  // would take over do.
+  row.value = [draft, services] {
+    const std::string label = Label(kUpscaler, Find(kUpscaler, draft->Value(kUpscaler)));
+    return IdleUpscaler(*draft, services).empty()
+               ? label
+               : label + " (OFF AT " + std::to_string(DraftedScale(*draft, services)) + "X)";
+  };
+  row.note = [draft, services] {
+    if (draft->lowered_scale) {
+      const std::string scale = std::to_string(draft->lowered_scale);
+      return "Resolution scale lowered to " + scale + "x: " +
+             Label(kUpscaler, Find(kUpscaler, draft->Value(kUpscaler))) + " runs up to " + scale +
+             "x on this " + ScreenSize(services) + " screen.";
+    }
+    if (!TemporalUpscalerName(*draft, services).empty()) {
+      return ResolutionLine(*draft, services);
+    }
+    if (std::string idle = IdleUpscalerNote(*draft, services); !idle.empty()) {
+      return idle;
+    }
+    const int index = Find(kUpscaler, draft->Value(kUpscaler));
     const auto problem =
         index > 0 ? UpscalerProblem(services, kUpscaler.choices[size_t(index)].value)
                   : std::nullopt;
@@ -590,14 +778,8 @@ void LimitFrameRateToDisplay(uint32_t refresh_hz) {
 
 std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
                                                GraphicsPageServices services) {
+  auto draft = std::make_shared<Draft>();
   std::vector<MenuRow> rows;
-  // The frame rate applies live with every step; the file is written once it
-  // has rested for kFrameRateSettle, or when the page closes.
-  struct PendingFrameRate {
-    bool unsaved = false;
-    std::chrono::steady_clock::time_point changed_at;
-  };
-  auto pending_rate = std::make_shared<PendingFrameRate>();
   MenuRow frame_rate;
   frame_rate.label = "FRAME RATE";
   frame_rate.slider = hostui::MenuSlider{
@@ -607,14 +789,8 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
                                                                   ? services.display_refresh_hz()
                                                                   : 0)};
           },
-      .get = [] { return LiveNumber(kFrameRate.name); },
-      .set =
-          [pending_rate](int value) {
-            if (rex::cvar::SetFlagByName(kFrameRate.name, std::to_string(value))) {
-              pending_rate->unsaved = true;
-              pending_rate->changed_at = std::chrono::steady_clock::now();
-            }
-          }};
+      .get = [draft] { return std::atoi(draft->Value(kFrameRate).c_str()); },
+      .set = [draft](int value) { draft->Change(kFrameRate, std::to_string(value)); }};
   frame_rate.badge = [] {
     return SetByLaunchOption(kFrameRate) ? std::string("Set by a launch option for this session.")
                                          : std::string();
@@ -624,112 +800,133 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
     const uint32_t hz = services.display_refresh_hz ? services.display_refresh_hz() : 0;
     return hz ? "Your display refreshes at " + std::to_string(hz) + " Hz." : std::string();
   };
+  frame_rate.unapplied = [draft] { return draft->values.contains(&kFrameRate); };
   rows.push_back(std::move(frame_rate));
 
-  MenuRow vsync = Row("VSYNC", kVsync, config, services);
+  MenuRow vsync = Row("VSYNC", kVsync, draft);
   rows.push_back(std::move(vsync));
 
-  // A chosen scale applies once it has rested for kScaleSettle, or when the
-  // page closes.
-  struct PendingScale {
-    int index = -1;
-    std::chrono::steady_clock::time_point chosen_at;
+  MenuRow scale = Row("RESOLUTION SCALE", kScale, draft);
+  // While an upscaler is chosen, only the scales it can upscale from.
+  scale.adjust = [draft, services](int direction) {
+    const auto largest = LargestFittingScale(services);
+    const bool limited = UpscalerChosen(*draft, services) && largest && *largest;
+    int index = Find(kScale, draft->Value(kScale));
+    do {
+      index = Step(kScale, index, direction);
+    } while (limited && uint32_t(std::atoi(kScale.choices[size_t(index)].value)) > *largest);
+    draft->Change(kScale, kScale.choices[size_t(index)].value);
   };
-  auto pending = std::make_shared<PendingScale>();
-  MenuRow scale = Row("RESOLUTION SCALE", kScale, config, services);
-  scale.value = [pending] {
-    return Label(kScale, pending->index >= 0 ? pending->index : Find(kScale, Live(kScale.name)));
-  };
-  scale.adjust = [pending](int direction) {
-    const int current = pending->index >= 0 ? pending->index : Find(kScale, Live(kScale.name));
-    pending->index = Step(kScale, current, direction);
-    pending->chosen_at = std::chrono::steady_clock::now();
-  };
-  scale.note = [services] { return ResolutionLine(services); };
-  // The renderer switches between frames; until it has, the change waits.
-  scale.pending = [services, pending] {
-    return pending->index >= 0 ||
-           (services.draw_resolution_scale &&
-            std::to_string(services.draw_resolution_scale()) != Live(kScale.name));
+  scale.note = [draft, services] {
+    const std::string idle = IdleUpscalerNote(*draft, services);
+    return ResolutionLine(*draft, services) + (idle.empty() ? "" : " " + idle);
   };
   rows.push_back(std::move(scale));
 
-  rows.push_back(UpscalerRow(config, services));
+  rows.push_back(UpscalerRow(draft, services));
 
-  MenuRow sharpness = Row("SHARPNESS", kSharpness, config, services);
-  sharpness.enabled = [] { return rex::ui::IsTemporalUpscalerActive(); };
+  MenuRow sharpness = Row("SHARPNESS", kSharpness, draft);
+  sharpness.enabled = [draft, services] {
+    return !TemporalUpscalerName(*draft, services).empty();
+  };
   rows.push_back(std::move(sharpness));
 
   MenuRow preset;
   preset.label = "GRAPHICS PRESET";
-  preset.value = [] {
-    const int index = LivePreset();
+  preset.value = [draft] {
+    const int index = DraftedPreset(*draft);
     return std::string(index >= 0 ? kPresets[index].label : "CUSTOM");
   };
-  preset.adjust = [&config, saved = services.saved](int direction) {
-    const int current = LivePreset();
+  preset.adjust = [draft](int direction) {
+    const int current = DraftedPreset(*draft);
     const int next = current < 0 ? (direction > 0 ? 0 : kPresetCount - 1)
                                  : (current + direction + kPresetCount) % kPresetCount;
     for (size_t j = 0; j < kPresetSettingCount; ++j) {
-      Set(*kPresetSettings[j], kPresets[next].values[j], config);
+      draft->Change(*kPresetSettings[j], kPresets[next].values[j]);
     }
-    Save(config, saved);
   };
   preset.description = Text("GRAPHICS PRESET").description;
   rows.push_back(std::move(preset));
 
-  MenuRow showroom_msaa = AntiAliasingRow("SHOWROOM MSAA", kShowroomMsaa, config, services);
+  MenuRow showroom_msaa = AntiAliasingRow("SHOWROOM MSAA", kShowroomMsaa, draft, services);
   rows.push_back(std::move(showroom_msaa));
 
-  MenuRow race_msaa = AntiAliasingRow("RACE MSAA", kRaceMsaa, config, services);
+  MenuRow race_msaa = AntiAliasingRow("RACE MSAA", kRaceMsaa, draft, services);
   rows.push_back(std::move(race_msaa));
 
-  MenuRow anisotropy = Row("ANISOTROPIC FILTERING", kAnisotropy, config, services);
+  MenuRow anisotropy = Row("ANISOTROPIC FILTERING", kAnisotropy, draft);
   rows.push_back(std::move(anisotropy));
 
-  MenuRow detail = Row("LEVEL OF DETAIL", kDetail, config, services);
+  MenuRow detail = Row("LEVEL OF DETAIL", kDetail, draft);
   rows.push_back(std::move(detail));
 
-  MenuRow scenery_shadows = Row("SCENERY SHADOWS", kSceneryShadows, config, services);
+  MenuRow scenery_shadows = Row("SCENERY SHADOWS", kSceneryShadows, draft);
   rows.push_back(std::move(scenery_shadows));
 
-  MenuRow reflection_updates = Row("REFLECTION UPDATES", kReflectionUpdates, config, services);
+  MenuRow reflection_updates = Row("REFLECTION UPDATES", kReflectionUpdates, draft);
   rows.push_back(std::move(reflection_updates));
 
-  MenuRow mirror = Row("MIRROR", kMirror, config, services);
+  MenuRow mirror = Row("MIRROR", kMirror, draft);
   rows.push_back(std::move(mirror));
 
-  MenuRow soft_particles = Row("SOFT PARTICLES", kSoftParticles, config, services);
+  MenuRow soft_particles = Row("SOFT PARTICLES", kSoftParticles, draft);
   rows.push_back(std::move(soft_particles));
 
-  MenuRow crowds = Row("CROWDS", kCrowds, config, services);
+  MenuRow crowds = Row("CROWDS", kCrowds, draft);
   rows.push_back(std::move(crowds));
 
-  MenuRow post_aa = AntiAliasingRow("POST AA", kPostAa, config, services);
+  MenuRow post_aa = AntiAliasingRow("POST AA", kPostAa, draft, services);
   rows.push_back(std::move(post_aa));
 
-  MenuRow bloom = Row("BLOOM", kBloom, config, services);
+  MenuRow bloom = Row("BLOOM", kBloom, draft);
   rows.push_back(std::move(bloom));
 
-  MenuRow motion_blur = Row("MOTION BLUR", kMotionBlur, config, services);
+  MenuRow motion_blur = Row("MOTION BLUR", kMotionBlur, draft);
   rows.push_back(std::move(motion_blur));
 
-  MenuRow depth_of_field = Row("DEPTH OF FIELD", kDepthOfField, config, services);
+  MenuRow depth_of_field = Row("DEPTH OF FIELD", kDepthOfField, draft);
   rows.push_back(std::move(depth_of_field));
 
-  MenuRow car_dirt = Row("CAR DIRT", kCarDirt, config, services);
+  MenuRow car_dirt = Row("CAR DIRT", kCarDirt, draft);
   rows.push_back(std::move(car_dirt));
 
   auto screen = std::make_unique<MenuScreen>("GRAPHICS", std::move(rows));
-  screen->set_update([pending, pending_rate, &config, saved = services.saved](bool closing) {
-    const auto now = std::chrono::steady_clock::now();
-    if (pending->index >= 0 && (closing || now - pending->chosen_at >= kScaleSettle)) {
-      Commit(kScale, kScale.choices[size_t(std::exchange(pending->index, -1))].value, config,
-             saved);
+  screen->set_apply([draft, &config] { SaveAndApply(*draft, config); });
+  // Unapplied changes keep the page open once; leaving again discards them.
+  screen->set_leave([draft] {
+    if (draft->busy()) {
+      return false;
     }
-    if (pending_rate->unsaved && (closing || now - pending_rate->changed_at >= kFrameRateSettle)) {
-      pending_rate->unsaved = false;
-      Commit(kFrameRate, Live(kFrameRate.name).c_str(), config, saved);
+    if (draft->values.empty() || draft->leave_warned) {
+      return true;
+    }
+    draft->leave_warned = true;
+    return false;
+  });
+  screen->set_status([draft] {
+    if (draft->busy()) {
+      if (draft->settling == &kScale &&
+          std::chrono::steady_clock::now() - draft->set_at >= kShaderBuildShown) {
+        return hostui::MenuStatus{
+            .text = "BUILDING SHADERS FOR " + Label(kScale, Find(kScale, Live(kScale.name))) +
+                    ", FIRST TIME ONLY",
+            .busy = true};
+      }
+      return hostui::MenuStatus{.text = "APPLYING SETTINGS", .busy = true};
+    }
+    if (!draft->values.empty()) {
+      return hostui::MenuStatus{.text = "UNSAVED CHANGES", .warning = draft->leave_warned};
+    }
+    if (draft->applied) {
+      return hostui::MenuStatus{.text = "SETTINGS APPLIED. YOU CAN CONTINUE."};
+    }
+    return hostui::MenuStatus{};
+  });
+  screen->set_update([draft, services](bool closing) {
+    if (!closing) {
+      ApplyNext(*draft, services);
+    } else if (!draft->values.empty() && !draft->busy()) {
+      REXLOG_INFO("Graphics page: discarded {} unapplied changes", draft->values.size());
     }
   });
   return screen;

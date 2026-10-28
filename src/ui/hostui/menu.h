@@ -18,6 +18,7 @@ enum class NavCommand {
   kAccept,
   kBack,
   kClose,  // leave every screen (Start, like the title's pause menu)
+  kApply,  // apply the screen's drafted changes (Y)
 };
 
 // A whole number in an inclusive range, drawn as the game's tuning slider.
@@ -42,12 +43,21 @@ struct MenuRow {
   std::function<std::string()> note;
   // Where the value comes from when not the page, or empty.
   std::function<std::string()> badge;
-  // A change that is saved but not live yet.
-  std::function<bool()> pending;
+  // A drafted change, not applied yet.
+  std::function<bool()> unapplied;
   // A thin line above the row: it starts a block of rows.
   bool divider_above = false;
 
   bool is_enabled() const { return !enabled || enabled(); }
+};
+
+// A screen's own state, shown beside the button help.
+struct MenuStatus {
+  std::string text;
+  // Applying: the spinner turns, and the rows and leaving wait.
+  bool busy = false;
+  // Leaving now discards changes: drawn red, with BACK as DISCARD.
+  bool warning = false;
 };
 
 class MenuScreen {
@@ -63,6 +73,13 @@ class MenuScreen {
       update_(closing);
     }
   }
+  // A screen whose rows only draft their changes: apply (Y) applies them.
+  void set_apply(std::function<void()> apply) { apply_ = std::move(apply); }
+  bool has_apply() const { return bool(apply_); }
+  // Asked as back or close would leave the screen; false keeps it open.
+  void set_leave(std::function<bool()> leave) { leave_ = std::move(leave); }
+  void set_status(std::function<MenuStatus()> status) { status_ = std::move(status); }
+  MenuStatus status() const { return status_ ? status_() : MenuStatus{}; }
   size_t focus() const { return focus_; }
   // Moves the focus to `index` if that row is enabled.
   bool SetFocus(size_t index);
@@ -70,7 +87,8 @@ class MenuScreen {
   enum class Result { kNone, kChanged, kBack };
   // Applies a navigation command: up and down move the focus over enabled
   // rows with wrap-around, left and right adjust the focused row, accept
-  // steps it forward, back leaves the screen.
+  // steps it forward, back leaves the screen unless the screen refuses. Only
+  // the focus moves while the screen is busy.
   Result Handle(NavCommand command);
   // Moves the focused slider by `steps`, within its range.
   Result Slide(int steps);
@@ -81,6 +99,9 @@ class MenuScreen {
   std::string title_;
   std::vector<MenuRow> rows_;
   std::function<void(bool closing)> update_;
+  std::function<void()> apply_;
+  std::function<bool()> leave_;
+  std::function<MenuStatus()> status_;
   size_t focus_ = 0;
 };
 
@@ -93,14 +114,17 @@ class PadNavigator {
   static constexpr uint16_t kDpadLeft = 0x0004;
   static constexpr uint16_t kDpadRight = 0x0008;
   static constexpr uint16_t kStart = 0x0010;
+  static constexpr uint16_t kBack = 0x0020;
   static constexpr uint16_t kButtonA = 0x1000;
   static constexpr uint16_t kButtonB = 0x2000;
+  static constexpr uint16_t kButtonY = 0x8000;
   static constexpr int16_t kStickThreshold = 16000;
   static constexpr uint64_t kRepeatDelayMs = 400;
   static constexpr uint64_t kRepeatIntervalMs = 110;
 
   // Returns the commands for this poll. Directions (d-pad or left stick)
-  // repeat while held; A, B and Start fire once per press. The first poll after
+  // repeat while held; A, B, Y and Start fire once per press, Start not while
+  // Back is held (BACK+START is the app's). The first poll after
   // Reset only records what is held, so the press that opened the UI does
   // not also act inside it. With `stick_x_free` the stick's left and right
   // are left to the caller.
