@@ -21,6 +21,7 @@ public sealed class LauncherSettings
         AcceptedMicrosoftLicence = _file.Get("accepted_microsoft_licence");
         UseVisualStudioInstaller = _file.Get("toolchain_source") == "VisualStudio";
         Language = (GameLanguages.Find(_file.Get("language")) ?? GameLanguages.Default).Code;
+        CommandLineOptions = _file.Get("command_line_options")?.Trim() ?? "";
     }
 
     public string? ActiveProfile { get; set; }
@@ -34,6 +35,7 @@ public sealed class LauncherSettings
     public string? AcceptedMicrosoftLicence { get; set; }
     public bool UseVisualStudioInstaller { get; set; }
     public string Language { get; set; }
+    public string CommandLineOptions { get; set; }
 
     public static LauncherSettings Load(string path) => new(path);
 
@@ -56,6 +58,7 @@ public sealed class LauncherSettings
         Text("accepted_microsoft_licence", AcceptedMicrosoftLicence);
         _file.Set("toolchain_source", UseVisualStudioInstaller ? "VisualStudio" : "Feed", quoted: true);
         Text("language", Language);
+        Text("command_line_options", CommandLineOptions.Length > 0 ? CommandLineOptions : null);
         _file.Save(_path);
     }
 }

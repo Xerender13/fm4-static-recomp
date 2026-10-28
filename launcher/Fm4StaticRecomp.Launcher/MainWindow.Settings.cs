@@ -21,6 +21,7 @@ public partial class MainWindow
     private bool _skipIntro, _asyncReadbacks, _presentViaDxgi, _compat;
     private int _buildJobs;
     private string _language = GameLanguages.Default.Code;
+    private string _commandLineOptions = "";
     private Button? _saveSettingsButton, _restoreSettingsButton;
     private TextBlock? _settingsStatus;
     private int? _refreshHz;
@@ -42,6 +43,7 @@ public partial class MainWindow
         var settings = host.Settings;
         (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language) =
             (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language);
+        _commandLineOptions = settings.CommandLineOptions;
         BuildSettingsPanel("");
     }
 
@@ -88,6 +90,12 @@ public partial class MainWindow
                 v => _presentViaDxgi = v));
         SettingsBody.Children.Add(Option("COMPAT MODE",
             "Every rendering shortcut off: tells a rendering bug of ours from the game's own look.", _compat, v => _compat = v));
+        var commandLine = new TextBox { Text = _commandLineOptions, Watermark = "--name=value --other=value", Width = 420,
+            HorizontalAlignment = HorizontalAlignment.Left };
+        commandLine.TextChanged += (_, _) => _commandLineOptions = commandLine.Text ?? "";
+        SettingsBody.Children.Add(Labelled("COMMAND-LINE OPTIONS", commandLine,
+            "Game options for debugging, passed on its command line. One replaces the value the launcher or the GRAPHICS page would use. A misspelt name is ignored without a message.",
+            alwaysHelp: true));
         var jobs = new NumericUpDown
         {
             Minimum = 0, Maximum = LauncherSettings.MaximumBuildJobs, Increment = 1, Value = _buildJobs, FormatString = "0",
@@ -245,6 +253,7 @@ public partial class MainWindow
             var settings = host.Settings;
             (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language) =
                 (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language);
+            settings.CommandLineOptions = _commandLineOptions.Trim();
             settings.Save();
             if (_settingsStatus is not null) _settingsStatus.Text = "Saved. Applies at the next start.";
             UpdateSummary();

@@ -20,6 +20,7 @@ public class LauncherSettingsTests
         Assert.Null(settings.PreviousVersion);
         Assert.Null(settings.AcceptedMicrosoftLicence);
         Assert.Equal("en-US", settings.Language);
+        Assert.Equal("", settings.CommandLineOptions);
     }
 
     [Fact]
@@ -39,8 +40,10 @@ public class LauncherSettingsTests
         settings.AcceptedMicrosoftLicence = "https://a https://b";
         settings.UseVisualStudioInstaller = true;
         settings.Language = "ru";
+        settings.CommandLineOptions = "--fm4_dlc_packages=\"D:\\My DLC\" --present_upscaler_view=motion";
         settings.Save();
         var read = LauncherSettings.Load(path);
+        Assert.Equal("--fm4_dlc_packages=\"D:\\My DLC\" --present_upscaler_view=motion", read.CommandLineOptions);
         Assert.Equal(("main", "0.2.0", "0.1.3"), (read.ActiveProfile, read.ActiveVersion, read.PreviousVersion));
         Assert.Equal((false, false, true, true, true), (read.SkipIntro, read.AsyncReadbacks, read.PresentViaDxgi, read.Compat,
             read.UseVisualStudioInstaller));
@@ -61,14 +64,17 @@ public class LauncherSettingsTests
         var settings = LauncherSettings.Load(path);
         settings.ActiveProfile = "main";
         settings.PreviousVersion = "0.1.3";
+        settings.CommandLineOptions = "--a=1";
         settings.Save();
         settings.ActiveProfile = null;
         settings.PreviousVersion = null;
+        settings.CommandLineOptions = "";
         settings.Save();
         var read = LauncherSettings.Load(path);
         Assert.Null(read.ActiveProfile);
         Assert.Null(read.PreviousVersion);
         Assert.DoesNotContain("active_profile", File.ReadAllText(path));
+        Assert.DoesNotContain("command_line_options", File.ReadAllText(path));
     }
 
     [Fact]

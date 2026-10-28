@@ -70,6 +70,43 @@ public class LaunchArgumentsTests
     }
 
     [Fact]
+    public void Command_line_options_replace_the_launchers_own_values()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.Compat = true;
+        settings.CommandLineOptions = "--fm4_language=ru --fm4_shadow_map_size=2048  --present_upscaler_view=motion --fm4_language=de";
+        var args = LaunchArguments.ForPlay(layout, "0.1.0", profile, settings, new WindowsPlatform());
+        var names = args.Select(a => a.Split('=')[0]).ToList();
+        Assert.Equal(names.Count, names.Distinct().Count());
+        Assert.Contains("--fm4_language=de", args);
+        Assert.Contains("--fm4_shadow_map_size=2048", args);
+        Assert.Equal("--present_upscaler_view=motion", args[^2]);
+        Assert.Contains("--fm4_skip_intro=true", args);
+    }
+
+    [Fact]
+    public void A_negated_command_line_flag_replaces_the_launchers_value()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.CommandLineOptions = "--no-fm4_skip_intro";
+        var args = LaunchArguments.ForPlay(layout, "0.1.0", profile, settings, new WindowsPlatform());
+        Assert.DoesNotContain("--fm4_skip_intro=true", args);
+        Assert.Equal("--no-fm4_skip_intro", args[^1]);
+    }
+
+    [Fact]
+    public void A_quoted_command_line_option_keeps_its_spaces()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.CommandLineOptions = "--fm4_dlc_packages=\"D:\\My DLC\\\" --flag";
+        var args = LaunchArguments.ForPlay(layout, "0.1.0", profile, settings, new WindowsPlatform());
+        Assert.Equal(["--fm4_dlc_packages=D:\\My DLC\\", "--flag"], args.TakeLast(2));
+    }
+
+    [Fact]
     public void Dxgi_is_dropped_where_unsupported()
     {
         var (layout, profile, settings, temp) = Setup();

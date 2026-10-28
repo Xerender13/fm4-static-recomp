@@ -32,6 +32,7 @@ public partial class MainWindow
         try
         {
             AppendLog($"Starting version {host.Settings.ActiveVersion} on profile {profile.Name}.");
+            if (host.Settings.CommandLineOptions.Length > 0) AppendLog($"Command-line options: {host.Settings.CommandLineOptions}");
             exitCode = await session.RunAsync(profile);
         }
         catch (Exception error) when (error is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException)

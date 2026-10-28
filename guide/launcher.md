@@ -37,7 +37,7 @@ instead, see the [manual install](manual-install.md).
 | **PLAY** | Starts the game. |
 | **PROFILE** | Adds, renames, imports and deletes profiles (separate saves). |
 | **CONTENT** | Installs Disc 2 and DLC. |
-| **SETTINGS** | The [GRAPHICS page's settings](graphics.md), the game's language, launch options and advanced options. |
+| **SETTINGS** | The [GRAPHICS page's settings](graphics.md), the game's language, launch options, advanced options and [command-line options](launch-options.md#with-the-launcher-command-line-options) for debugging. |
 
 ## Starting from Steam, Pegasus or another frontend
 

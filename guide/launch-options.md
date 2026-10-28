@@ -50,13 +50,28 @@ upscaler's inputs and renderer diagnostics are listed in [DEBUG_OPTIONS.md](../D
 ## Setting options and debugging
 
 Every option above and in [DEBUG_OPTIONS.md](../DEBUG_OPTIONS.md) is a setting of the game's
-executable, written `--name=value`. There are three ways to set one; the examples set
+executable, written `--name=value`; an on/off option also takes `--name` for true and
+`--no-name` for false (`--no-fm4_skip_intro`). There are four ways to set one; the examples set
 `present_upscaler_view` (a debug view of the upscaler's motion input) and
 `present_upscaler_object_motion`.
 
+### With the launcher: COMMAND-LINE OPTIONS
+
+SETTINGS → ADVANCED → **COMMAND-LINE OPTIONS** takes options as you would type them after the game on
+a command line, separated by spaces; quote a value with spaces (`--fm4_dlc_packages="D:\My DLC"`):
+
+```text
+--present_upscaler_view=motion --present_upscaler_object_motion=false
+```
+
+SAVE keeps them for every start, until you clear the field. They are added to the game's command
+line, so they beat every other way below; an option the launcher passes itself (a SETTINGS row,
+COMPAT MODE's list, even a path) is replaced by yours, not repeated. `data\logs\launcher.log`
+lists them at each start.
+
 ### With the launcher: environment variables
 
-The launcher has no field for options, but the game it starts inherits its environment, and the
+The game the launcher starts inherits its environment, and the
 game reads every option from a variable named `REX_` plus the option's name in capitals:
 `present_upscaler_view` is `REX_PRESENT_UPSCALER_VIEW`. Save this as `debug.bat` beside
 `FM4StaticRecompLauncher.exe`, **close the launcher**, and start `debug.bat`:
@@ -117,7 +132,7 @@ the command line. Two exceptions:
   page, not to the options above: do not add other options to it.
 - **The launcher's own options** are passed on its command line and beat environment
   variables: the paths, `fm4_language`, `fm4_skip_intro`, and COMPAT MODE's list. Set those in
-  its SETTINGS.
+  its SETTINGS, or replace one in COMMAND-LINE OPTIONS.
 
 ### Checking that an option took effect
 
