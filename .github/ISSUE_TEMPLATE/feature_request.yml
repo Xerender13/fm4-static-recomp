@@ -1,0 +1,19 @@
+name: Feature request
+description: A setting, an option or support for something new
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Check the [roadmap](https://github.com/i2kiselev/fm4-static-recomp#roadmap) and the open issues first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What you would like
+      description: What it should do, and what you use it for.
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware it needs
+      description: For a wheel, a controller or a GPU feature, the exact model. Leave empty if none.

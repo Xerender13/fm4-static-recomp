@@ -1,0 +1,47 @@
+name: Test report
+description: The game works on hardware, a disc release or a game mode not listed as tested yet
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports that something works fill the
+        [Tested](https://github.com/i2kiselev/fm4-static-recomp/blob/main/guide/performance.md#tested) list.
+        Something broken? Open a bug report instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release version, the output of `git rev-parse --short HEAD`, or the date you downloaded the ZIP.
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System
+      value: |
+        - Windows:
+        - CPU:
+        - GPU and driver version:
+        - RAM:
+        - Display resolution and refresh rate:
+    validations:
+      required: true
+  - type: dropdown
+    id: disc
+    attributes:
+      label: Disc 1
+      options: [1.0 PAL (61D62D9F), 1.0 USA (26FF1101), Other]
+    validations:
+      required: true
+  - type: textarea
+    id: played
+    attributes:
+      label: What you played
+      description: Modes, tracks and cars, about how long, Disc 2 and DLC if installed.
+    validations:
+      required: true
+  - type: textarea
+    id: performance
+    attributes:
+      label: Settings and frame rates
+      description: GRAPHICS preset or the settings you changed, launch options, and the frame rates you saw.

@@ -1,0 +1,92 @@
+name: Bug report
+description: A crash, something wrong on screen, slow, or not working as on the console
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Title: `<Area>: <what happens> (<where>)`, for example
+        `Graphics: car shadows flicker at 3x (Bernese Alps, cockpit view)`.
+        Write "unknown" rather than leaving a field out. More in
+        [Reporting issues](https://github.com/i2kiselev/fm4-static-recomp/blob/main/guide/reporting-issues.md).
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you open an issue
+      options:
+        - label: I searched the open issues and this is not a duplicate
+          required: true
+        - label: My `default.xex` has a supported hash
+          required: true
+        - label: I updated to the latest version and the problem is still there
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Crash, Graphics, Performance, Audio, Input, Setup, Disc 2/DLC, Gameplay, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you see, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Mode (World Tour, Free Play, ...), track, car, camera, number of AI cars.
+      value: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: input
+    id: often
+    attributes:
+      label: How often
+      placeholder: Always / sometimes (about how often) / once
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release version, the output of `git rev-parse --short HEAD` in the repository folder, or the date you downloaded the ZIP.
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System
+      value: |
+        - Windows:
+        - CPU:
+        - GPU and driver version:
+        - RAM:
+        - Display resolution and refresh rate:
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      value: |
+        - GRAPHICS preset (or attach `config\graphics.toml` from the state folder):
+        - Launch options:
+        - Same with `-Compat`? (yes / no / not tried; graphics issues only)
+        - Disc 2 installed / DLC installed:
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments
+      description: |
+        `runtime.log`: `data\logs\runtime.log` under the launcher, `.local\state\logs\runtime.log` in a manual install; a crash report's ZIP instead.
+        Setup problems: `.local\logs\setup-error.json` and the logs next to it. Graphics problems: a screenshot or a short video.
+        Logs can contain your Windows user name; edit it out if you prefer. Never attach game files, disc images or a built executable.
+      placeholder: Drag files here.

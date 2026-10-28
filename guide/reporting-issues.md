@@ -23,7 +23,9 @@ Area is one of `Crash`, `Graphics`, `Performance`, `Audio`, `Input`, `Setup`, `D
 
 ## Body
 
-Copy this template and fill in every line; write "unknown" rather than leaving one out.
+The **Bug report** form on the [new issue](https://github.com/i2kiselev/fm4-static-recomp/issues/new/choose)
+page asks for all of this. Anywhere else, copy this template and fill in every line; write
+"unknown" rather than leaving one out.
 
 ```markdown
 ### What happens
