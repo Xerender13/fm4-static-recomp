@@ -25,7 +25,7 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $GameRoot) { $GameRoot = Join-Path $root '../extracted/fm4' }
 $game = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameRoot)
 if (-not $StateRoot) { $StateRoot = Join-Path $root '.local/state' }
-$StateRoot = [IO.Path]::GetFullPath($StateRoot)
+$StateRoot = [IO.Path]::GetFullPath($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($StateRoot))
 $executable = Join-Path $root "out/build/win-amd64-$($Configuration.ToLowerInvariant())/fm4_static_recomp.exe"
 foreach ($directory in 'user', 'update', 'cache', 'logs') {
     [void](New-Item -ItemType Directory -Force -Path (Join-Path $StateRoot $directory))
