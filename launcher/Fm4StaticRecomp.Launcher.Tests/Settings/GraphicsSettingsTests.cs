@@ -141,6 +141,62 @@ public class GraphicsSettingsTests
         Assert.False(settings.Shows(preset));
     }
 
+    private static GraphicsSettings UpscalerSettings(TempDir temp, string toml)
+    {
+        var json = temp.File("schema.json", """
+            {"schema_version":1,"blocks":[{"rows":[
+             {"label":"RESOLUTION SCALE","key":"resolution_scale","string":false,"kind":"choice","choices":[{"label":"1X","value":"1"},{"label":"2X","value":"2"},{"label":"3X","value":"3"},{"label":"4X","value":"4"}],"default":"1","description":"d"},
+             {"label":"UPSCALER","key":"present_effect","string":true,"kind":"choice","choices":[{"label":"OFF","value":"bilinear"},{"label":"FSR 2","value":"fsr2"},{"label":"DLSS","value":"dlss"}],"default":"bilinear","description":"d"}]}],
+             "presets":[]}
+            """u8.ToArray());
+        return new GraphicsSettings(GraphicsSchema.Load(json), temp.File("g.toml", System.Text.Encoding.UTF8.GetBytes(toml)), temp.Path);
+    }
+
+    private static string[] Scales(GraphicsSettings settings, (int, int)? display) =>
+        settings.ScaleChoices(display).Select(c => c.Value).ToArray();
+
+    [Fact]
+    public void An_upscaler_offers_only_the_scales_that_fit_the_display()
+    {
+        using var temp = new TempDir();
+        var settings = UpscalerSettings(temp, "");
+        Assert.Equal(["1", "2", "3", "4"], Scales(settings, (2560, 1440)));
+        settings.Set("present_effect", "dlss");
+        Assert.Equal(["1", "2"], Scales(settings, (2560, 1440)));
+        Assert.Equal(["1", "2"], Scales(settings, (3413, 1920)));
+        Assert.Equal(["1", "2", "3"], Scales(settings, (3840, 2160)));
+        Assert.Equal(["1"], Scales(settings, (1920, 1080)));
+        Assert.Equal(["1", "2", "3", "4"], Scales(settings, null));
+        Assert.Equal(["1", "2", "3", "4"], Scales(settings, (1024, 768)));
+    }
+
+    [Fact]
+    public void A_saved_larger_scale_stays_offered_and_runs_without_the_upscaler()
+    {
+        using var temp = new TempDir();
+        var settings = UpscalerSettings(temp, "resolution_scale = 3\npresent_effect = \"dlss\"\n");
+        Assert.Equal(["1", "2", "3"], Scales(settings, (2560, 1440)));
+        Assert.Null(settings.TemporalUpscaler((2560, 1440)));
+        Assert.Equal("DLSS", settings.TemporalUpscaler((3840, 2160)));
+        Assert.Equal("DLSS", settings.TemporalUpscaler(null));
+    }
+
+    [Fact]
+    public void Choosing_an_upscaler_lowers_a_scale_that_does_not_fit()
+    {
+        using var temp = new TempDir();
+        var settings = UpscalerSettings(temp, "resolution_scale = 3\n");
+        Assert.Null(settings.FitScaleToUpscaler((2560, 1440)));
+        Assert.Null(settings.TemporalUpscaler((2560, 1440)));
+        settings.Set("present_effect", "fsr2");
+        Assert.Null(settings.FitScaleToUpscaler(null));
+        Assert.Null(settings.FitScaleToUpscaler((1024, 768)));
+        Assert.Equal(2, settings.FitScaleToUpscaler((2560, 1440)));
+        Assert.Equal("2", settings.Value("resolution_scale"));
+        Assert.Equal("FSR 2", settings.TemporalUpscaler((2560, 1440)));
+        Assert.Null(settings.FitScaleToUpscaler((2560, 1440)));
+    }
+
     [Fact]
     public void Loads_the_schema_the_game_writes()
     {

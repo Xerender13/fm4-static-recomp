@@ -25,11 +25,16 @@ public partial class MainWindow
     private Button? _saveSettingsButton, _restoreSettingsButton;
     private TextBlock? _settingsStatus;
     private int? _refreshHz;
+    private (int Width, int Height)? _displaySize;
+    private string? _upscalerNote;
+
+    private static readonly string[] AntiAliasingKeys = ["fm4_showroom_msaa", "fm4_race_msaa", "swap_post_effect"];
 
     private void LoadSettingsPanel()
     {
         if (_host is not { } host) return;
         _refreshHz = DisplayInfo.RefreshHz(this);
+        _displaySize = DisplayInfo.Size(this);
         try
         {
             _graphics = host.Graphics();
@@ -172,20 +177,36 @@ public partial class MainWindow
             }
             case "choice":
             {
-                var choices = row.Choices!;
+                // As on the game's GRAPHICS page, a running upscaler takes over the anti-aliasing:
+                // the row says so and keeps the player's choice for later.
+                if (AntiAliasingKeys.Contains(row.Key) && graphics.TemporalUpscaler(_displaySize) is { } upscaler)
+                    return Labelled(row.Label, Combo([$"OFF ({upscaler})"], 0, enabled: false), row.Description);
+                var upscalerRow = row.Key == "present_effect";
+                var choices = row.Key == "resolution_scale" ? graphics.ScaleChoices(_displaySize) : row.Choices!;
                 var index = choices.Select(c => c.Value).ToList().IndexOf(graphics.Value(row.Key!));
                 var combo = Combo(choices.Select(c => c.Label).ToList(), index);
                 combo.SelectionChanged += (_, _) =>
                 {
                     if (combo.SelectedIndex < 0) return;
                     graphics.Set(row.Key!, choices[combo.SelectedIndex].Value);
-                    // Rows shown only for some of this setting's values come and go with it.
-                    if (graphics.Schema.SettingRows.Any(r => r.ShownWhen?.ContainsKey(row.Key!) == true))
+                    if (upscalerRow && graphics.FitScaleToUpscaler(_displaySize) is { } lowered)
+                        _upscalerNote = $"Resolution scale lowered to {lowered}x: {graphics.TemporalUpscaler(_displaySize)} runs up to "
+                                        + $"{lowered}x on this {_displaySize!.Value.Width}x{_displaySize.Value.Height} screen.";
+                    // Rows shown only for some of this setting's values, and the rows the upscaler
+                    // and scale decide, follow it.
+                    if (upscalerRow || row.Key == "resolution_scale"
+                        || graphics.Schema.SettingRows.Any(r => r.ShownWhen?.ContainsKey(row.Key!) == true))
                         BuildSettingsPanel("");
                     else
                         RefreshPresetCombo(graphics);
                 };
-                return Labelled(row.Label, combo, row.Description);
+                var labelled = Labelled(row.Label, combo, row.Description);
+                if (upscalerRow && _upscalerNote is { } note)
+                {
+                    _upscalerNote = null;
+                    return new StackPanel { Spacing = 2, Children = { labelled, Help(note) } };
+                }
+                return labelled;
             }
             default:
                 return new TextBlock { Text = row.Label };
@@ -204,9 +225,9 @@ public partial class MainWindow
         _syncingPreset = false;
     }
 
-    private ComboBox Combo(IReadOnlyList<string> labels, int selected)
+    private ComboBox Combo(IReadOnlyList<string> labels, int selected, bool enabled = true)
     {
-        var combo = new ComboBox { ItemsSource = labels, SelectedIndex = selected, Width = 220 };
+        var combo = new ComboBox { ItemsSource = labels, SelectedIndex = selected, Width = 220, IsEnabled = enabled };
         if (labels.Contains(Custom)) _presetCombo = combo;
         return combo;
     }

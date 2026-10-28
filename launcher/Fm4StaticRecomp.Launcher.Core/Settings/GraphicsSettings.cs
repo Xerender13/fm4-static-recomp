@@ -2,6 +2,8 @@ namespace Fm4StaticRecomp.Launcher.Core.Settings;
 
 public sealed class GraphicsSettings(GraphicsSchema schema, string tomlPath, string backupsFolder)
 {
+    private const string Scale = "resolution_scale", Upscaler = "present_effect";
+
     private readonly Dictionary<string, string> _changed = [];
     private TomlFile _file = TomlFile.Load(tomlPath);
     private bool _backedUp;
@@ -37,6 +39,40 @@ public sealed class GraphicsSettings(GraphicsSchema schema, string tomlPath, str
     {
         var row = Row("fm4_frame_rate");
         return displayHz is > 0 ? Math.Clamp(displayHz.Value, row.Low, row.High) : row.High;
+    }
+
+    // The game runs a temporal upscaler only while the render (1280x720 x scale) fits the
+    // display (src\ui\graphics_page.cpp LargestFittingScale); 0 when no scale fits, null while
+    // the display size is unknown.
+    public static int? LargestFittingScale((int Width, int Height)? display) =>
+        display is { Width: > 0, Height: > 0 } size ? Math.Min(size.Width / 1280, size.Height / 720) : null;
+
+    private bool UpscalerChosen => Value(Upscaler) != "bilinear";
+
+    // With an upscaler chosen, only the scales it runs at, plus the current one if it is larger.
+    public IReadOnlyList<SchemaChoice> ScaleChoices((int Width, int Height)? display)
+    {
+        var choices = Row(Scale).Choices!;
+        if (!UpscalerChosen || LargestFittingScale(display) is not (> 0 and var largest)) return choices;
+        var current = Value(Scale);
+        return choices.Where(c => int.Parse(c.Value) <= largest || c.Value == current).ToList();
+    }
+
+    // Choosing an upscaler over a scale it does not run at lowers the scale; the lowered scale, or null.
+    public int? FitScaleToUpscaler((int Width, int Height)? display)
+    {
+        if (!UpscalerChosen || LargestFittingScale(display) is not (> 0 and var largest)
+            || int.Parse(Value(Scale)) <= largest) return null;
+        Set(Scale, largest.ToString());
+        return largest;
+    }
+
+    // The upscaler that will run, as its row names it; it takes over MSAA and post AA. Null for none.
+    public string? TemporalUpscaler((int Width, int Height)? display)
+    {
+        if (!UpscalerChosen) return null;
+        if (LargestFittingScale(display) is { } largest && int.Parse(Value(Scale)) > largest) return null;
+        return Row(Upscaler).Choices!.Single(c => c.Value == Value(Upscaler)).Label;
     }
 
     // The game may have written the file since it was read: only this session's changes are

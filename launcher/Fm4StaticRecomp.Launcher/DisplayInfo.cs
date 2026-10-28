@@ -3,22 +3,26 @@ using Avalonia.Controls;
 
 namespace Fm4StaticRecomp.Launcher;
 
-// The refresh rate of the display a window is on, as the game reads it
-// (src\ui\graphics_page.cpp DisplayRefreshHz); null when it cannot be read (remote desktop).
+// The refresh rate and size of the display a window is on, as the game reads the rate
+// (src\ui\graphics_page.cpp DisplayRefreshHz); null when they cannot be read (remote desktop).
 public static class DisplayInfo
 {
     private const int DefaultToNearest = 2;
     private const int CurrentSettings = -1;
 
-    public static int? RefreshHz(TopLevel? window)
+    public static int? RefreshHz(TopLevel? window) => Mode(window) is { DisplayFrequency: > 1 } mode ? mode.DisplayFrequency : null;
+
+    // The display mode's size, which the game's fullscreen output takes.
+    public static (int Width, int Height)? Size(TopLevel? window) =>
+        Mode(window) is { PelsWidth: > 0, PelsHeight: > 0 } mode ? (mode.PelsWidth, mode.PelsHeight) : null;
+
+    private static DevMode? Mode(TopLevel? window)
     {
         if (!OperatingSystem.IsWindows() || window?.TryGetPlatformHandle()?.Handle is not { } handle) return null;
         var monitor = new MonitorInfoEx { Size = Marshal.SizeOf<MonitorInfoEx>() };
         if (!GetMonitorInfo(MonitorFromWindow(handle, DefaultToNearest), ref monitor)) return null;
         var mode = new DevMode { Size = (short)Marshal.SizeOf<DevMode>() };
-        return EnumDisplaySettings(monitor.DeviceName, CurrentSettings, ref mode) && mode.DisplayFrequency > 1
-            ? mode.DisplayFrequency
-            : null;
+        return EnumDisplaySettings(monitor.DeviceName, CurrentSettings, ref mode) ? mode : null;
     }
 
     [DllImport("user32.dll")]
