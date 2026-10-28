@@ -33,6 +33,7 @@ legally obtained copy of the game, and the executable is built on your computer.
 - [Graphics settings](#graphics-settings)
 - [Keyboard](#keyboard)
 - [Launch options](#launch-options)
+- [Setting options and debugging](#setting-options-and-debugging)
 - [Tested](#tested)
 - [Benchmarks](#benchmarks)
 - [Known issues](#known-issues)
@@ -388,6 +389,106 @@ pacing does not look right with it yet.
 **Debug and A/B options**: switches of individual rendering fixes, debug views of the
 upscaler's inputs and renderer diagnostics are listed in [DEBUG_OPTIONS.md](DEBUG_OPTIONS.md).
 
+## Setting options and debugging
+
+Every option above and in [DEBUG_OPTIONS.md](DEBUG_OPTIONS.md) is a setting of the game's
+executable, written `--name=value`. There are three ways to set one; the examples set
+`present_upscaler_view` (a debug view of the upscaler's motion input) and
+`present_upscaler_object_motion`.
+
+### With the launcher: environment variables
+
+The launcher has no field for options, but the game it starts inherits its environment, and the
+game reads every option from a variable named `REX_` plus the option's name in capitals:
+`present_upscaler_view` is `REX_PRESENT_UPSCALER_VIEW`. Save this as `debug.bat` beside
+`FM4StaticRecompLauncher.exe`, **close the launcher**, and start `debug.bat`:
+
+```bat
+@echo off
+set "REX_PRESENT_UPSCALER_VIEW=motion"
+set "REX_PRESENT_UPSCALER_OBJECT_MOTION=false"
+start "" "%~dp0FM4StaticRecompLauncher.exe"
+```
+
+The variables reach only the launcher that `debug.bat` starts, and the games it starts; a
+launcher that is already open keeps its own environment. To go back, close the launcher and
+start it as usual. From PowerShell the same is:
+
+```powershell
+$env:REX_PRESENT_UPSCALER_VIEW = 'motion'
+& D:\FM4\FM4StaticRecompLauncher.exe
+```
+
+### A config file: `fm4_static_recomp.toml`
+
+The game reads `fm4_static_recomp.toml` from the folder of `fm4_static_recomp.exe`, one
+`name = value` per line, strings in quotes:
+
+```toml
+present_upscaler_view = "motion"
+present_upscaler_object_motion = false
+```
+
+That folder is `out\build\win-amd64-release` in a manual install, and
+`data\source\<version>\out\build\win-amd64-release` under the launcher, where each update
+builds a new version folder without the file: copy it over after an update.
+
+### The command line (manual install)
+
+`tools\run.ps1` passes everything after its own parameters to the game:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\run.ps1 -GameRoot D:\FM4\disc1 `
+    --present_upscaler_view=motion --present_upscaler_object_motion=false
+```
+
+`run.ps1` also works in a launcher install, from `data\source\<version>` with
+`-GameRoot ..\..\game`, but it then plays with its own save, settings and shader cache in
+`.local\state` there, not with a launcher profile.
+
+### Which value wins
+
+From lowest to highest: the built-in default, `fm4_static_recomp.toml`, an environment variable,
+the command line. Two exceptions:
+
+- **GRAPHICS page settings** (`present_effect`, `resolution_scale`, `fm4_race_msaa` and the
+  other rows) are saved to `graphics.toml`, which is applied after all three and beats the
+  file and environment variables; only the command line beats it. Change those on the
+  GRAPHICS page or in the launcher's SETTINGS. `graphics.toml` (`data\config\graphics.toml`
+  under the launcher, `.local\state\config\graphics.toml` in a manual install) belongs to that
+  page, not to the options above: do not add other options to it.
+- **The launcher's own options** are passed on its command line and beat environment
+  variables: the paths, `fm4_language`, `fm4_skip_intro`, and COMPAT MODE's list. Set those in
+  its SETTINGS.
+
+### Checking that an option took effect
+
+Most options log nothing when set, and **a misspelt name is ignored without a message**
+everywhere, so copy names from the tables and check the effect itself. The game's log (below)
+shows some:
+
+- an option the game sets to its own value at start logs `Built-in default: <name> = <value>`;
+  when your value is in effect, that line is missing for it;
+- a GRAPHICS page setting given on the command line logs
+  `Graphics settings: <name> comes from the command line`, and its row says
+  "Set by a launch option for this session."
+
+### Logs and crash reports
+
+| | Launcher | Manual install |
+|---|---|---|
+| Game log | `data\logs\runtime.log` (LOGS opens the folder) | `.local\state\logs\runtime.log` |
+| Launcher log | `data\logs\launcher.log` | - |
+| Setup log | `data\source\<version>\.local\logs` | `.local\logs` (`setup-error.json`) |
+| Crash report | `data\reports` | - |
+
+`run.ps1` starts `runtime.log` afresh at each launch; the launcher appends to it, so the
+newest launch is at its end. Past 5 MB the older lines move to `runtime.1.log`,
+`runtime.2.log` and so on beside it. When the game stops abnormally, the launcher offers
+REPORT CRASH: it packs the end of that launch's log, with folder paths, your Windows user name
+and gamertag removed, into a ZIP in `data\reports` (REPORT FOLDER opens it) and opens a
+prefilled GitHub issue to attach it to (see [Reporting issues](#reporting-issues)).
+
 ## Tested
 
 - Offline modes: World Tour (played up to the Expert Division), Event List (about 30 races
@@ -501,7 +602,8 @@ one out.
 - Disc 2 installed / DLC installed:
 
 ### Attachments
-<!-- runtime.log from the state folder's logs (.local\state\logs\runtime.log by default).
+<!-- runtime.log: data\logs\runtime.log under the launcher, .local\state\logs\runtime.log
+     in a manual install (see "Logs and crash reports"); a crash report's ZIP instead.
      Setup problems: .local\logs\setup-error.json and the logs next to it.
      Graphics problems: a screenshot or a short video. -->
 ```

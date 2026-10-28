@@ -1,9 +1,11 @@
 # Debug and A/B options
 
 Options for checking a rendering problem, comparing a fix against the picture without it, or
-measuring a cost. They are not needed to play; the defaults are the intended setting. Pass them
-like the [launch options](README.md#launch-options), for example
-`tools\run.ps1 -GameArguments '--fm4_skip_intro=true','--present_upscaler_view=motion'`.
+measuring a cost. They are not needed to play; the defaults are the intended setting. Set them
+like the [launch options](README.md#launch-options): with the launcher through `REX_`
+environment variables, else in `fm4_static_recomp.toml` or on the command line, for example
+`tools\run.ps1 -GameArguments '--fm4_skip_intro=true','--present_upscaler_view=motion'`
+(examples of each in [Setting options and debugging](README.md#setting-options-and-debugging)).
 
 Most come from the ShiftGlue SDK's Vulkan renderer. The ones marked "wrong image" break the
 picture on purpose, to bound what one part of the frame costs.
