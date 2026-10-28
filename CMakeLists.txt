@@ -48,7 +48,7 @@ add_executable(fm4_static_recomp WIN32
 )
 
 fm4_static_recomp_attach_rexglue(fm4_static_recomp)
-target_link_libraries(fm4_static_recomp PRIVATE d3d12 dxgi rex::gpu-fh1)
+target_link_libraries(fm4_static_recomp PRIVATE d3d12 dxgi rex::gpu-fh1 renderdoc)
 
 option(FM4_BUILD_TESTS "Add the fm4_unit_tests target (built only when asked for)" OFF)
 if(FM4_BUILD_TESTS)

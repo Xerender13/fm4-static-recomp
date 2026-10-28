@@ -1,6 +1,7 @@
 #include "built_in_defaults.h"
 
 #include <array>
+#include <cstdint>
 #include <string_view>
 #include <utility>
 
@@ -15,6 +16,8 @@ namespace fm4_static_recomp {
 namespace {
 
 using Default = std::pair<std::string_view, std::string_view>;
+
+constexpr uint32_t kIntelVendorId = 0x8086;
 
 constexpr std::array kBeforeGpuPlugin = {Default{"gpu_backend", "vulkan"}};
 
@@ -38,7 +41,6 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"fh1_stable_alpha_to_coverage", "false"},
     Default{"fh1_skip_draws_without_effect", "false"},
     Default{"fh1_native_stencil_export", "false"},
-    Default{"fh1_specialize_edram_passes", "false"},
     Default{"fh1_async_specialized_passes", "false"},
     Default{"texture_band_reloads", "false"},
     Default{"texture_layer_reloads", "false"},
@@ -92,6 +94,12 @@ void ApplyBuiltInDefaults(DefaultStage stage) {
   } else {
     Apply(kAfterGpuPlugin);
   }
+}
+
+// Intel GPUs flicker the scene's lights with the generic resolve and EDRAM transfer passes.
+void ApplyGpuVendorDefaults(uint32_t vendor_id) {
+  Apply(std::array{
+      Default{"fh1_specialize_edram_passes", vendor_id == kIntelVendorId ? "true" : "false"}});
 }
 
 }  // namespace fm4_static_recomp

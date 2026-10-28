@@ -19,6 +19,7 @@
 #include <rex/ui/flags.h>
 #include <rex/ui/keybinds.h>
 #include <rex/ui/overlay/achievement_notification.h>
+#include <rex/ui/vulkan/provider.h>
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
@@ -158,6 +159,11 @@ class Fm4App final : public rex::ReXApp {
     fm4_static_recomp::InstallContentPackages(*runtime());
     if (fm4_static_recomp::CurrentToolMode() != fm4_static_recomp::ToolMode::kNone) {
       return;
+    }
+    if (rex::cvar::GetFlagByName("gpu_backend") == "vulkan" && runtime()->graphics_system()) {
+      const auto* const provider = static_cast<const rex::ui::vulkan::VulkanProvider*>(
+          runtime()->graphics_system()->provider());
+      fm4_static_recomp::ApplyGpuVendorDefaults(provider->vulkan_device()->properties().vendorID);
     }
     if (rex::ui::Window* const window = this->window()) {
       window->SetCursorVisibility(rex::ui::Window::CursorVisibility::kAutoHidden);
