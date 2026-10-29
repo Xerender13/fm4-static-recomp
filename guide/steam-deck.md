@@ -98,12 +98,20 @@ On a Steam Deck with SteamOS (glibc 2.43, Mesa RADV VANGOGH), built in an Ubuntu
 with clang 20.1.8: the build, the shader cache (4819 of 4819 pipelines), Disc 2's and 16 DLC packages' install,
 and play with in-game sound. Races have not been timed yet.
 
+## Sound on Linux
+
+PipeWire asks for audio in 1024-sample chunks, four of the game's 256-sample frames at once,
+faster than the game's audio mixer refills its output; every chunk then repeated the previous
+21 ms and the game's sound (not the videos') played slowed and broken up. The game asks SDL for
+one frame per request instead (`SDL_AUDIO_DEVICE_SAMPLE_FRAMES=256`, which the environment can
+override).
+
 ## Threads on the Deck
 
 The SDK's `linux_thread_cores=auto` pins threads to cores by their entry points, with a layout
 measured for Forza Horizon (Pinyon Shift). FM4's threads have other entry points, so that
-layout put all of them, the audio mixer and XMA decoder included, on two SMT siblings, and the
-game's sound broke up. FM4 sets it to `off`, so the scheduler places the threads. A layout of
+layout would put all of them on two SMT siblings. FM4 sets it to `off`, so the scheduler places
+the threads. A layout of
 your own can still be passed as a launch option, for example
 `-- --linux_thread_cores=*=0-7`.
 

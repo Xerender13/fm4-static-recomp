@@ -25,8 +25,8 @@ constexpr std::array kBeforeGpuPlugin = {Default{"gpu_backend", "vulkan"}};
 // linux_thread_cores auto is the layout Pinyon Shift measured for Forza Horizon on the Steam
 // Deck: it names FH1's simulation, audio and render threads by their entry points and puts
 // every other thread on two SMT siblings (cpu 5 and 7). None of FM4's threads match, so all of
-// them, the audio mixer and XMA decoder included, shared those two and the game's sound broke
-// up. The scheduler places them instead, as on any other Linux PC.
+// them, the game's own simulation and render threads included, would share those two. The
+// scheduler places them instead, as on any other Linux PC.
 constexpr std::array kLinuxBeforeGpuPlugin = {Default{"linux_thread_cores", "off"}};
 #endif
 

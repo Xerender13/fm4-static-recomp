@@ -9,6 +9,10 @@
 #include <string>
 #include <vector>
 
+#if !defined(_WIN32)
+#include <SDL3/SDL_hints.h>
+#endif
+
 #include <rex/cvar.h>
 #include <rex/input/input_system.h>
 #include <rex/kernel/xboxkrnl/io.h>
@@ -80,6 +84,14 @@ class Fm4App final : public rex::ReXApp {
       return;
     }
     config.gpu_plugin = "fh1";
+#if !defined(_WIN32)
+    // The SDL driver pulls the game's 256-sample frames as the device asks and lets the game
+    // mix one more for each. PipeWire asks for 1024 samples at once, four frames in a burst,
+    // faster than the game's audio mixer refills its output, so each burst repeated the
+    // previous 21 ms and the sound played slowed and broken up. One frame per request keeps
+    // the console's cadence. SDL_AUDIO_DEVICE_SAMPLE_FRAMES in the environment overrides it.
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "256");
+#endif
     fm4_static_recomp::ConfigureScriptedInput(config);
     fm4_static_recomp::ApplyBuiltInDefaults(fm4_static_recomp::DefaultStage::kBeforeGpuPlugin);
     // The GPU settings are registered by the plugin, so it is loaded here
