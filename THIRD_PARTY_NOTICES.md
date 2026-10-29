@@ -7,7 +7,10 @@
 `cmake/Fm4RexGlue.cmake`, `src/ui/hostui/*` and `src/config/host_config.*` are adapted
 from Pinyon Shift (https://github.com/arcanite24/pinyon-shift). The launcher
 (`launcher/Fm4StaticRecomp.Launcher`) is a fork of Pinyon Shift's Avalonia launcher, and
-`tools/create-crash-report.ps1` is adapted from Pinyon Shift's.
+`tools/create-crash-report.ps1` is adapted from Pinyon Shift's. The Linux build's
+`cmake/toolchains/linux-x86_64-sniper.cmake`, `config/linux-toolchain.json` and
+`tools/fm4_linux.py` are adapted from Pinyon Shift's Linux toolchain file, toolchain pins,
+`tools/pinyon_setup.py` and `tools/pinyon_steam.py`.
 
 ```text
 BSD 3-Clause License

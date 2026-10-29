@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -16,9 +17,11 @@
 #include <unordered_set>
 #include <vector>
 
+#if defined(_WIN32)
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 #include <rex/cvar.h>
 #include <rex/input/device_assignment.h>
 #include <rex/input/input.h>
@@ -537,14 +540,14 @@ void Film(rex::ui::Presenter* source, double seconds, const std::string& output)
 
 // Windows' XINPUT_STATE; xinput.h itself clashes with the SDK's input names.
 struct PadState {
-  DWORD packet;
-  WORD buttons;
-  BYTE left_trigger;
-  BYTE right_trigger;
-  SHORT thumb_lx;
-  SHORT thumb_ly;
-  SHORT thumb_rx;
-  SHORT thumb_ry;
+  uint32_t packet;
+  uint16_t buttons;
+  uint8_t left_trigger;
+  uint8_t right_trigger;
+  int16_t thumb_lx;
+  int16_t thumb_ly;
+  int16_t thumb_rx;
+  int16_t thumb_ry;
 };
 
 std::string ControlsText(const PadState& pad) {
@@ -585,11 +588,17 @@ std::string ControlsText(const PadState& pad) {
 // Polls the first connected XInput pad and writes each span of unchanged input
 // as a script line; an input event starts a new time base ("@name"), so a
 // replay can follow the recording from that event on whatever the load times.
+// Recording reads XInput, so it is Windows only; elsewhere it logs that it cannot record.
 void RecordInput(std::string path) {
+#if defined(_WIN32)
   using GetState = DWORD(WINAPI*)(DWORD, PadState*);
   const HMODULE xinput = LoadLibraryW(L"xinput1_4.dll");
   const auto get_state =
       xinput ? reinterpret_cast<GetState>(GetProcAddress(xinput, "XInputGetState")) : nullptr;
+#else
+  using GetState = uint32_t (*)(uint32_t, PadState*);
+  constexpr GetState get_state = nullptr;
+#endif
   std::ofstream out(path);
   if (!get_state || !out) {
     REXLOG_ERROR("Input recording: cannot record to {}", path);
@@ -611,9 +620,9 @@ void RecordInput(std::string path) {
   for (;;) {
     std::this_thread::sleep_for(std::chrono::milliseconds(4));
     std::string current;
-    for (DWORD user = 0; user < 4; ++user) {
+    for (uint32_t user = 0; user < 4; ++user) {
       PadState state;
-      if (get_state(user, &state) == ERROR_SUCCESS) {
+      if (get_state(user, &state) == 0) {  // ERROR_SUCCESS
         current = ControlsText(state);
         break;
       }
@@ -743,22 +752,28 @@ void StartCaptureWatcher(std::function<rex::ui::Presenter*()> presenter) {
   }).detach();
 }
 
-void ConfigureScriptedInput(rex::RuntimeConfig& config) {
-  char* path = nullptr;
+std::string Environment(const char* name) {
+#if defined(_WIN32)
+  char* value = nullptr;
   size_t length = 0;
-  if (_dupenv_s(&path, &length, "FM4_STATIC_RECOMP_INPUT_RECORD") == 0 && path) {
-    if (*path) {
-      g_recording = true;
-      std::thread(RecordInput, std::string(path)).detach();
-    }
-    std::free(path);
-    path = nullptr;
+  std::string result;
+  if (_dupenv_s(&value, &length, name) == 0 && value) {
+    result = value;
+    std::free(value);
   }
-  if (_dupenv_s(&path, &length, "FM4_STATIC_RECOMP_INPUT_SCRIPT") != 0 || !path) {
-    return;
+  return result;
+#else
+  const char* value = std::getenv(name);
+  return value ? value : "";
+#endif
+}
+
+void ConfigureScriptedInput(rex::RuntimeConfig& config) {
+  if (const std::string record = Environment("FM4_STATIC_RECOMP_INPUT_RECORD"); !record.empty()) {
+    g_recording = true;
+    std::thread(RecordInput, record).detach();
   }
-  g_path = path;
-  std::free(path);
+  g_path = Environment("FM4_STATIC_RECOMP_INPUT_SCRIPT");
   if (!g_path.empty() && LoadScript(g_path)) {
     std::error_code error;
     g_loaded_time = std::filesystem::last_write_time(g_path, error);

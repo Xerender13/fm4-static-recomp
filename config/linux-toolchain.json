@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "platform": "linux-x86_64",
+  "comment": "The pins Pinyon Shift's native Linux build uses on the Steam Deck (its config/release-toolchain.json); tools/fm4_linux.py reads them.",
+  "tools": {
+    "cmake": {
+      "version": "3.31.10",
+      "url": "https://github.com/Kitware/CMake/releases/download/v3.31.10/cmake-3.31.10-linux-x86_64.tar.gz",
+      "sha256": "3CB3DD247B6A1DE2D0F4B20C6FD4326C9024E894CEBC9DC8699758887E566CA7",
+      "install_path": ".local/toolchain/cmake-3.31.10-linux-x86_64",
+      "executable": "bin/cmake"
+    },
+    "ninja": {
+      "version": "1.13.2",
+      "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip",
+      "sha256": "5749CBC4E668273514150A80E387A957F933C6ED3F5F11E03FB30955E2BBEAD6",
+      "install_path": ".local/toolchain/ninja-1.13.2-linux",
+      "executable": "ninja",
+      "strip_top": false
+    },
+    "llvm": {
+      "version": "20.1.8",
+      "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/LLVM-20.1.8-Linux-X64.tar.xz",
+      "sha256": "1EAD36B3DFCB774B57BE530DF42BEC70AB2D239FBCE9889447C7A29A4DDC1AE6",
+      "install_path": ".local/toolchain/llvm-20.1.8-linux",
+      "executable": "bin/clang"
+    },
+    "sysroot": {
+      "label": "the Steam Runtime 3 (sniper) SDK",
+      "version": "3.0.20260805.254768",
+      "url": "https://repo.steampowered.com/steamrt3/images/3.0.20260805.254768/com.valvesoftware.SteamRuntime.Sdk-amd64%2Ci386-sniper-sysroot.tar.gz",
+      "sha256": "32903ECFE7C06CE8CBA26722ADB876A665B6292606A0666F43D0BFD9BEB2C10A",
+      "install_path": ".local/toolchain/sniper-sdk-3.0.20260805.254768",
+      "executable": ""
+    }
+  }
+}

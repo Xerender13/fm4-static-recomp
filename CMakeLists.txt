@@ -9,7 +9,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # SDL uses native Windows HID and XInput backends here; its optional libusb
 # probe should not make a normal Windows build look like it lacks a dependency.
-set(SDL_HIDAPI_LIBUSB OFF CACHE BOOL "Disable optional libusb HID backend on Windows" FORCE)
+if(WIN32)
+    set(SDL_HIDAPI_LIBUSB OFF CACHE BOOL "Disable optional libusb HID backend on Windows" FORCE)
+endif()
 
 include(cmake/Fm4RexGlue.cmake)
 
@@ -42,13 +44,27 @@ add_executable(fm4_static_recomp WIN32
     src/ui/hostui/ui_fonts.cpp
     src/ui/hostui/vector_font.cpp
     src/ui/hostui/xds_texture.cpp
-    # Merged into the linker's manifest: the UTF-8 code page.
-    src/fm4_static_recomp.manifest
-    src/fm4_static_recomp.rc
 )
+if(WIN32)
+    target_sources(fm4_static_recomp PRIVATE
+        # Merged into the linker's manifest: the UTF-8 code page.
+        src/fm4_static_recomp.manifest
+        src/fm4_static_recomp.rc)
+endif()
 
 fm4_static_recomp_attach_rexglue(fm4_static_recomp)
-target_link_libraries(fm4_static_recomp PRIVATE d3d12 dxgi rex::gpu-fh1 renderdoc)
+if(WIN32)
+    target_link_libraries(fm4_static_recomp PRIVATE d3d12 dxgi rex::gpu-fh1 renderdoc)
+else()
+    # Linux (the Steam Deck): the runtime and GPU plugin are shared libraries staged beside
+    # the game, found through $ORIGIN so the build folder can move.
+    find_package(Threads REQUIRED)
+    target_link_libraries(fm4_static_recomp PRIVATE
+        Threads::Threads ${CMAKE_DL_LIBS} rex::gpu-fh1 renderdoc)
+    set_target_properties(fm4_static_recomp PROPERTIES
+        INSTALL_RPATH "$ORIGIN:$ORIGIN/rexglue-artifacts"
+        BUILD_WITH_INSTALL_RPATH ON)
+endif()
 
 option(FM4_BUILD_TESTS "Add the fm4_unit_tests target (built only when asked for)" OFF)
 if(FM4_BUILD_TESTS)

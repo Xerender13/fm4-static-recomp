@@ -29,7 +29,8 @@ void ApplySavedGraphicsSettings(const config::HostConfig& config);
 // version 1). False when the file cannot be written.
 bool WriteGraphicsSchema(const std::filesystem::path& path);
 
-// The refresh rate of the display showing `native_window` (an HWND), or 0.
+// The refresh rate of the display showing `native_window` (an HWND; off Windows the
+// primary display's), or 0.
 uint32_t DisplayRefreshHz(void* native_window);
 
 // Lowers a saved frame rate above the display's refresh rate (0 = unknown) to

@@ -24,13 +24,29 @@ set(REXGLUE_OUTPUT_DIRECTORY
     "${CMAKE_CURRENT_BINARY_DIR}/rexglue-artifacts"
     CACHE PATH "ShiftGlue artifacts for the FM4 host build" FORCE)
 add_subdirectory("${REXSDK_DIR}" rexglue-sdk EXCLUDE_FROM_ALL)
+if(UNIX AND NOT APPLE)
+    # As Pinyon Shift's Linux build: calls inside the runtime libraries bind locally
+    # instead of through the PLT. Nothing interposes on their functions.
+    foreach(_runtime_library IN ITEMS rexruntime rexgpu-fh1)
+        if(TARGET ${_runtime_library})
+            target_link_options(${_runtime_library} PRIVATE -Wl,-Bsymbolic-functions)
+        endif()
+    endforeach()
+endif()
 
+# The generator runs on the build host, from the SDK's standalone build for that host.
+if(CMAKE_HOST_WIN32)
+    set(_fm4_codegen_os win)
+else()
+    set(_fm4_codegen_os linux)
+endif()
 set(FM4_STATIC_RECOMP_REXGLUE_CODEGEN
-    "${REXSDK_DIR}/out/win-amd64/Release/rexglue${CMAKE_HOST_EXECUTABLE_SUFFIX}"
+    "${REXSDK_DIR}/out/${_fm4_codegen_os}-amd64/Release/rexglue${CMAKE_HOST_EXECUTABLE_SUFFIX}"
     CACHE FILEPATH "The standalone ShiftGlue generator")
 if(NOT EXISTS "${FM4_STATIC_RECOMP_REXGLUE_CODEGEN}")
     message(FATAL_ERROR
-        "The standalone generator is missing. Run tools/codegen.ps1 before configuring.")
+        "The standalone generator is missing. Run tools/codegen.ps1 (Windows) or "
+        "tools/fm4_linux.py setup (Linux) before configuring.")
 endif()
 if(TARGET rexruntime AND FM4_STATIC_RECOMP_TRACE_IMPORTS)
     target_compile_definitions(rexruntime PRIVATE REXGLUE_TRACE_IMPORTS=1)

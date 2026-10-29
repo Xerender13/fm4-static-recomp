@@ -20,6 +20,40 @@
       }
     },
     {
+      "name": "linux-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/linux-x86_64-sniper.cmake",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-msse4.1",
+        "CMAKE_CXX_FLAGS": "-msse4.1",
+        "REXGLUE_USE_VULKAN": "ON",
+        "REXGLUE_ENABLE_TRACY": "OFF"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "linux-amd64-release",
+      "displayName": "Linux AMD64 Release (Steam Deck)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-amd64-relwithdebinfo",
+      "displayName": "Linux AMD64 RelWithDebInfo",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
       "name": "win-amd64-relwithdebinfo",
       "displayName": "Windows AMD64 RelWithDebInfo",
       "inherits": "windows-base",
@@ -37,6 +71,14 @@
     }
   ],
   "buildPresets": [
+    {
+      "name": "linux-amd64-release",
+      "configurePreset": "linux-amd64-release"
+    },
+    {
+      "name": "linux-amd64-relwithdebinfo",
+      "configurePreset": "linux-amd64-relwithdebinfo"
+    },
     {
       "name": "win-amd64-relwithdebinfo",
       "configurePreset": "win-amd64-relwithdebinfo"

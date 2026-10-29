@@ -27,6 +27,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#else
+#include <SDL3/SDL_video.h>
 #endif
 
 namespace fm4_static_recomp::ui {
@@ -761,6 +763,14 @@ uint32_t DisplayRefreshHz(void* native_window) {
       EnumDisplaySettingsW(monitor.szDevice, ENUM_CURRENT_SETTINGS, &mode) &&
       mode.dmDisplayFrequency > 1) {
     return mode.dmDisplayFrequency;
+  }
+#else
+  // SDL windows have no native handle off Windows; the game runs fullscreen on the primary
+  // display (the Steam Deck's panel under gamescope).
+  (void)native_window;
+  if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
+      mode && mode->refresh_rate > 1.0f) {
+    return uint32_t(mode->refresh_rate + 0.5f);
   }
 #endif
   return 0;
