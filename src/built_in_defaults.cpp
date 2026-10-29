@@ -21,6 +21,15 @@ constexpr uint32_t kIntelVendorId = 0x8086;
 
 constexpr std::array kBeforeGpuPlugin = {Default{"gpu_backend", "vulkan"}};
 
+#if defined(__linux__) && !defined(__ANDROID__)
+// linux_thread_cores auto is the layout Pinyon Shift measured for Forza Horizon on the Steam
+// Deck: it names FH1's simulation, audio and render threads by their entry points and puts
+// every other thread on two SMT siblings (cpu 5 and 7). None of FM4's threads match, so all of
+// them, the audio mixer and XMA decoder included, shared those two and the game's sound broke
+// up. The scheduler places them instead, as on any other Linux PC.
+constexpr std::array kLinuxBeforeGpuPlugin = {Default{"linux_thread_cores", "off"}};
+#endif
+
 // clear_memory_page_state: the SDK default re-uploads every CPU-written page each frame.
 // texture_cache_memory_limit_soft: a race needs about 300 MB at 2x; 256 saved 300 MB.
 // async_shader_compilation: a draw whose pipeline is still compiling is dropped, and FM4
@@ -90,6 +99,9 @@ void Apply(const std::array<Default, N>& defaults) {
 void ApplyBuiltInDefaults(DefaultStage stage) {
   if (stage == DefaultStage::kBeforeGpuPlugin) {
     Apply(kBeforeGpuPlugin);
+#if defined(__linux__) && !defined(__ANDROID__)
+    Apply(kLinuxBeforeGpuPlugin);
+#endif
   } else {
     Apply(kAfterGpuPlugin);
   }

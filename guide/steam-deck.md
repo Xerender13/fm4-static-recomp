@@ -95,8 +95,17 @@ found that it can pin the GPU at its lowest clock.
 ## Tested
 
 On a Steam Deck with SteamOS (glibc 2.43, Mesa RADV VANGOGH), built in an Ubuntu 24.04 distrobox
-with clang 20.1.8: the build, the shader cache (4819 of 4819 pipelines), Disc 2's install and the
-opening video at a steady 60 fps. Races have not been timed yet.
+with clang 20.1.8: the build, the shader cache (4819 of 4819 pipelines), Disc 2's and 16 DLC packages' install,
+and play with in-game sound. Races have not been timed yet.
+
+## Threads on the Deck
+
+The SDK's `linux_thread_cores=auto` pins threads to cores by their entry points, with a layout
+measured for Forza Horizon (Pinyon Shift). FM4's threads have other entry points, so that
+layout put all of them, the audio mixer and XMA decoder included, on two SMT siblings, and the
+game's sound broke up. FM4 sets it to `off`, so the scheduler places the threads. A layout of
+your own can still be passed as a launch option, for example
+`-- --linux_thread_cores=*=0-7`.
 
 ## Not on Linux
 
