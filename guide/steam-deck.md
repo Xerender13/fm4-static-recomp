@@ -108,6 +108,19 @@ override).
 
 ## Threads on the Deck
 
+Linux setup applies `tools/patches/linux-fiber-lifetime.patch` to the pinned SDK.
+When a finished worker thread is released by the loading thread, its fiber cleanup must
+preserve the loading thread's current fiber. Clearing it caused a null-pointer write in
+`rex_fiber_switch` when loading another race. Rebuild with `setup --build-only` to install
+the fix. The regression test reproduces cross-thread cleanup and checks 1000 fiber switches:
+
+```bash
+clang++ -std=c++23 -pthread -I.local/shiftglue-sdk/include \
+  tests/linux_fiber_lifetime_test.cpp .local/shiftglue-sdk/src/core/fiber_posix.cpp \
+  -o /tmp/fm4-fiber-test
+/tmp/fm4-fiber-test
+```
+
 The SDK's `linux_thread_cores=auto` pins threads to cores by their entry points, with a layout
 measured for Forza Horizon (Pinyon Shift). FM4's threads have other entry points, so that
 layout would put all of them on two SMT siblings. FM4 sets it to `off`, so the scheduler places

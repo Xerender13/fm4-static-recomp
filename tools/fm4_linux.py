@@ -291,16 +291,33 @@ LINUX_UNUSED_SUBMODULES = {"thirdparty/moltenvk", "thirdparty/libadrenotools",
                            "thirdparty/tracy", "thirdparty/catch2"}
 
 
+def patch_sdk(sdk: Path) -> None:
+    """Keep local Linux runtime fixes across SDK setup and rebuilds."""
+    for patch in sorted((ROOT / "tools/patches").glob("*.patch")):
+        command = ["git", "apply"]
+        if subprocess.run(command + ["--reverse", "--check", str(patch)], cwd=sdk,
+                          capture_output=True).returncode == 0:
+            continue
+        checked = subprocess.run(command + ["--check", str(patch)], cwd=sdk,
+                                 capture_output=True, text=True)
+        if checked.returncode:
+            raise SetupError(f"Cannot apply SDK fix {patch.name}: {checked.stderr}")
+        subprocess.run(command + [str(patch)], cwd=sdk, check=True)
+
+
 def prepare_sdk() -> Path:
     """The pinned SDK in .local/shiftglue-sdk (prepare-sdk.ps1), or FM4_SDK_ROOT."""
     override = os.environ.get("FM4_SDK_ROOT")
     if override:
-        return Path(override).resolve()
+        sdk = Path(override).resolve()
+        patch_sdk(sdk)
+        return sdk
     sdk_config = read_json("config/release-toolchain.json")["sdk"]
     sdk = ROOT / sdk_config["fallback_path"]
     revision = sdk_config["revision"]
     head = git_output("rev-parse", "HEAD", cwd=sdk) if (sdk / ".git").exists() else ""
     if head == revision and (sdk / ".git" / "fm4-prepared").is_file():
+        patch_sdk(sdk)
         return sdk
     step("Downloading the pinned ShiftGlue SDK source")
     if not head:
@@ -324,6 +341,7 @@ def prepare_sdk() -> Path:
     if git_output("rev-parse", "HEAD", cwd=sdk) != revision:
         raise SetupError("The prepared SDK is not at the pinned revision.")
     (sdk / ".git" / "fm4-prepared").write_text(revision)
+    patch_sdk(sdk)
     return sdk
 
 

@@ -1,0 +1,19 @@
+diff --git a/src/core/fiber_posix.cpp b/src/core/fiber_posix.cpp
+index 7994b43..1bea304 100644
+--- a/src/core/fiber_posix.cpp
++++ b/src/core/fiber_posix.cpp
+@@ -247,9 +247,12 @@ void Fiber::SwitchTo(Fiber* target) {
+ #endif  // REX_FIBER_STACK_SWITCH
+ 
+ void Fiber::Destroy() {
+-  // Thread fibers are destroyed from the owning thread itself.
++  // XThread may be released on another guest thread after its worker exits.
++  // Only clear this thread's current fiber when it is the one being destroyed.
+   if (is_thread_fiber_) {
+-    tls_current_ = nullptr;
++    if (tls_current_ == this) {
++      tls_current_ = nullptr;
++    }
+   } else {
+     assert(this != tls_current_ && "Destroy called on the currently running fiber");
+   }
